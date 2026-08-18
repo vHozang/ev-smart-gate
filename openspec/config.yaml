@@ -1,0 +1,54 @@
+schema: intent-driven
+
+context: |
+  Domain: building an AI Agent system.
+
+  Tech stack:
+  - Python 3.14.6, FastAPI, Pydantic v2
+  - SQLAlchemy 2.0 (async) with Alembic migrations, PostgreSQL
+  - Redis via redis.asyncio
+  - Dishka for dependency injection
+  - uv for package management, just as the command runner
+  - pytest for tests, Ruff for lint/format, mypy for type checking
+
+  Architecture: Clean Architecture + DDD. The dependency rule points inwards:
+  Presentation → Application → Domain ← Infrastructure
+
+  - domain/: pure Python dataclasses. MUST NOT import FastAPI, SQLAlchemy,
+    Redis, or Pydantic BaseModel. Ports are declared with typing.Protocol.
+  - application/: use cases (one class per file), depends only on Domain
+    entities and Protocol ports. DTOs are Pydantic v2 models.
+  - infrastructure/: concrete implementations of the Protocol ports
+    (SQLAlchemy repositories, Redis gateways, LLM adapters).
+  - presentation/: FastAPI routers and request/response schemas. No business
+    logic.
+  - bootstrap/: Dishka DI wiring (APP and REQUEST scopes).
+
+  Conventions:
+  - Conventional commits.
+  - Every new use case needs a unit test under tests/unit/.
+
+  Constraints:
+  - Do not commit or push anything to GitHub. All work stays local.
+
+rules:
+  proposal:
+    - Must use grill-me skill
+  specs:
+    - Must use gherkin-authoring skill
+  design:
+    - Must use c4-diagrams skill
+    - State which layer each new artifact belongs to (domain / application /
+      infrastructure / presentation)
+    - Name the Protocol ports being added or changed, and their infrastructure
+      implementations
+    - Name the Dishka providers to register in bootstrap/providers.py
+  adr:
+    - Must use architectural-decision-records skill
+    - Only for architecturally significant decisions. Small or routine changes
+      get no ADR - an empty adr/ directory is the expected outcome.
+  tasks:
+    - "Order tasks by layer: domain → application → infrastructure →
+      presentation → bootstrap"
+    - Every use case must have a paired unit test task
+    - Keep each task under ~2 hours of work
