@@ -204,15 +204,16 @@ Ràng buộc kiến trúc bắt buộc phát sinh từ điều này:
 3. `MEDIUM` risk phải chuyển `HUMAN_REVIEW`.
 4. `HIGH` risk phải giữ cổng đóng và tạo alert.
 5. Low confidence không được coi là mismatch chắc chắn.
-6. Blacklist được xử lý theo security policy.
+6. **Blacklist là hard rule ưu tiên tuyệt đối** — blacklisted entity luôn bị BLOCK, không tham gia cộng điểm risk (xem §12 Tầng 1).
 7. Manual Override bắt buộc có operator + reason + audit.
 8. Mọi Access Decision phải liên kết `AccessEvent`.
 9. Mọi Inspection Session phải liên kết Access Event.
 10. Raw video/image retention phải cấu hình.
-11. Phase 2 AI chỉ phát hiện/phân loại vật thể, không kết luận "trộm".
-12. Phase 3 mới thực hiện Voucher Matching.
+11. Stage 1B (`FR05`) AI chỉ phát hiện/phân loại vật thể, không kết luận "trộm".
+12. Phase 2 mới thực hiện Voucher Matching (`FR06`).
 13. AI/Camera failure phải degrade về Manual Inspection.
 14. Central Backend failure không được dẫn tới fail-open.
+15. **Barrier chỉ đóng khi sensor xác nhận vùng trống** (`R-10`). Phải tồn tại nút dừng khẩn cấp vật lý độc lập với phần mềm.
 
 ---
 
@@ -573,9 +574,13 @@ stateDiagram-v2
     GuardRejected --> Blocked
 
     GateOpening --> GateOpened
-    GateOpened --> Completed
+    GateOpened --> VehiclePassed
+    VehiclePassed --> Completed
     Blocked --> Completed
 ```
+
+> `VehiclePassed` yêu cầu tín hiệu từ loop detector / sensor vật lý xác nhận xe đã rời vùng barrier.
+> Không có sự kiện này → rủi ro tailgating (2 xe qua 1 lần mở) và barrier hạ khi xe còn trong vùng (`R-10`).
 
 ---
 
@@ -602,13 +607,20 @@ stateDiagram-v2
     GuardApproved --> GateOpening
     GuardRejected --> Blocked
 
-    GateOpening --> Completed
+    GateOpening --> GateOpened
+    GateOpened --> VehiclePassed
+    VehiclePassed --> Completed
     Blocked --> Completed
 ```
 
 ---
 
 ## 12. Decision & Risk Engine
+
+> ⚠️ **Thiết kế 2 tầng.** Tầng 1 (Hard Rules) chạy trước, quyết định tuyệt đối.
+> Tầng 2 (Risk Scoring) chỉ xử lý vùng xám khi Tầng 1 không match.
+> Lý do: nếu chỉ dùng scoring, một kẻ blacklisted nhưng có lịch hẹn hợp lệ + biển số khớp + khuôn mặt khớp
+> sẽ nhận `+100 - 20 - 20 - 20 = 40 → MEDIUM → REVIEW` thay vì BLOCK — đây là lỗ hổng an ninh nghiêm trọng.
 
 ### Inputs
 
@@ -636,28 +648,49 @@ Inspection
 └── Match Result
 ```
 
-### Initial Risk Configuration
+### Tầng 1 — Hard Rules (ưu tiên tuyệt đối)
 
-| Condition | Risk |
+Các quy tắc dưới đây chạy **trước** scoring. Nếu match bất kỳ rule nào, trả kết quả ngay,
+không tham gia cộng điểm.
+
+| # | Condition | Decision | Lý do |
+|---|---|---|---|
+| H1 | Person hoặc Vehicle nằm trong **Blacklist** | **BLOCK** | An ninh tuyệt đối — Guardrail #6 |
+| H2 | Appointment đã **hết hạn** (`expired`) hoặc **bị hủy** | **BLOCK** | Không cho phép truy cập trên lịch hẹn không còn hiệu lực |
+| H3 | Vehicle bị **đánh dấu** (flagged từ sự cố trước) | **BLOCK** | Xe đang trong diện điều tra |
+| H4 | Camera / Edge AI **không hoạt động** | **REVIEW** | Fail-safe — Guardrail #13, chuyển Guard |
+
+### Tầng 2 — Risk Scoring (vùng xám)
+
+Chỉ đánh giá khi không có Hard Rule nào match.
+
+**Base score: `0`.** Score luôn `≥ 0` (clamp, không cho âm).
+
+| Condition | Score |
 |---|---:|
-| Appointment Valid | -20 |
-| Plate Match | -20 |
-| Face Match | -20 |
-| Unknown Vehicle | +30 |
-| Face Low Confidence | +25 |
-| Appointment Expired | +40 |
-| Blacklisted Entity | +100 |
-| Suspicious Object | +40 |
-| No Voucher | +30 |
+| Appointment Valid & Time Window OK | -20 |
+| Plate Match (confidence ≥ threshold) | -20 |
+| Face Match (similarity ≥ threshold) | -20 |
+| Unknown Vehicle (không có trong registry) | +30 |
+| Face Low Confidence (dưới threshold nhưng trên reject) | +25 |
+| No Appointment (xe không hẹn trước) | +35 |
+| Suspicious Object detected | +40 |
+| No Voucher (exit, có vật thể nhưng không có phiếu) | +30 |
 | Voucher Mismatch | +60 |
+| Previous Alert trong 30 ngày | +15 |
 
-```text
-0–29   LOW     → ALLOW
-30–59  MEDIUM  → REVIEW
-60+    HIGH    → BLOCK / REVIEW
-```
+### Ngưỡng quyết định
 
-Các score phải cấu hình và hiệu chỉnh trong PoC.
+| Score | Risk Level | Decision | Hành động |
+|---|---|---|---|
+| 0–29 | `LOW` | `ALLOW` | Auto-open nếu policy cho phép |
+| 30–59 | `MEDIUM` | `REVIEW` | Chuyển Guard Dashboard, chờ approve/reject |
+| 60–79 | `HIGH` | `REVIEW` | Chuyển Guard + Security Supervisor, tạo alert |
+| 80+ | `CRITICAL` | `BLOCK` | Giữ cổng đóng, tạo alert mức CRITICAL |
+
+> Không còn dấu `/` phi tất định. Mỗi ngưỡng → 1 decision duy nhất.
+
+Các score và ngưỡng phải cấu hình và hiệu chỉnh trong PoC.
 
 ---
 
@@ -834,6 +867,26 @@ flowchart TB
 | Observability | Logs + Metrics + Traces |
 | Model Governance | Model Version + Threshold Version |
 
+### 17.1 Latency Budget Breakdown
+
+Business KPI: **≤ 10s** từ lúc xe vào vùng nhận diện đến cổng mở. Technical KPI: P95 Decision ≤ 3s.
+Phân rã dưới đây là **budget mục tiêu**, cần đo thực tế trong PoC.
+
+| Phase | Budget | Ghi chú |
+|---|---:|---|
+| Xe vào vùng trigger → camera capture frame | ~1s | Phụ thuộc khoảng cách camera đến vạch dừng, tốc độ xe |
+| Edge LPR inference | ~200–500ms | ONNX/TensorRT, phụ thuộc GPU |
+| Edge Face detection + embedding | ~300–600ms | Có thể chạy song song với LPR |
+| Network Edge → Backend | ~50–200ms | LAN/VPN, phụ thuộc topology |
+| Backend decision pipeline | ~200–500ms | Appointment lookup + Risk Engine |
+| Gate command → IoT ACK | ~100–300ms | MQTT/HTTP, phụ thuộc protocol |
+| Barrier mở vật lý | ~2–5s | **Không kiểm soát được** — phụ thuộc nhà sản xuất barrier |
+| **Tổng ước tính** | **~4–8s** | Còn margin cho jitter |
+
+> ⚠️ **Thiếu bảng này thì:**
+> 1. Không viết được Hardware Specification (đặt camera cách vạch dừng bao xa? FOV? shutter speed cho xe đang chạy?).
+> 2. Con số 3s không kiểm chứng được lúc nghiệm thu.
+
 ---
 
 ## 18. PoC Strategy
@@ -946,6 +999,55 @@ Toàn bộ camera, server và thiết bị IoT do khách hàng cung cấp (`A-01
 không được phụ thuộc vendor cụ thể: mọi thiết bị tích hợp qua `CameraGateway` /
 `GateControllerGateway` port. Đổi lại, team phải phát hành Hardware Specification
 làm điều kiện tiên quyết hợp đồng (`R-06`).
+
+### ADR-014 — Degraded Mode: Edge tự chủ khi mất WAN
+
+**Status:** `PROPOSED` — cần khách ký xác nhận.
+
+"Central down → Site Manual Safe Mode" hiện tại nghĩa là mất mạng WAN thì cổng chuyển
+hoàn toàn thủ công. Với site điện lực, mất mạng có thể xảy ra thường xuyên.
+
+**Các vấn đề cần thiết kế:**
+
+| Vấn đề | Giải pháp đề xuất |
+|---|---|
+| Edge buffer sự kiện khi mất WAN? | Có — persistent queue tại Edge (SQLite / embedded queue) |
+| Replay khi reconnect? | Thứ tự FIFO, idempotency key ngăn duplicate |
+| Edge giữ whitelist cache? | Có — cho phép vận hành tự chủ hạn chế (chỉ ALLOW xe trong whitelist) |
+| Whitelist cache TTL? | TBD — cần khách chốt (vài giờ? 1 ngày? vô thời hạn?) |
+| Làm sao biết Edge đang offline? | Heartbeat + UI indicator trên Guard Dashboard |
+
+> Đây phải là một ADR riêng có khách ký, vì nó quyết định trải nghiệm vận hành hằng ngày
+> chứ không phải tình huống hiếm.
+
+### ADR-015 — Face Gallery Architecture: 1:N Recognition vs 1:1 Verification
+
+**Status:** `PROPOSED` — lỗ hổng thiết kế lớn nhất về kiến trúc, cần chốt.
+
+**Vấn đề:** Event contract (§8.3) có `face_candidate_id` do Edge trả về → tức Edge
+đã làm nhận dạng 1:N trên một gallery. Nhưng `FaceVerificationGateway.verify(image_ref,
+candidate_person_id)` là 1:1 do Backend gọi. Trong khi `project-structure.md` khẳng định
+"Edge không truy cập database trung tâm".
+
+**Vậy gallery khuôn mặt nằm ở đâu?**
+
+| Phương án | Ưu điểm | Nhược điểm |
+|---|---|---|
+| A: Gallery tại Central, Edge chỉ detect face → gửi crop về Backend verify 1:1 | Dữ liệu tập trung, dễ xóa | Latency cao hơn, phụ thuộc network |
+| B: Sync embedding xuống Edge, Edge match 1:N | Nhanh, hoạt động offline | Nhân bản dữ liệu sinh trắc học ra thiết bị cổng |
+| C: Hybrid — Edge detect + top-K candidates, Backend verify final | Cân bằng | Phức tạp nhất |
+
+**Nếu chọn B hoặc C, bắt buộc phải bổ sung:**
+
+1. Cơ chế đồng bộ gallery (push từ Central → Edge, có version).
+2. Mã hóa embedding tại Edge (at-rest + in-memory).
+3. **Lan truyền lệnh xóa**: chủ thể dữ liệu rút đồng ý → phải xóa trên mọi Edge,
+   có bằng chứng đã xóa (Luật 91/2025/QH15, điều 31).
+4. Thiết kế "embedding_ref lưu Object Storage, không lưu vector trong DB" hiện tại
+   trở nên không nhất quán nếu embedding có trên Edge.
+
+> Quyết định này ảnh hưởng trực tiếp đến ADR-014 (Edge cần gallery để vận hành offline),
+> đến rủi ro pháp lý R-07, và đến chi phí triển khai. Cần chốt trước M1.
 
 ---
 

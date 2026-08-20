@@ -237,13 +237,13 @@ erDiagram
     ACCESS_EVENT ||--o{ GUARD_REVIEW : "reviewed by"
     ACCESS_EVENT ||--o{ NOTIFICATION : "notifies"
     ACCESS_EVENT }o--o| APPOINTMENT : "resolved to"
-    ACCESS_EVENT }o--|| VEHICLE : "of"
+    ACCESS_EVENT }o--o| VEHICLE : "of"
     ACCESS_EVENT }o--o| APP_USER : "driver"
     GATE_COMMAND }o--|| GATE_DEVICE : "sent to"
     AI_DETECTION }o--|| CAMERA_DEVICE : "captured by"
 
     ACCESS_EVENT {
-        uuid id PK
+        uuid id "PK cung voi occurred_at"
         uuid site_id FK
         uuid gate_id FK
         uuid lane_id FK
@@ -267,7 +267,7 @@ erDiagram
     }
 
     AI_DETECTION {
-        uuid id PK
+        uuid id "PK cung voi occurred_at"
         varchar external_event_id UK "IDEMPOTENCY KEY"
         uuid access_event_id FK "nullable"
         uuid inspection_session_id FK "nullable"
@@ -351,7 +351,7 @@ ALTER TABLE access_event
 -- Da ALLOW thi bat buoc phai co ly do quyet dinh
 ALTER TABLE access_event
   ADD CONSTRAINT ck_decision_has_reasons
-  CHECK (decision IS NULL OR jsonb_array_length(decision_reasons) > 0);
+  CHECK (decision IS NULL OR (decision_reasons IS NOT NULL AND jsonb_array_length(decision_reasons) > 0));
 ```
 
 ---
@@ -467,7 +467,7 @@ erDiagram
     NOTIFICATION }o--o| ACCESS_EVENT : "about"
 
     EVIDENCE {
-        uuid id PK
+        uuid id "PK cung voi captured_at"
         varchar object_key UK "evidence://2026/08/17/..."
         varchar bucket
         varchar content_hash "SHA-256 - chong sua bang chung"
@@ -497,7 +497,7 @@ erDiagram
     }
 
     AUDIT_LOG {
-        uuid id PK
+        uuid id "PK cung voi occurred_at"
         varchar actor_type "SYSTEM|USER|EDGE|DEVICE"
         varchar actor_id
         varchar action
@@ -516,6 +516,71 @@ erDiagram
 > Audit phải sống sót cả khi bản ghi gốc bị xóa (ví dụ xóa dữ liệu sinh trắc học theo `OQ-07`),
 > nên chỉ lưu `resource_type` + `resource_id` dạng text. Bảng này **append-only** —
 > không cấp quyền `UPDATE` / `DELETE` cho application role.
+
+---
+
+## 6.1. ERD — Subject Area 6: Consent & Data Subject Rights
+
+> **Bắt buộc theo Luật Bảo vệ dữ liệu cá nhân 2025 (Luật 91/2025/QH15) và NĐ 356/2025/NĐ-CP.**
+> Điều 31 đưa ra quy định chuyên biệt cho dữ liệu sinh trắc học.
+> Hệ thống thu thập CCCD + ảnh khuôn mặt qua Portal → **bắt buộc** có cơ chế lưu bằng chứng đồng ý
+> và luồng rút lại đồng ý. "Có nút tick" không đủ — cần lưu nội dung đã hiển thị, phiên bản, thời điểm, IP.
+
+```mermaid
+erDiagram
+    APP_USER ||--o{ CONSENT_RECORD : "consented by"
+    APP_USER ||--o{ DATA_DELETION_REQUEST : "requested by"
+
+    CONSENT_RECORD {
+        uuid id PK
+        uuid subject_user_id FK
+        varchar purpose "FACE_ENROLLMENT|VEHICLE_REGISTRATION|ACCESS_MONITORING"
+        varchar consent_text_version "v1.0"
+        text consent_text_snapshot "noi dung hien thi tai thoi diem dong y"
+        varchar granted_via "WEB_PORTAL|MOBILE_APP|KIOSK"
+        inet ip_address "nullable"
+        varchar user_agent "nullable"
+        timestamptz granted_at
+        timestamptz revoked_at "nullable"
+        varchar revocation_reason "nullable"
+        uuid revocation_audit_id "nullable - tham chieu audit_log"
+    }
+
+    DATA_DELETION_REQUEST {
+        uuid id PK
+        uuid subject_user_id FK
+        varchar scope "FACE_EMBEDDING|ALL_BIOMETRIC|ALL_PII"
+        varchar status "PENDING|PROCESSING|COMPLETED|FAILED"
+        varchar requested_via "PORTAL|EMAIL|LEGAL_LETTER"
+        timestamptz requested_at
+        timestamptz completed_at "nullable"
+        varchar deletion_proof_hash "SHA-256 hash cua bang chung da xoa"
+        jsonb affected_resources "danh sach resource_type + resource_id da xoa"
+        uuid processed_by_user_id FK "nullable"
+        varchar notes "nullable"
+    }
+```
+
+### 6.1.1 Vì sao cần `CONSENT_RECORD` tách riêng
+
+- `APP_USER` chỉ lưu hồ sơ hành chính. Consent có **vòng đời riêng**: có thể rút lại, có nhiều mục đích,
+  và cần snapshot nội dung tại thời điểm đồng ý (vì nội dung consent text có thể thay đổi giữa các phiên bản).
+- Khi bị kiểm tra, cần chứng minh: chủ thể đã đồng ý **cụ thể cái gì**, **lúc nào**, **qua kênh nào**.
+
+### 6.1.2 Luồng xóa dữ liệu khi chủ thể rút đồng ý
+
+```text
+1. Chủ thể gửi yêu cầu rút đồng ý → tạo DATA_DELETION_REQUEST (status=PENDING)
+2. System xóa: face_profile.embedding_ref → xóa file trên Object Storage
+3. System xóa: evidence có access_classification=BIOMETRIC liên quan
+4. System KHÔNG xóa: audit_log (đã thiết kế không FK — ADR-003)
+5. System ghi deletion_proof_hash + affected_resources
+6. Nếu ADR-015 chọn phương án B/C: lan truyền lệnh xóa tới mọi Edge
+7. Status → COMPLETED
+```
+
+> Bảng `AUDIT_LOG` không có FK → vẫn giữ được trace khi bản ghi gốc bị xóa.
+> Đây là quyết định thiết kế đã có sẵn, và nó phục vụ đúng mục đích này.
 
 ---
 
@@ -574,8 +639,10 @@ CREATE INDEX ix_audit_correlation ON audit_log (correlation_id);
 | `evidence` | Metadata theo số ảnh chụp | `RANGE` theo `captured_at`, partition tháng |
 | `audit_log` | Cao | `RANGE` theo `occurred_at`, partition tháng |
 
-> Chưa triển khai partition ở PoC. Nhưng **đặt tên cột thời gian vào PK ngay từ đầu**
-> để sau này chuyển sang partitioned table không phải migrate dữ liệu đau đớn.
+> Chưa triển khai partition ở PoC. Nhưng **đặt cột thời gian vào PK ngay từ đầu**
+> (composite PK: `(id, occurred_at)` hoặc `(id, captured_at)`) để PostgreSQL cho phép
+> partition key nằm trong PK/unique constraint.
+> Sửa sau khi có 10 triệu dòng thì tốn kém hơn rất nhiều.
 
 ---
 

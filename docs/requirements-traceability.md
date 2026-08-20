@@ -2,7 +2,7 @@
 
 > **Project:** AI-Powered Vehicle Gate Control and Inventory Management System
 > **Client:** Tổng Công ty Điện lực
-> **Source of truth:** BRD v0.1 (DRAFT / PROPOSED)
+> **Source of truth:** BRD v0.2 (DRAFT / PROPOSED)
 > **Status:** Đang chờ Official Requirement bằng văn bản từ Phòng Thông tin — xem `OQ-01`.
 
 Tài liệu này là **cầu nối bắt buộc** giữa BRD (ngôn ngữ nghiệp vụ, do khách hàng chốt) và bộ tài liệu kiến trúc (`smart-gate-system-design.md`, `project-structure.md`, `diagrams.md`). Mọi thay đổi scope phải cập nhật ở đây trước khi lan sang tài liệu kỹ thuật.
@@ -75,6 +75,8 @@ Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **khô
 | DA-06 | Multi-site / Multi-gate configuration | BRD §9 Future Scope nêu ý định nhân rộng ra các chi nhánh | Phải viết lại kiến trúc khi nhân rộng |
 | DA-07 | Guard Review / Human-in-the-loop workflow | AI không đủ chính xác để tự quyết (xem `R-01`) | Hệ thống sai ⇒ chặn nhầm xe hợp lệ |
 | DA-08 | Security Supervisor role | Cần người quản lý policy & alert, tách khỏi Guard trực ca | Không ai chịu trách nhiệm cấu hình ngưỡng |
+| DA-09 | Offline Queue Guard Dashboard | Mất kết nối WAN, Guard vẫn cần thấy lịch sử gần nhất | Guard thao tác "mù" trên dữ liệu cũ không cảnh báo |
+| DA-10 | Critical Command Confirmation Pattern | Lệnh OPEN/CLOSE cổng cần xác nhận 2 bước | Gửi lệnh nhầm không có cơ hội hủy |
 
 ---
 
@@ -120,8 +122,12 @@ Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **khô
 | OQ-04 | Khách có cung cấp **dataset ảnh/video mẫu** (thùng thiết bị điện, vật tư) để train model không? | BRD §10 | Client Sponsor | Không có dataset ⇒ FR05/FR06 không khả thi đúng hạn. Xem `R-02` | `OPEN` |
 | OQ-05 | **Phạm vi tracking trong bãi** (FR07): chỉ vị trí đỗ cuối, hay toàn bộ hành trình? Có cần Vehicle Re-ID? | Phát sinh khi lập RTM | BA Lead | BR-05 hiện không estimate được | `OPEN` |
 | OQ-06 | Quy trình xử lý khi hệ thống **cảnh báo nhầm** (false alarm) với nhân viên nội bộ? Ai có quyền override? | Phát sinh khi lập RTM | Client Sponsor + Phòng Bảo vệ | Ảnh hưởng thiết kế `DA-07`, `DA-08` và mức chấp nhận sai số | `OPEN` |
-| OQ-07 | Chính sách **lưu trữ dữ liệu sinh trắc học** (khuôn mặt, CCCD): lưu bao lâu, ai được xem, xóa thế nào? | Phát sinh khi lập RTM | Client Legal / IT | Rủi ro pháp lý về dữ liệu cá nhân. **Chặn việc đưa hệ thống vào vận hành với dữ liệu người thật** | `OPEN` |
+| OQ-07 | Chính sách **lưu trữ dữ liệu sinh trắc học** (khuôn mặt, CCCD): lưu bao lâu, ai được xem, xóa thế nào? | Phát sinh khi lập RTM | **Team chủ động trình phương án** | Rủi ro pháp lý về dữ liệu cá nhân. **Luật 91/2025/QH15 và NĐ 356/2025/NĐ-CP đã có hiệu lực từ 01/01/2026** — đây là nghĩa vụ tuân thủ, không phải tùy chọn. Team phải trình phương án compliance-by-design (đã bổ sung bảng `CONSENT_RECORD`, `DATA_DELETION_REQUEST` trong ERD) để khách duyệt. Cần xác định vai trò Controller (EVN) / Processor (team) và đưa điều khoản xử lý dữ liệu vào hợp đồng | `IN PROGRESS` |
 | OQ-08 | Một xe có thể gắn với **nhiều người đăng ký** không? (xe tải nhà cung cấp thường đổi tài xế giữa các lần giao hàng) | Phát sinh khi thiết kế ERD | BA Lead + Client | BRD §7 ghi 1-N. Nếu thực tế là N-N thì phải đổi schema `vehicle` ↔ `app_user` — thay đổi tốn kém nếu phát hiện muộn. Xem `data-model-erd.md §3.2` | `OPEN` |
+| **OQ-09** | **Nhân viên nội bộ enroll khuôn mặt/biển số bằng cách nào?** HR integration hay self-service portal? | Bản đánh giá chuyên gia | BA Lead + Client HR | **Blocking FR02/FR03.** Nhân viên chiếm phần lớn lưu lượng hằng ngày nhưng không có FR nào phủ việc enroll họ. FR01 chỉ phủ Guest/Supplier. Hai module CONFIRMED đang phụ thuộc vào nguồn dữ liệu không có yêu cầu nào cung cấp | `OPEN` |
+| **OQ-10** | **Xe máy có nằm trong phạm vi hệ thống không?** Nếu có, xử lý ra sao? (biển chỉ có phía sau, mũ bảo hiểm che mặt, không có cốp) | Bản đánh giá chuyên gia | BA Lead + Client | **Blocking.** BRD §2 ghi rõ nhân viên đi xe máy/ô tô/bán tải. Nếu xe máy chiếm phần lớn lưu lượng, phạm vi thực tế của FR02/FR03/FR05 hẹp hơn nhiều so với tài liệu đang ngụ ý | `OPEN` |
+| **OQ-11** | **Lưu lượng giờ cao điểm** bao nhiêu xe/giờ? Có kiểm tra 100% xe ra hay sampling? Số làn? | Bản đánh giá chuyên gia | BA Lead + Client + Phòng Bảo vệ | Ảnh hưởng thiết kế Exit Inspection. Nếu quy trình TO-BE chậm hơn AS-IS ở chiều ra (bung cốp + 4 camera + AI + có thể RESCAN, vào 17h khi cả công ty tan ca), hệ thống sẽ bị bảo vệ tắt đi | `OPEN` |
+| **OQ-12** | **Có loop detector/sensor xác nhận "xe đã qua" không?** Ai chịu trách nhiệm mua? | Bản đánh giá chuyên gia | Client IT | Blocking barrier safety (`R-10`). Không có sensor → không chống được tailgating và rủi ro thương tích khi barrier hạ | `OPEN` |
 
 ---
 
@@ -134,6 +140,7 @@ Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **khô
 | A-03 | Camera hiện có của khách đủ chất lượng cho bài toán LPR + Face | Phải đầu tư thêm camera ⇒ phụ thuộc `OQ-03` |
 | A-04 | Khách chấp nhận mô hình **AI hỗ trợ quyết định**, không phải AI tự quyết 100% | Kỳ vọng lệch ⇒ nghiệm thu thất bại. Xem `R-01` |
 | A-05 | Bảo vệ vẫn trực tại cổng để xử lý các trường hợp `REVIEW` | Không có người trực ⇒ luồng human-in-the-loop vô nghĩa, phải thiết kế lại |
+| A-06 | Guard sử dụng màn hình lớn cố định (desktop/tablet), không phải mobile | Guard Dashboard thiết kế sai form factor nếu giả định này không đúng |
 
 > `A-04` và `A-05` là giả định do team bổ sung khi phân tích, **chưa được khách xác nhận** — cần đưa vào biên bản họp kế tiếp.
 
@@ -149,8 +156,10 @@ Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **khô
 | R-04 | Scope creep: 4/6 module đang ở trạng thái `PROPOSED`, khách chưa chốt bằng văn bản | Quản trị | **Cao** | `OQ-01` là blocking. Freeze scope ngay khi có văn bản; mọi thay đổi sau đó đi qua Change Request |
 | R-05 | Kỳ vọng "AI tự phát hiện trộm" vượt quá năng lực thực tế của công nghệ | Kỳ vọng khách hàng | **Cao** | Truyền thông nhất quán: hệ thống là **AI-assisted Smart Gate**, AI đưa cảnh báo — con người ra quyết định |
 | R-06 | Phần cứng do khách mua không đạt chuẩn ⇒ AI kém chính xác nhưng team bị quy trách nhiệm | Hợp đồng | Trung bình | Bàn giao **Hardware Specification** bằng văn bản, đưa vào phụ lục hợp đồng như điều kiện tiên quyết |
-| R-07 | Dữ liệu sinh trắc học (khuôn mặt, CCCD) — rủi ro tuân thủ pháp luật về dữ liệu cá nhân | Pháp lý | Trung bình | Phụ thuộc `OQ-07`. Thiết kế sẵn retention policy + quyền xóa + mã hóa at-rest |
+| R-07 | Dữ liệu sinh trắc học (khuôn mặt, CCCD) — rủi ro tuân thủ pháp luật về dữ liệu cá nhân. **Luật 91/2025/QH15 + NĐ 356/2025/NĐ-CP đã có hiệu lực** | Pháp lý | **Cao** | Team chủ động trình phương án: bảng `CONSENT_RECORD` + `DATA_DELETION_REQUEST` (ERD §6.1), xác định Controller/Processor, đưa điều khoản xử lý dữ liệu vào hợp đồng, lập DPIA |
 | R-08 | Fail-open: sự cố hệ thống làm cổng mở tự do | An ninh | Trung bình | Nguyên tắc **fail-safe, not fail-open** (System Design §17). Mất kết nối Central ⇒ Site Manual Safe Mode |
+| **R-09** | **WebSocket disconnect** giữa Guard Dashboard và Backend: Guard không nhận được cảnh báo mới | Frontend | Trung bình | Reconnect tự động + state reconciliation + UI indicator rõ ràng (Guardrail #14) |
+| **R-10** | **An toàn vật lý barrier**: barrier hạ xuống khi xe/người còn trong vùng → rủi ro thương tích và trách nhiệm pháp lý | An toàn | **Cao** | Guardrail #15: barrier chỉ đóng khi sensor xác nhận vùng trống + nút dừng khẩn cấp vật lý độc lập với phần mềm. Phụ thuộc `OQ-12` |
 
 ---
 
@@ -160,10 +169,12 @@ Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **khô
 |---|---|
 | Mọi FR trong BRD đều có Use Case tương ứng | ✅ FR01–FR06 đã map |
 | Mọi Business Requirement đều có FR | ❌ **BR-05 thiếu FR** → đã đề xuất `FR07` |
-| Mọi Use Case trong thiết kế đều truy về được BRD | ⚠️ 8 hạng mục `DESIGN-ADDED` (xem §4) — cần khách duyệt |
+| Mọi Use Case trong thiết kế đều truy về được BRD | ⚠️ 10 hạng mục `DESIGN-ADDED` (DA-01–DA-10, xem §4) — cần khách duyệt |
 | Mọi FR đều có Phase & Priority | ⚠️ `FR07` chưa có → `OQ-05` |
 | Mọi Open Question đều có Owner | ✅ |
 | Mọi rủi ro Cao đều có biện pháp giảm thiểu | ✅ |
+| OQ được đồng bộ giữa RTM và System Design | ✅ (12 OQ) |
+| Rủi ro được đồng bộ giữa RTM và System Design | ✅ (10 Risk) |
 
 ---
 

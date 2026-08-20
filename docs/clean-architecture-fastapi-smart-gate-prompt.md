@@ -33,7 +33,7 @@ Full traceability: `docs/requirements-traceability.md`.
 
 # Tech Stack
 
-- Python 3.14+
+- Python 3.12 (pinned — 3.14+ chưa có binary wheel ổn định cho OpenCV, ONNX Runtime, TensorRT)
 - FastAPI
 - Pydantic v2
 - SQLAlchemy 2.0 async
@@ -52,6 +52,7 @@ Full traceability: `docs/requirements-traceability.md`.
 - Message Broker abstraction
 - OpenTelemetry
 - Optional ONNX Runtime / TensorRT adapters in Infrastructure only
+- import-linter (enforce architecture boundaries — domain MUST NOT import framework)
 
 ---
 
@@ -859,15 +860,42 @@ Generate incrementally:
 
 # Output Requirements
 
+> ⚠️ **Không generate toàn bộ hệ thống trong 1 lượt.**
+> Chia theo 24 bước Generation Order ở trên, mỗi bước 1 lượt, có review giữa các bước.
+> Với hệ thống điều khiển cổng vật lý + dữ liệu sinh trắc học, code trông đúng nhưng
+> chưa kiểm chứng là loại rủi ro không nên chấp nhận.
+
 For each generated file:
 
 1. Explain why it exists.
 2. Show full file path.
-3. Generate complete implementation.
+3. Generate implementation cho bước hiện tại. Các bước phụ thuộc chưa generate thì dùng Protocol/interface stub.
 4. Explain dependencies.
-5. No placeholder/TODO stubs.
-6. Type hints everywhere.
-7. Async I/O where appropriate.
-8. Domain must stay framework-independent.
-9. AI must never directly make Gate Access decisions.
-10. Security-sensitive failures must fail-safe.
+5. Type hints everywhere.
+6. Async I/O where appropriate.
+7. Domain must stay framework-independent.
+8. AI must never directly make Gate Access decisions.
+9. Security-sensitive failures must fail-safe.
+
+## Architecture Test Requirements
+
+Generate an architecture test (chạy trong CI) kiểm tra:
+
+```python
+# tests/test_architecture.py
+# Quét domain/ không import từ framework
+# Dùng import-linter hoặc custom AST scan
+
+FORBIDDEN_IMPORTS_IN_DOMAIN = [
+    "fastapi", "sqlalchemy", "redis", "pydantic",
+    "opencv", "cv2", "onnxruntime", "tensorrt",
+    "mqtt", "httpx", "boto3", "minio",
+]
+
+def test_domain_does_not_import_framework():
+    """Quy tắc 'Domain không import SQLAlchemy' sẽ bị vi phạm
+    trong vòng 2 tuần nếu không có test này."""
+    # Scan all .py files in domain/
+    # Assert none import from FORBIDDEN_IMPORTS_IN_DOMAIN
+    ...
+```
