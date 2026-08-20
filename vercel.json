@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/demo/index.html"
+    },
+    {
+      "source": "/styles.css",
+      "destination": "/demo/styles.css"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/demo/app.js"
+    },
+    {
+      "source": "/demo-scenarios.js",
+      "destination": "/demo/demo-scenarios.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/demo/$1"
+    }
+  ]
+}
