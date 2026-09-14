@@ -248,6 +248,7 @@ class VerifyEntryUseCase:
         return VerificationOutput(
             gate_log_id=gate_log.id,
             event_id=gate_log.event_id,
+            direction=Direction.ENTRY,
             verification_status=gate_log.verification_status,
             permit_granted=(
                 gate_log.barrier_status == BarrierStatus.OPENED

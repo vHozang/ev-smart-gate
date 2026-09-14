@@ -129,6 +129,13 @@ class GateLog:
     threshold_version: str = "v1"
     occurred_at: datetime | None = None
     completed_at: datetime | None = None
+    card_id: UUID | None = None
+    card_status: CardStatus | None = None
+    card_verified: bool = False
+    face_verified: bool = False
+    plate_verified: bool = False
+    authorization_verified: bool = False
+    vehicle_type: str | None = None
 
 
 @dataclass(slots=True)

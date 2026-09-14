@@ -60,4 +60,11 @@ class GateLogQueryService:
             threshold_version=gate_log.threshold_version,
             occurred_at=gate_log.occurred_at,
             completed_at=gate_log.completed_at,
+            card_id=gate_log.card_id,
+            card_status=gate_log.card_status,
+            card_verified=gate_log.card_verified,
+            face_verified=gate_log.face_verified,
+            plate_verified=gate_log.plate_verified,
+            authorization_verified=gate_log.authorization_verified,
+            vehicle_type=gate_log.vehicle_type,
         )

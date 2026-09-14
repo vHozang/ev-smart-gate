@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from smart_gate.domain.enums import (
     BarrierStatus,
+    CardStatus,
     CargoState,
     Direction,
     DockStatus,
@@ -93,9 +94,19 @@ class ExitVerificationInput(GateVerificationInput):
     slip_image: bytes
 
 
+class ParkingGateVerificationInput(StrictModel):
+    direction: Direction
+    event_id: str = Field(min_length=8, max_length=128)
+    gate_id: str = Field(min_length=1, max_length=128)
+    card_uid: str = Field(min_length=4, max_length=128)
+    plate_image: bytes
+    face_image: bytes
+
+
 class VerificationOutput(StrictModel):
     gate_log_id: UUID
     event_id: str
+    direction: Direction
     verification_status: VerificationStatus
     permit_granted: bool
     driver_id: UUID | None
@@ -108,6 +119,14 @@ class VerificationOutput(StrictModel):
     reason_codes: list[str]
     barrier_status: BarrierStatus
     alert_id: UUID | None = None
+    card_id: UUID | None = None
+    card_status: CardStatus | None = None
+    card_verified: bool = False
+    face_verified: bool = False
+    plate_verified: bool = False
+    authorization_verified: bool = False
+    driver_name: str | None = None
+    vehicle_type: str | None = None
 
 
 class GateLogOutput(StrictModel):
@@ -130,6 +149,13 @@ class GateLogOutput(StrictModel):
     threshold_version: str
     occurred_at: datetime | None
     completed_at: datetime | None
+    card_id: UUID | None = None
+    card_status: CardStatus | None = None
+    card_verified: bool = False
+    face_verified: bool = False
+    plate_verified: bool = False
+    authorization_verified: bool = False
+    vehicle_type: str | None = None
 
 
 class CreateOrderInput(StrictModel):

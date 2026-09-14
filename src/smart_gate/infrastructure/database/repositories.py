@@ -115,6 +115,13 @@ def _gate_log_from_document(document: GateLogDocument) -> GateLog:
         threshold_version=document.threshold_version,
         occurred_at=document.occurred_at,
         completed_at=document.completed_at,
+        card_id=document.card_id,
+        card_status=document.card_status,
+        card_verified=document.card_verified,
+        face_verified=document.face_verified,
+        plate_verified=document.plate_verified,
+        authorization_verified=document.authorization_verified,
+        vehicle_type=document.vehicle_type,
     )
 
 
@@ -252,7 +259,9 @@ class BeanieEmployeeCardRepository:
 
     async def list_all(self) -> list[EmployeeCard]:
         documents = (
-            await EmployeeCardDocument.find_all().sort([("issued_at", DESCENDING), ("_id", DESCENDING)]).to_list()
+            await EmployeeCardDocument.find_all()
+            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])
+            .to_list()
         )
         return [_employee_card_from_document(document) for document in documents]
 

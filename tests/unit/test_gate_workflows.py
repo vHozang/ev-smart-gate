@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 
@@ -9,9 +10,17 @@ from smart_gate.application.barrier import BarrierService
 from smart_gate.application.dto import ExitVerificationInput, GateVerificationInput
 from smart_gate.application.gate_entry import VerifyEntryUseCase
 from smart_gate.application.gate_exit import VerifyExitUseCase
+from smart_gate.application.gate_logs import GateLogQueryService
 from smart_gate.config import Settings
-from smart_gate.domain.entities import Driver, ExitSlipClaims, Vehicle, WarehouseExitOrder
-from smart_gate.domain.enums import BarrierStatus, OrderStatus, VerificationStatus
+from smart_gate.domain.entities import Driver, ExitSlipClaims, GateLog, Vehicle, WarehouseExitOrder
+from smart_gate.domain.enums import (
+    BarrierStatus,
+    CardStatus,
+    Direction,
+    OrderStatus,
+    PlateMatchType,
+    VerificationStatus,
+)
 from smart_gate.domain.services import FaceMatchingService, PlateMatchingService
 from smart_gate.infrastructure.security.crypto import SecretHasher
 from tests.fakes import (
@@ -430,3 +439,39 @@ async def test_gate_exit_rejects_claim_mismatch_as_critical_alert() -> None:
     assert "SLIP_VEHICLE_MISMATCH" in output.reason_codes
     assert barrier_gateway.calls == []
     assert alerts_repo.items[0].severity.value == "CRITICAL"
+
+
+def test_gate_log_factor_output_preserves_audit_fields() -> None:
+    card_id = uuid4()
+    driver_id = uuid4()
+    vehicle_id = uuid4()
+    gate_log = GateLog(
+        event_id="test-parking-event-001",
+        direction=Direction.ENTRY,
+        verification_status=VerificationStatus.PASSED,
+        observed_plate="30A-12345",
+        plate_score=95.0,
+        plate_match_type=PlateMatchType.EXACT,
+        face_similarity=0.88,
+        verification_score=0.92,
+        reason_codes=[],
+        driver_id=driver_id,
+        vehicle_id=vehicle_id,
+        card_id=card_id,
+        card_status=CardStatus.ACTIVE,
+        card_verified=True,
+        face_verified=True,
+        plate_verified=True,
+        authorization_verified=True,
+        vehicle_type="sedan",
+    )
+    output = GateLogQueryService.output(gate_log)
+    assert output.card_id == card_id
+    assert output.card_status == CardStatus.ACTIVE
+    assert output.card_verified is True
+    assert output.face_verified is True
+    assert output.plate_verified is True
+    assert output.authorization_verified is True
+    assert output.vehicle_type == "sedan"
+    assert not hasattr(output, "card_uid")
+    assert "card_uid" not in output.model_dump()

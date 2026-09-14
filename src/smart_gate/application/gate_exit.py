@@ -386,6 +386,7 @@ class VerifyExitUseCase:
         return VerificationOutput(
             gate_log_id=gate_log.id,
             event_id=gate_log.event_id,
+            direction=Direction.EXIT,
             verification_status=gate_log.verification_status,
             permit_granted=(
                 gate_log.barrier_status == BarrierStatus.OPENED
