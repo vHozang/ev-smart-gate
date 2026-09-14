@@ -608,7 +608,7 @@ function renderGateForm(isEntry) {
 }
 
 function fileDrop(id, name, title, hint, facingMode, cameraButton = true, demoType = null) {
-  return `<div class="file-drop" data-drop-for="${id}"><input id="${id}" name="${name}" type="file" accept="image/*" capture="${facingMode}" required /><img class="file-drop-preview" data-preview-for="${id}" alt="" hidden /><div class="file-drop-content"><div class="file-drop-icon">${icon("camera")}</div><strong data-file-title>${escapeHtml(title)}</strong><span data-file-hint>${escapeHtml(hint)}</span><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px"><label class="btn btn-secondary" for="${id}">${icon("upload")} Chọn ảnh</label>${cameraButton ? `<button class="btn btn-secondary" type="button" data-action="open-camera" data-target="${id}" data-facing="${facingMode}">${icon("camera")} Camera</button>` : ""}${demoType ? `<button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="${id}" data-demo-type="${demoType}">${icon("package")} Ảnh mẫu</button>` : ""}</div></div></div>`;
+  return `<div class="file-drop" data-drop-for="${id}"><input id="${id}" name="${name}" type="file" accept="image/*" capture="${facingMode}" aria-label="${escapeHtml(title)}" required /><img class="file-drop-preview" data-preview-for="${id}" alt="" hidden /><div class="file-drop-content"><div class="file-drop-icon">${icon("camera")}</div><strong data-file-title>${escapeHtml(title)}</strong><span data-file-hint>${escapeHtml(hint)}</span><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px"><label class="btn btn-secondary" for="${id}">${icon("upload")} Chọn ảnh</label>${cameraButton ? `<button class="btn btn-secondary" type="button" data-action="open-camera" data-target="${id}" data-facing="${facingMode}">${icon("camera")} Camera</button>` : ""}${demoType ? `<button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="${id}" data-demo-type="${demoType}">${icon("package")} Ảnh mẫu</button>` : ""}</div></div></div>`;
 }
 
 function renderVerificationResult(result) {
@@ -1433,7 +1433,11 @@ app.addEventListener("click", (event) => {
 modalRoot.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]");
   if (!action) return;
-  if (action.dataset.action === "close-modal" && event.target.closest("[data-modal-panel]") && !event.target.closest("button")) return;
+  if (
+    action.dataset.action === "close-modal" &&
+    action.classList.contains("modal-backdrop") &&
+    event.target.closest("[data-modal-panel]")
+  ) return;
   event.preventDefault();
   handleAction(action);
 });

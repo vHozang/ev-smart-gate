@@ -10,6 +10,7 @@ from smart_gate.domain.entities import (
     DockInspection,
     Driver,
     DriverVehicleAuthorization,
+    ExitSlipArtifacts,
     ExitSlipClaims,
     FaceObservation,
     GateCommand,
@@ -235,6 +236,15 @@ class StaticSlipGateway:
     def __init__(self, claims: ExitSlipClaims) -> None:
         self.claims = claims
 
+    async def issue(
+        self,
+        order: WarehouseExitOrder,
+        driver: Driver,
+        vehicle: Vehicle,
+        expires_at: datetime,
+    ) -> ExitSlipArtifacts:
+        return ExitSlipArtifacts("signed-token", self.claims, b"qr", b"html", b"pdf")
+
     async def verify(self, token: str) -> ExitSlipClaims:
         return self.claims
 
@@ -275,6 +285,10 @@ class RealtimePublisherFake:
 
     async def publish(self, event: dict) -> None:
         self.events.append(event)
+
+    async def subscribe(self) -> AsyncIterator[dict]:
+        for event in self.events:
+            yield event
 
 
 class GateCommandRepositoryFake:

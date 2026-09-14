@@ -440,7 +440,7 @@ Mật khẩu: Local-SmartGate-Admin-2026
 
 ### Chạy demo tự động bằng dòng lệnh
 
-Lệnh sau tạo/tái sử dụng dữ liệu mẫu và chạy toàn bộ Gate In → Dock → Exit Slip → Gate Out:
+Lệnh sau tạo/tái sử dụng dữ liệu mẫu và chạy toàn bộ Gate In → Dock → Exit Slip → Gate Out ở cấp API:
 
 ```bash
 docker compose --profile workflow run --rm workflow-simulator
@@ -451,6 +451,17 @@ Kết quả thành công:
 ```text
 Workflow hoàn tất: entry=PASSED, exit=PASSED, permit=true, order_status=COMPLETED
 ```
+
+Để chạy cùng quy trình qua giao diện thật, tạo video Playwright 1440×900, thuyết minh OpenAI tiếng Việt, phụ đề và trace/report đã sanitize:
+
+```bash
+npm install
+npx playwright install chromium
+# Đặt OPENAI_API_KEY trong file .env cục bộ đã được Git ignore.
+npm run demo:mvp
+```
+
+Deliverable cuối được ffprobe kiểm tra tại `dist/demo/MVP-Demo.mp4`. Xem [hướng dẫn MVP demo video](demo/README.md) để biết prerequisites, toàn bộ output và cách xử lý sự cố.
 
 ---
 
@@ -732,7 +743,7 @@ docker compose config --quiet
 node --check src/smart_gate/presentation/static/assets/app.js
 ```
 
-Node.js chỉ dùng để kiểm tra cú pháp JavaScript trong CI/phát triển, không phải dependency runtime của SPA.
+Node.js chỉ dùng cho kiểm tra cú pháp, Playwright và pipeline tạo video trong CI/phát triển; nó không phải dependency runtime production của SPA.
 
 ### 8.2. Phạm vi kiểm thử trọng yếu
 

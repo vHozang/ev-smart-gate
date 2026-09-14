@@ -1,0 +1,52 @@
+{
+  "title": "EV Smart Gate — MVP Demo",
+  "language": "vi",
+  "voice": "marin",
+  "segments": [
+    {
+      "id": "intro",
+      "step": "Mở trung tâm điều hành EV Smart Gate",
+      "text": "EV Smart Gate hợp nhất kiểm soát cổng và vận hành xuất kho trong một quy trình số an toàn."
+    },
+    {
+      "id": "login",
+      "step": "Đăng nhập bằng phiên vận hành an toàn",
+      "text": "Nhân viên đăng nhập vào trung tâm điều hành để theo dõi trạng thái hệ thống theo thời gian thực."
+    },
+    {
+      "id": "identity",
+      "step": "Hiển thị hồ sơ tin cậy của chuyến xe",
+      "text": "Hồ sơ tài xế, phương tiện và ủy quyền được liên kết, tạo nền tảng tin cậy cho mỗi chuyến xe."
+    },
+    {
+      "id": "gate-entry",
+      "step": "Xác minh tài xế và phương tiện tại Gate In",
+      "text": "Tại Gate In, hệ thống đối chiếu khuôn mặt, biển số và ủy quyền trước khi yêu cầu mở barrier."
+    },
+    {
+      "id": "warehouse-order",
+      "step": "Tạo lệnh xuất kho cho chuyến xe đã xác minh",
+      "text": "Sau khi xe được xác minh, nhân viên tạo lệnh xuất kho với tài xế, phương tiện và danh sách hàng rõ ràng."
+    },
+    {
+      "id": "cargo-inspection",
+      "step": "Kiểm hàng và xác nhận trạng thái tại dock",
+      "text": "Tại dock, ảnh hàng hóa được lưu làm bằng chứng, rồi nhân viên kho xác nhận lô hàng đã xếp đủ."
+    },
+    {
+      "id": "signed-slip",
+      "step": "Phát hành Exit Slip QR ký số",
+      "text": "Exit Slip được ký số và phát hành dưới dạng mã QR, giúp bảo vệ tính toàn vẹn của lệnh xuất."
+    },
+    {
+      "id": "gate-exit",
+      "step": "Đối chiếu ba chiều và mở Gate Out",
+      "text": "Gate Out đối chiếu đồng thời tài xế, phương tiện và Exit Slip trước khi cho phép xe rời kho."
+    },
+    {
+      "id": "success",
+      "step": "Xác nhận lệnh đã hoàn tất và lưu vết",
+      "text": "Lệnh chuyển sang hoàn tất, để lại đầy đủ dấu vết vận hành cho giám sát và kiểm toán."
+    }
+  ]
+}
