@@ -6,6 +6,13 @@ class RecordStatus(StrEnum):
     INACTIVE = "INACTIVE"
 
 
+class CardStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    BLOCKED = "BLOCKED"
+    LOST = "LOST"
+    REPLACED = "REPLACED"
+
+
 class Direction(StrEnum):
     ENTRY = "ENTRY"
     EXIT = "EXIT"

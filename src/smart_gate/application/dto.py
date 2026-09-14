@@ -52,6 +52,23 @@ class UpdateVehicleInput(StrictModel):
     metadata: dict[str, Any] | None = None
 
 
+class IssueEmployeeCardInput(StrictModel):
+    driver_id: UUID
+    card_uid: str = Field(min_length=4, max_length=128)
+    status_reason: str | None = Field(None, max_length=500)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ReplaceEmployeeCardInput(StrictModel):
+    card_uid: str = Field(min_length=4, max_length=128)
+    status_reason: str = Field(min_length=2, max_length=500)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ChangeEmployeeCardStatusInput(StrictModel):
+    status_reason: str = Field(min_length=2, max_length=500)
+
+
 class CreateAuthorizationInput(StrictModel):
     driver_id: UUID
     vehicle_id: UUID

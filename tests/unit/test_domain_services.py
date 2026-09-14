@@ -7,7 +7,13 @@ import pytest
 from smart_gate.domain.entities import Driver, FaceObservation, Vehicle
 from smart_gate.domain.enums import OrderStatus, PlateMatchType
 from smart_gate.domain.exceptions import ConflictError
-from smart_gate.domain.services import FaceMatchingService, OrderStateService, PlateMatchingService
+from smart_gate.domain.services import (
+    FaceMatchingService,
+    OrderStateService,
+    PlateMatchingService,
+    mask_card_uid,
+    normalize_card_uid,
+)
 
 
 def test_cosine_threshold_accepts_exactly_point_seven_five() -> None:
@@ -66,3 +72,20 @@ def test_face_identification_rejects_equal_best_candidates() -> None:
 
     assert matched is None
     assert similarity == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    ("raw", "normalized"),
+    [
+        (" ab-12 34 ", "AB1234"),
+        ("AB:12:34", "AB1234"),
+        ("ab1234", "AB1234"),
+    ],
+)
+def test_normalize_card_uid(raw: str, normalized: str) -> None:
+    assert normalize_card_uid(raw) == normalized
+
+
+def test_mask_card_uid_never_returns_the_raw_uid() -> None:
+    assert mask_card_uid("ab-12-34") == "••••1234"
+    assert "AB1234" not in mask_card_uid("ab-12-34")

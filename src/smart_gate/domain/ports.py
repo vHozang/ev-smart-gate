@@ -13,6 +13,7 @@ from smart_gate.domain.entities import (
     DockInspection,
     Driver,
     DriverVehicleAuthorization,
+    EmployeeCard,
     ExitSlipArtifacts,
     ExitSlipClaims,
     FaceObservation,
@@ -24,7 +25,7 @@ from smart_gate.domain.entities import (
     Vehicle,
     WarehouseExitOrder,
 )
-from smart_gate.domain.enums import AlertStatus, Direction, VerificationStatus
+from smart_gate.domain.enums import AlertStatus, CardStatus, Direction, VerificationStatus
 
 
 class DriverRepository(Protocol):
@@ -33,6 +34,29 @@ class DriverRepository(Protocol):
     async def list_active(self) -> list[Driver]: ...
     async def list_all(self) -> list[Driver]: ...
     async def update(self, driver: Driver) -> Driver: ...
+
+
+class EmployeeCardRepository(Protocol):
+    async def add(self, card: EmployeeCard) -> EmployeeCard: ...
+    async def get(self, card_id: UUID) -> EmployeeCard | None: ...
+    async def get_by_uid(self, card_uid_normalized: str) -> EmployeeCard | None: ...
+    async def get_active_by_driver(self, driver_id: UUID) -> EmployeeCard | None: ...
+    async def list_by_driver(self, driver_id: UUID) -> list[EmployeeCard]: ...
+    async def list_all(self) -> list[EmployeeCard]: ...
+    async def change_active_status(
+        self,
+        card_id: UUID,
+        target: CardStatus,
+        status_reason: str,
+        updated_at: datetime,
+    ) -> EmployeeCard | None: ...
+    async def replace_active(
+        self,
+        replacement: EmployeeCard,
+        expected_active_card_id: UUID | None,
+        replaced_at: datetime,
+        status_reason: str,
+    ) -> tuple[EmployeeCard, EmployeeCard | None]: ...
 
 
 class VehicleRepository(Protocol):

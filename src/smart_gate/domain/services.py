@@ -19,6 +19,18 @@ def normalize_plate(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
 
 
+def normalize_card_uid(card_uid: str) -> str:
+    """Chuẩn hóa UID thẻ nhân viên: bỏ mọi ký tự phân tách và chuyển chữ hoa."""
+
+    return re.sub(r"[^A-Z0-9]", "", card_uid.upper())
+
+
+def mask_card_uid(card_uid: str) -> str:
+    """Che UID thẻ để không bao giờ lộ giá trị thô ra API hoặc log."""
+
+    return "••••" + normalize_card_uid(card_uid)[-4:]
+
+
 class PlateMatchingService:
     def __init__(self, fuzzy_score_threshold: float = 90.0) -> None:
         self.fuzzy_score_threshold = fuzzy_score_threshold

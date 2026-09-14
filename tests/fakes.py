@@ -10,6 +10,7 @@ from smart_gate.domain.entities import (
     DockInspection,
     Driver,
     DriverVehicleAuthorization,
+    EmployeeCard,
     ExitSlipArtifacts,
     ExitSlipClaims,
     FaceObservation,
@@ -20,7 +21,15 @@ from smart_gate.domain.entities import (
     Vehicle,
     WarehouseExitOrder,
 )
-from smart_gate.domain.enums import AlertStatus, Direction, OrderStatus, VerificationStatus
+from smart_gate.domain.enums import (
+    AlertStatus,
+    CardStatus,
+    Direction,
+    OrderStatus,
+    RecordStatus,
+    VerificationStatus,
+)
+from smart_gate.domain.exceptions import ConflictError
 
 
 class DriverRepositoryFake:
@@ -35,7 +44,7 @@ class DriverRepositoryFake:
         return self.items.get(driver_id)
 
     async def list_active(self) -> list[Driver]:
-        return list(self.items.values())
+        return [item for item in self.items.values() if item.status == RecordStatus.ACTIVE]
 
     async def list_all(self) -> list[Driver]:
         return list(self.items.values())
@@ -63,7 +72,7 @@ class VehicleRepositoryFake:
         )
 
     async def list_active(self) -> list[Vehicle]:
-        return list(self.items.values())
+        return [item for item in self.items.values() if item.status == RecordStatus.ACTIVE]
 
     async def list_all(self) -> list[Vehicle]:
         return list(self.items.values())
@@ -343,6 +352,79 @@ class DockRepositoryFake:
     async def update(self, inspection: DockInspection) -> DockInspection:
         self.items[inspection.id] = inspection
         return inspection
+
+
+class EmployeeCardRepositoryFake:
+    def __init__(self, *cards: EmployeeCard) -> None:
+        self.items: dict[UUID, EmployeeCard] = {}
+        self.by_uid: dict[str, EmployeeCard] = {}
+        for card in cards:
+            self.items[card.id] = card
+            self.by_uid[card.card_uid_normalized] = card
+
+    async def add(self, card: EmployeeCard) -> EmployeeCard:
+        self.items[card.id] = card
+        self.by_uid[card.card_uid_normalized] = card
+        return card
+
+    async def get(self, card_id: UUID) -> EmployeeCard | None:
+        return self.items.get(card_id)
+
+    async def get_by_uid(self, card_uid_normalized: str) -> EmployeeCard | None:
+        return self.by_uid.get(card_uid_normalized)
+
+    async def get_active_by_driver(self, driver_id: UUID) -> EmployeeCard | None:
+        return next(
+            (
+                item
+                for item in self.items.values()
+                if item.driver_id == driver_id and item.status == CardStatus.ACTIVE
+            ),
+            None,
+        )
+
+    async def list_by_driver(self, driver_id: UUID) -> list[EmployeeCard]:
+        return [item for item in self.items.values() if item.driver_id == driver_id]
+
+    async def list_all(self) -> list[EmployeeCard]:
+        return list(self.items.values())
+
+    async def change_active_status(
+        self,
+        card_id: UUID,
+        target: CardStatus,
+        status_reason: str,
+        updated_at: datetime,
+    ) -> EmployeeCard | None:
+        card = self.items.get(card_id)
+        if card is None or card.status != CardStatus.ACTIVE:
+            return None
+        card.status = target
+        card.status_reason = status_reason
+        card.updated_at = updated_at
+        return card
+
+    async def replace_active(
+        self,
+        replacement: EmployeeCard,
+        expected_active_card_id: UUID | None,
+        replaced_at: datetime,
+        status_reason: str,
+    ) -> tuple[EmployeeCard, EmployeeCard | None]:
+        current = await self.get_active_by_driver(replacement.driver_id)
+        current_id = current.id if current is not None else None
+        if current_id != expected_active_card_id:
+            raise ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động vừa thay đổi")
+
+        if current is not None:
+            current.status = CardStatus.REPLACED
+            current.status_reason = status_reason
+            current.updated_at = replaced_at
+            current.replaced_by_card_id = replacement.id
+            replacement.replaces_card_id = current.id
+
+        await self.add(replacement)
+        return replacement, current
 
 
 class CargoGatewayFake:

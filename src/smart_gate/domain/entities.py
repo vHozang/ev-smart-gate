@@ -9,6 +9,7 @@ from smart_gate.domain.enums import (
     AlertSeverity,
     AlertStatus,
     BarrierStatus,
+    CardStatus,
     CargoState,
     Direction,
     DockStatus,
@@ -59,6 +60,21 @@ class DriverVehicleAuthorization:
     id: UUID = field(default_factory=uuid4)
     valid_until: datetime | None = None
     status: RecordStatus = RecordStatus.ACTIVE
+
+
+@dataclass(slots=True)
+class EmployeeCard:
+    card_uid: str
+    card_uid_normalized: str
+    driver_id: UUID
+    id: UUID = field(default_factory=uuid4)
+    status: CardStatus = CardStatus.ACTIVE
+    status_reason: str | None = None
+    replaces_card_id: UUID | None = None
+    replaced_by_card_id: UUID | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    issued_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
