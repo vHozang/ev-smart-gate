@@ -42,6 +42,42 @@ def test_openapi_exposes_required_contracts() -> None:
     assert "/api/v1/employee-cards/{card_id}/report-lost" in paths
     assert "/api/v1/employee-cards/{card_id}/replace" in paths
 
+    # Multipart verification contracts
+    def _resolve_schema(ref_dict: dict) -> dict:
+        ref = ref_dict.get("$ref")
+        if not ref:
+            return ref_dict
+        key = ref.removeprefix("#/components/schemas/")
+        return schema["components"]["schemas"][key]
+
+    entry_schema = _resolve_schema(
+        paths["/api/v1/gates/entry/verifications"]["post"]["requestBody"]["content"][
+            "multipart/form-data"
+        ]["schema"]
+    )
+    assert set(entry_schema["required"]) == {
+        "event_id",
+        "gate_id",
+        "card_uid",
+        "plate_image",
+        "face_image",
+    }
+
+    exit_schema = _resolve_schema(
+        paths["/api/v1/gates/exit/verifications"]["post"]["requestBody"]["content"][
+            "multipart/form-data"
+        ]["schema"]
+    )
+    assert set(exit_schema["required"]) == {
+        "event_id",
+        "gate_id",
+        "card_uid",
+        "plate_image",
+        "face_image",
+    }
+    assert "slip_image" not in exit_schema.get("properties", {})
+    assert "slip_image" not in exit_schema.get("required", [])
+
     # Card response schema privacy check
     card_schema = schema["components"]["schemas"]["EmployeeCardResponse"]
     assert "card_uid_masked" in card_schema["properties"]

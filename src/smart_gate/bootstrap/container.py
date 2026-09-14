@@ -4,9 +4,8 @@ from smart_gate.application.alerts import AlertService
 from smart_gate.application.auth import AuthService
 from smart_gate.application.barrier import BarrierService
 from smart_gate.application.cards import EmployeeCardService
-from smart_gate.application.gate_entry import VerifyEntryUseCase
-from smart_gate.application.gate_exit import VerifyExitUseCase
 from smart_gate.application.gate_logs import GateLogQueryService
+from smart_gate.application.parking_gate import VerifyParkingGateUseCase
 from smart_gate.application.registration import RegistrationService
 from smart_gate.application.warehouse import WarehouseService
 from smart_gate.config import Settings
@@ -120,8 +119,9 @@ class Container:
             OrderStateService(),
             self.unit_of_work,
         )
-        self.verify_entry = VerifyEntryUseCase(
+        self.verify_parking_gate = VerifyParkingGateUseCase(
             settings,
+            self.employee_cards,
             self.drivers,
             self.vehicles,
             self.authorizations,
@@ -133,24 +133,6 @@ class Container:
             face_matcher,
             alert_service,
             barrier_service,
-        )
-        self.verify_exit = VerifyExitUseCase(
-            settings,
-            self.drivers,
-            self.vehicles,
-            self.orders,
-            self.gate_logs,
-            self.evidence,
-            self.lpr,
-            self.face,
-            self.qr_reader,
-            self.slips,
-            self.secret_hasher,
-            plate_matcher,
-            face_matcher,
-            alert_service,
-            barrier_service,
-            self.unit_of_work,
         )
 
     async def start(self) -> None:

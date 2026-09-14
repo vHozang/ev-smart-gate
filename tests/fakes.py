@@ -217,20 +217,36 @@ class EvidenceStorageFake:
 
 
 class StaticPlateGateway:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, *, confidence: float = 0.99) -> None:
         self.text = text
+        self.confidence = confidence
 
     async def recognize(self, image: bytes) -> PlateObservation:
-        return PlateObservation(self.text, 0.99, "test-lpr")
+        return PlateObservation(self.text, self.confidence, "test-lpr")
 
 
 class StaticFaceGateway:
-    def __init__(self, embedding: tuple[float, ...], *, is_live: bool = True) -> None:
+    def __init__(
+        self,
+        embedding: tuple[float, ...],
+        *,
+        is_live: bool = True,
+        detector_confidence: float = 0.99,
+        liveness_score: float = 0.99,
+    ) -> None:
         self.embedding = embedding
         self.is_live = is_live
+        self.detector_confidence = detector_confidence
+        self.liveness_score = liveness_score
 
     async def extract(self, image: bytes) -> FaceObservation:
-        return FaceObservation(self.embedding, 0.99, 0.99, self.is_live, "test-face")
+        return FaceObservation(
+            self.embedding,
+            self.detector_confidence,
+            self.liveness_score,
+            self.is_live,
+            "test-face",
+        )
 
 
 class StaticQrReader:

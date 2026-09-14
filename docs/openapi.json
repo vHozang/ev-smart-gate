@@ -2236,6 +2236,10 @@
             "minLength": 1,
             "title": "Gate Id"
           },
+          "card_uid": {
+            "type": "string",
+            "title": "Card Uid"
+          },
           "plate_image": {
             "type": "string",
             "contentMediaType": "application/octet-stream",
@@ -2251,6 +2255,7 @@
         "required": [
           "event_id",
           "gate_id",
+          "card_uid",
           "plate_image",
           "face_image"
         ],
@@ -2270,6 +2275,10 @@
             "minLength": 1,
             "title": "Gate Id"
           },
+          "card_uid": {
+            "type": "string",
+            "title": "Card Uid"
+          },
           "plate_image": {
             "type": "string",
             "contentMediaType": "application/octet-stream",
@@ -2279,20 +2288,15 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "Face Image"
-          },
-          "slip_image": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "Slip Image"
           }
         },
         "type": "object",
         "required": [
           "event_id",
           "gate_id",
+          "card_uid",
           "plate_image",
-          "face_image",
-          "slip_image"
+          "face_image"
         ],
         "title": "Body_verify_exit_api_v1_gates_exit_verifications_post"
       },
@@ -2970,6 +2974,59 @@
               }
             ],
             "title": "Completed At"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "card_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "card_verified": {
+            "type": "boolean",
+            "title": "Card Verified",
+            "default": false
+          },
+          "face_verified": {
+            "type": "boolean",
+            "title": "Face Verified",
+            "default": false
+          },
+          "plate_verified": {
+            "type": "boolean",
+            "title": "Plate Verified",
+            "default": false
+          },
+          "authorization_verified": {
+            "type": "boolean",
+            "title": "Authorization Verified",
+            "default": false
+          },
+          "vehicle_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Type"
           }
         },
         "additionalProperties": false,
@@ -3613,6 +3670,9 @@
             "type": "string",
             "title": "Event Id"
           },
+          "direction": {
+            "$ref": "#/components/schemas/Direction"
+          },
           "verification_status": {
             "$ref": "#/components/schemas/VerificationStatus"
           },
@@ -3692,6 +3752,70 @@
               }
             ],
             "title": "Alert Id"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "card_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CardStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "card_verified": {
+            "type": "boolean",
+            "title": "Card Verified",
+            "default": false
+          },
+          "face_verified": {
+            "type": "boolean",
+            "title": "Face Verified",
+            "default": false
+          },
+          "plate_verified": {
+            "type": "boolean",
+            "title": "Plate Verified",
+            "default": false
+          },
+          "authorization_verified": {
+            "type": "boolean",
+            "title": "Authorization Verified",
+            "default": false
+          },
+          "driver_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Name"
+          },
+          "vehicle_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vehicle Type"
           }
         },
         "additionalProperties": false,
@@ -3699,6 +3823,7 @@
         "required": [
           "gate_log_id",
           "event_id",
+          "direction",
           "verification_status",
           "permit_granted",
           "driver_id",
