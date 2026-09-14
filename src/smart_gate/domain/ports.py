@@ -49,14 +49,42 @@ class EmployeeCardRepository(Protocol):
         target: CardStatus,
         status_reason: str,
         updated_at: datetime,
-    ) -> EmployeeCard | None: ...
+    ) -> EmployeeCard | None:
+        """Đổi trạng thái thẻ theo cơ chế so sánh-rồi-đặt trên trạng thái ACTIVE.
+
+        Chỉ cập nhật khi thẻ `card_id` đang ở `CardStatus.ACTIVE`. Trả về `None` (không
+        raise) nếu thẻ không tồn tại hoặc trạng thái đã bị thay đổi bởi tiến trình khác;
+        lớp Application ánh xạ `None` sang `CARD_REPLACEMENT_CONFLICT`.
+        """
+        ...
+
     async def replace_active(
         self,
         replacement: EmployeeCard,
         expected_active_card_id: UUID | None,
         replaced_at: datetime,
         status_reason: str,
-    ) -> tuple[EmployeeCard, EmployeeCard | None]: ...
+    ) -> tuple[EmployeeCard, EmployeeCard | None]:
+        """Thay thẻ đang hoạt động của tài xế trong một thao tác nguyên tử.
+
+        Hợp đồng bắt buộc mọi hiện thực phải tuân thủ:
+
+        1. So sánh-rồi-đặt (compare-and-set) trên thẻ đang hoạt động: thẻ ACTIVE hiện
+           tại của `replacement.driver_id` phải đúng bằng `expected_active_card_id`
+           (`None` nghĩa là tài xế chưa có thẻ ACTIVE nào). Nếu lệch, phải raise
+           `ConflictError("CARD_REPLACEMENT_CONFLICT", ...)` và KHÔNG ghi gì.
+        2. Khi tồn tại thẻ cũ: đặt `status = CardStatus.REPLACED`,
+           `status_reason = status_reason`, `updated_at = replaced_at`.
+        3. Liên kết lịch sử hai chiều: `old.replaced_by_card_id = replacement.id` và
+           `replacement.replaces_card_id = old.id`.
+        4. Lưu `replacement` với `status = CardStatus.ACTIVE`. `status_reason` truyền
+           vào thuộc về thẻ CŨ bị thu hồi, không được gán cho thẻ mới.
+        5. Giữ nguyên bản ghi thẻ cũ để tra cứu lịch sử; không xóa hay ghi đè.
+        6. Cả ba bước 2-4 phải cùng thành công hoặc cùng thất bại.
+
+        Trả về `(thẻ_mới, thẻ_cũ_đã_thu_hồi_hoặc_None)`.
+        """
+        ...
 
 
 class VehicleRepository(Protocol):

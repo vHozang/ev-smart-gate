@@ -12,6 +12,9 @@ from smart_gate.domain.entities import Driver, FaceObservation, PlateMatch, Vehi
 from smart_gate.domain.enums import OrderStatus, PlateMatchType
 from smart_gate.domain.exceptions import ConflictError
 
+_MASK_PREFIX = "••••"
+_MASK_SUFFIX_LENGTH = 4
+
 
 def normalize_plate(value: str) -> str:
     """Chuẩn hóa biển số về chuỗi chữ hoa và chữ số để đối chiếu."""
@@ -26,9 +29,16 @@ def normalize_card_uid(card_uid: str) -> str:
 
 
 def mask_card_uid(card_uid: str) -> str:
-    """Che UID thẻ để không bao giờ lộ giá trị thô ra API hoặc log."""
+    """Che UID thẻ để không bao giờ lộ giá trị thô ra API hoặc log.
 
-    return "••••" + normalize_card_uid(card_uid)[-4:]
+    UID hợp lệ ngắn nhất là 4 ký tự sau chuẩn hóa, nên chỉ hiện 4 ký tự cuối khi UID
+    dài hơn 4; ngược lại che toàn bộ để không tiết lộ chính giá trị thô.
+    """
+
+    normalized = normalize_card_uid(card_uid)
+    if len(normalized) <= _MASK_SUFFIX_LENGTH:
+        return _MASK_PREFIX
+    return _MASK_PREFIX + normalized[-_MASK_SUFFIX_LENGTH:]
 
 
 class PlateMatchingService:

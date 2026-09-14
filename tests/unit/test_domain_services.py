@@ -89,3 +89,23 @@ def test_normalize_card_uid(raw: str, normalized: str) -> None:
 def test_mask_card_uid_never_returns_the_raw_uid() -> None:
     assert mask_card_uid("ab-12-34") == "••••1234"
     assert "AB1234" not in mask_card_uid("ab-12-34")
+
+
+@pytest.mark.parametrize("raw", ["ab12", "a-b-1-2", " AB:12 ", "ab1", "a-b"])
+def test_mask_card_uid_hides_every_character_of_a_short_uid(raw: str) -> None:
+    """UID ngắn nhất hợp lệ (4 ký tự) không được lộ bất kỳ ký tự nào."""
+
+    masked = mask_card_uid(raw)
+    normalized = normalize_card_uid(raw)
+
+    assert masked == "••••"
+    assert normalized not in masked
+    for character in normalized:
+        assert character not in masked
+
+
+def test_mask_card_uid_reveals_at_most_the_last_four_of_a_long_uid() -> None:
+    masked = mask_card_uid("ab-12-34-56")
+
+    assert masked == "••••3456"
+    assert "AB12" not in masked

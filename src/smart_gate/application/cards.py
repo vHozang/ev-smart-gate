@@ -41,11 +41,11 @@ class EmployeeCardService:
             card_uid=payload.card_uid,
             card_uid_normalized=normalized,
             driver_id=driver.id,
-            status_reason=payload.status_reason,
             metadata=payload.metadata,
             issued_at=now,
             updated_at=now,
         )
+        # `status_reason` là lý do THU HỒI thẻ cũ, không phải thuộc tính của thẻ mới.
         reason = payload.status_reason or _DEFAULT_REPLACEMENT_REASON
         return await self._replace_active(
             replacement,
@@ -64,11 +64,11 @@ class EmployeeCardService:
             card_uid=payload.card_uid,
             card_uid_normalized=normalized,
             driver_id=card.driver_id,
-            status_reason=payload.status_reason,
             metadata=payload.metadata,
             issued_at=now,
             updated_at=now,
         )
+        # Lý do thay thẻ được ghi vào thẻ cũ bị thu hồi; thẻ ACTIVE mới không mang lý do.
         return await self._replace_active(
             replacement,
             expected_active_card_id=card.id,
