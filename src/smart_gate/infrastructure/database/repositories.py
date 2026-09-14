@@ -16,6 +16,7 @@ from smart_gate.domain.entities import (
     DockInspection,
     Driver,
     DriverVehicleAuthorization,
+    EmployeeCard,
     GateCommand,
     GateLog,
     SecurityAlert,
@@ -25,6 +26,7 @@ from smart_gate.domain.entities import (
 )
 from smart_gate.domain.enums import (
     AlertStatus,
+    CardStatus,
     Direction,
     OrderStatus,
     RecordStatus,
@@ -39,6 +41,7 @@ from smart_gate.infrastructure.database.documents import (
     DockInspectionDocument,
     DriverDocument,
     DriverVehicleAuthorizationDocument,
+    EmployeeCardDocument,
     GateCommandDocument,
     GateLogDocument,
     SecurityAlertDocument,
@@ -166,6 +169,165 @@ def _dock_from_document(document: DockInspectionDocument) -> DockInspection:
         created_at=document.created_at,
         completed_at=document.completed_at,
     )
+
+
+def _employee_card_from_document(document: EmployeeCardDocument) -> EmployeeCard:
+    return EmployeeCard(
+        id=document.id,
+        card_uid=document.card_uid,
+        card_uid_normalized=document.card_uid_normalized,
+        driver_id=document.driver_id,
+        status=document.status,
+        status_reason=document.status_reason,
+        replaces_card_id=document.replaces_card_id,
+        replaced_by_card_id=document.replaced_by_card_id,
+        metadata=document.metadata,
+        issued_at=document.issued_at,
+        updated_at=document.updated_at,
+    )
+
+
+_CARD_UID_KEY_PATTERN = {"card_uid_normalized": 1}
+_CARD_DRIVER_ACTIVE_KEY_PATTERN = {"driver_id": 1}
+
+
+def _card_conflict_from_duplicate_key(exc: DuplicateKeyError) -> ConflictError:
+    key_pattern = exc.details.get("keyPattern", {}) if exc.details else {}
+    if key_pattern == _CARD_UID_KEY_PATTERN:
+        return ConflictError("CARD_UID_ALREADY_EXISTS", "UID thẻ đã tồn tại trong hệ thống")
+    if key_pattern == _CARD_DRIVER_ACTIVE_KEY_PATTERN:
+        return ConflictError("ACTIVE_CARD_ALREADY_EXISTS", "Tài xế đã có thẻ đang hoạt động")
+    return ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi")
+
+
+class BeanieEmployeeCardRepository:
+    async def add(self, card: EmployeeCard) -> EmployeeCard:
+        document = EmployeeCardDocument(
+            id=card.id,
+            card_uid=card.card_uid,
+            card_uid_normalized=card.card_uid_normalized,
+            driver_id=card.driver_id,
+            status=card.status,
+            status_reason=card.status_reason,
+            replaces_card_id=card.replaces_card_id,
+            replaced_by_card_id=card.replaced_by_card_id,
+            metadata=card.metadata,
+            issued_at=card.issued_at or utc_now(),
+            updated_at=card.updated_at or utc_now(),
+        )
+        try:
+            await document.insert(session=current_session())
+        except DuplicateKeyError as exc:
+            raise _card_conflict_from_duplicate_key(exc) from exc
+        return _employee_card_from_document(document)
+
+    async def get(self, card_id: UUID) -> EmployeeCard | None:
+        document = await EmployeeCardDocument.get(card_id)
+        return _employee_card_from_document(document) if document else None
+
+    async def get_by_uid(self, card_uid_normalized: str) -> EmployeeCard | None:
+        document = await EmployeeCardDocument.find_one(
+            EmployeeCardDocument.card_uid_normalized == card_uid_normalized
+        )
+        return _employee_card_from_document(document) if document else None
+
+    async def get_active_by_driver(self, driver_id: UUID) -> EmployeeCard | None:
+        document = await EmployeeCardDocument.find_one(
+            EmployeeCardDocument.driver_id == driver_id,
+            EmployeeCardDocument.status == CardStatus.ACTIVE,
+        )
+        return _employee_card_from_document(document) if document else None
+
+    async def list_by_driver(self, driver_id: UUID) -> list[EmployeeCard]:
+        documents = (
+            await EmployeeCardDocument.find(EmployeeCardDocument.driver_id == driver_id)
+            .sort("-issued_at")
+            .to_list()
+        )
+        return [_employee_card_from_document(document) for document in documents]
+
+    async def list_all(self) -> list[EmployeeCard]:
+        documents = await EmployeeCardDocument.find_all().sort("-issued_at").to_list()
+        return [_employee_card_from_document(document) for document in documents]
+
+    async def change_active_status(
+        self,
+        card_id: UUID,
+        target: CardStatus,
+        status_reason: str,
+        updated_at: datetime,
+    ) -> EmployeeCard | None:
+        collection = EmployeeCardDocument.get_pymongo_collection()
+        payload = await collection.find_one_and_update(
+            {"_id": card_id, "status": CardStatus.ACTIVE.value},
+            {
+                "$set": {
+                    "status": target.value,
+                    "status_reason": status_reason,
+                    "updated_at": updated_at,
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+            session=current_session(),
+        )
+        if payload is None:
+            return None
+        return _employee_card_from_document(EmployeeCardDocument.model_validate(payload))
+
+    async def replace_active(
+        self,
+        replacement: EmployeeCard,
+        expected_active_card_id: UUID | None,
+        replaced_at: datetime,
+        status_reason: str,
+    ) -> tuple[EmployeeCard, EmployeeCard | None]:
+        collection = EmployeeCardDocument.get_pymongo_collection()
+        old: EmployeeCard | None = None
+
+        if expected_active_card_id is not None:
+            payload = await collection.find_one_and_update(
+                {"_id": expected_active_card_id, "status": CardStatus.ACTIVE.value},
+                {
+                    "$set": {
+                        "status": CardStatus.REPLACED.value,
+                        "status_reason": status_reason,
+                        "replaced_by_card_id": replacement.id,
+                        "updated_at": replaced_at,
+                    }
+                },
+                return_document=ReturnDocument.AFTER,
+                session=current_session(),
+            )
+            if payload is None:
+                raise ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi")
+            old = _employee_card_from_document(EmployeeCardDocument.model_validate(payload))
+            replacement.replaces_card_id = old.id
+        else:
+            existing = await collection.find_one(
+                {"driver_id": replacement.driver_id, "status": CardStatus.ACTIVE.value},
+                session=current_session(),
+            )
+            if existing is not None:
+                raise ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi")
+
+        document = EmployeeCardDocument(
+            id=replacement.id,
+            card_uid=replacement.card_uid,
+            card_uid_normalized=replacement.card_uid_normalized,
+            driver_id=replacement.driver_id,
+            status=CardStatus.ACTIVE,
+            status_reason=None,
+            replaces_card_id=replacement.replaces_card_id,
+            replaced_by_card_id=None,
+            metadata=replacement.metadata,
+            issued_at=replacement.issued_at or replaced_at,
+            updated_at=replacement.updated_at or replaced_at,
+        )
+        try:
+            await document.insert(session=current_session())
+        except DuplicateKeyError as exc:
+            raise _card_conflict_from_duplicate_key(exc) from exc
+        return _employee_card_from_document(document), old
 
 
 class BeanieDriverRepository:

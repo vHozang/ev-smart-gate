@@ -12,6 +12,7 @@ from smart_gate.domain.enums import (
     AlertSeverity,
     AlertStatus,
     BarrierStatus,
+    CardStatus,
     CargoState,
     Direction,
     DockStatus,
@@ -48,6 +49,33 @@ class DriverDocument(Document):
         indexes = [
             IndexModel([("employee_code", ASCENDING)], unique=True, sparse=True),
             IndexModel([("status", ASCENDING), ("created_at", DESCENDING)]),
+        ]
+
+
+class EmployeeCardDocument(Document):
+    id: UUID = Field(default_factory=uuid4)
+    card_uid: str
+    card_uid_normalized: str
+    driver_id: UUID
+    status: CardStatus = CardStatus.ACTIVE
+    status_reason: str | None = None
+    replaces_card_id: UUID | None = None
+    replaced_by_card_id: UUID | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    issued_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Settings:
+        name = "employee_cards"
+        indexes = [
+            IndexModel([("card_uid_normalized", ASCENDING)], unique=True),
+            IndexModel(
+                [("driver_id", ASCENDING)],
+                unique=True,
+                partialFilterExpression={"status": "ACTIVE"},
+            ),
+            IndexModel([("driver_id", ASCENDING), ("issued_at", DESCENDING)]),
+            IndexModel([("status", ASCENDING), ("updated_at", DESCENDING)]),
         ]
 
 
@@ -306,6 +334,7 @@ class SequenceCounterDocument(Document):
 
 DOCUMENT_MODELS = [
     DriverDocument,
+    EmployeeCardDocument,
     VehicleDocument,
     DriverVehicleAuthorizationDocument,
     GateLogDocument,
