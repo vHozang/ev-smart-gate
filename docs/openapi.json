@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EV Smart Gate",
-    "description": "API xác minh Smart Gate và quy trình xuất kho có QR Ed25519.",
+    "description": "API kiểm soát bãi xe bằng thẻ nhân viên, khuôn mặt và biển số.",
     "version": "0.1.0"
   },
   "paths": {
@@ -636,6 +636,301 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/employee-cards": {
+      "post": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "Issue Employee Card",
+        "operationId": "issue_employee_card_api_v1_employee_cards_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardIssueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "List Employee Cards",
+        "operationId": "list_employee_cards_api_v1_employee_cards_get",
+        "parameters": [
+          {
+            "name": "driver_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Driver Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeCardResponse"
+                  },
+                  "title": "Response List Employee Cards Api V1 Employee Cards Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/employee-cards/{card_id}": {
+      "get": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "Get Employee Card",
+        "operationId": "get_employee_card_api_v1_employee_cards__card_id__get",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Card Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/employee-cards/{card_id}/block": {
+      "post": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "Block Employee Card",
+        "operationId": "block_employee_card_api_v1_employee_cards__card_id__block_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Card Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/employee-cards/{card_id}/report-lost": {
+      "post": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "Report Lost Employee Card",
+        "operationId": "report_lost_employee_card_api_v1_employee_cards__card_id__report_lost_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Card Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/employee-cards/{card_id}/replace": {
+      "post": {
+        "tags": [
+          "Quản lý thẻ nhân viên"
+        ],
+        "summary": "Replace Employee Card",
+        "operationId": "replace_employee_card_api_v1_employee_cards__card_id__replace_post",
+        "parameters": [
+          {
+            "name": "card_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Card Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardReplaceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
                 }
               }
             }
@@ -2001,6 +2296,16 @@
         ],
         "title": "Body_verify_exit_api_v1_gates_exit_verifications_post"
       },
+      "CardStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "BLOCKED",
+          "LOST",
+          "REPLACED"
+        ],
+        "title": "CardStatus"
+      },
       "CargoDetectionOutput": {
         "properties": {
           "class_name": {
@@ -2348,6 +2653,183 @@
           "enrolled_at"
         ],
         "title": "DriverResponse"
+      },
+      "EmployeeCardIssueRequest": {
+        "properties": {
+          "driver_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Driver Id"
+          },
+          "card_uid": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 4,
+            "title": "Card Uid"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "driver_id",
+          "card_uid"
+        ],
+        "title": "EmployeeCardIssueRequest"
+      },
+      "EmployeeCardReplaceRequest": {
+        "properties": {
+          "card_uid": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 4,
+            "title": "Card Uid"
+          },
+          "status_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Status Reason"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "card_uid",
+          "status_reason"
+        ],
+        "title": "EmployeeCardReplaceRequest"
+      },
+      "EmployeeCardResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "card_uid_masked": {
+            "type": "string",
+            "title": "Card Uid Masked"
+          },
+          "driver_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Driver Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CardStatus"
+          },
+          "status_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Reason"
+          },
+          "replaces_card_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Card Id"
+          },
+          "replaced_by_card_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By Card Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "card_uid_masked",
+          "driver_id",
+          "status"
+        ],
+        "title": "EmployeeCardResponse"
+      },
+      "EmployeeCardStatusRequest": {
+        "properties": {
+          "status_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Status Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status_reason"
+        ],
+        "title": "EmployeeCardStatusRequest"
       },
       "FinalizeDockRequest": {
         "properties": {

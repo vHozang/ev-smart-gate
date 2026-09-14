@@ -6,7 +6,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from smart_gate.domain.enums import AlertSeverity, AlertStatus, CargoState, RecordStatus, UserRole
+from smart_gate.domain.enums import (
+    AlertSeverity,
+    AlertStatus,
+    CardStatus,
+    CargoState,
+    RecordStatus,
+    UserRole,
+)
 
 
 class ApiModel(BaseModel):
@@ -141,3 +148,33 @@ class AlertResponse(ApiModel):
 
 class AlertStatusRequest(ApiModel):
     status: AlertStatus
+
+
+class EmployeeCardIssueRequest(ApiModel):
+    driver_id: UUID
+    card_uid: str = Field(min_length=4, max_length=128)
+    status_reason: str | None = Field(None, max_length=500)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EmployeeCardReplaceRequest(ApiModel):
+    card_uid: str = Field(min_length=4, max_length=128)
+    status_reason: str = Field(min_length=2, max_length=500)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class EmployeeCardStatusRequest(ApiModel):
+    status_reason: str = Field(min_length=2, max_length=500)
+
+
+class EmployeeCardResponse(ApiModel):
+    id: UUID
+    card_uid_masked: str
+    driver_id: UUID
+    status: CardStatus
+    status_reason: str | None = None
+    replaces_card_id: UUID | None = None
+    replaced_by_card_id: UUID | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    issued_at: datetime | None = None
+    updated_at: datetime | None = None

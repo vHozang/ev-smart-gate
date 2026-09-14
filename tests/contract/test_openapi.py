@@ -35,6 +35,19 @@ def test_openapi_exposes_required_contracts() -> None:
         == "#/components/schemas/SlipOutput"
     )
 
+    # Employee card routes
+    assert "/api/v1/employee-cards" in paths
+    assert "/api/v1/employee-cards/{card_id}" in paths
+    assert "/api/v1/employee-cards/{card_id}/block" in paths
+    assert "/api/v1/employee-cards/{card_id}/report-lost" in paths
+    assert "/api/v1/employee-cards/{card_id}/replace" in paths
+
+    # Card response schema privacy check
+    card_schema = schema["components"]["schemas"]["EmployeeCardResponse"]
+    assert "card_uid_masked" in card_schema["properties"]
+    assert "card_uid" not in card_schema["properties"]
+    assert "card_uid_normalized" not in card_schema["properties"]
+
 
 def test_operator_console_routes_are_mounted() -> None:
     app = create_app(Settings(_env_file=None, APP_ENV="test"))

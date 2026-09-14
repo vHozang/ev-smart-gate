@@ -15,6 +15,7 @@ from smart_gate.config import Settings, get_settings
 from smart_gate.presentation.exceptions import register_exception_handlers
 from smart_gate.presentation.routers import (
     auth,
+    employee_cards,
     gate_logs,
     gates,
     health,
@@ -35,7 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title=resolved.app_name,
         version="0.1.0",
-        description="API xác minh Smart Gate và quy trình xuất kho có QR Ed25519.",
+        description="API kiểm soát bãi xe bằng thẻ nhân viên, khuôn mặt và biển số.",
         docs_url="/docs" if resolved.docs_enabled else None,
         redoc_url="/redoc" if resolved.docs_enabled else None,
         lifespan=build_lifespan(resolved),
@@ -76,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(master_data.router)
+    app.include_router(employee_cards.router)
     app.include_router(warehouse.router)
     app.include_router(gates.router)
     app.include_router(gate_logs.router)

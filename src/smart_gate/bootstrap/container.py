@@ -3,6 +3,7 @@ from __future__ import annotations
 from smart_gate.application.alerts import AlertService
 from smart_gate.application.auth import AuthService
 from smart_gate.application.barrier import BarrierService
+from smart_gate.application.cards import EmployeeCardService
 from smart_gate.application.gate_entry import VerifyEntryUseCase
 from smart_gate.application.gate_exit import VerifyExitUseCase
 from smart_gate.application.gate_logs import GateLogQueryService
@@ -18,6 +19,7 @@ from smart_gate.infrastructure.database.repositories import (
     BeanieDeviceCredentialRepository,
     BeanieDockRepository,
     BeanieDriverRepository,
+    BeanieEmployeeCardRepository,
     BeanieGateCommandRepository,
     BeanieGateLogRepository,
     BeanieOrderRepository,
@@ -72,6 +74,7 @@ class Container:
         self.users = BeanieUserRepository()
         self.sessions = BeanieAuthSessionRepository()
         self.devices = BeanieDeviceCredentialRepository()
+        self.employee_cards = BeanieEmployeeCardRepository()
 
         self.lpr = self._build_lpr()
         self.face = self._build_face()
@@ -95,6 +98,11 @@ class Container:
         )
         self.registration = RegistrationService(
             settings, self.drivers, self.vehicles, self.authorizations, self.face
+        )
+        self.card_management = EmployeeCardService(
+            self.drivers,
+            self.employee_cards,
+            self.unit_of_work,
         )
         self.gate_log_queries = GateLogQueryService(self.gate_logs, self.evidence)
         self.warehouse = WarehouseService(
