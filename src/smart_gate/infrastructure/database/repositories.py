@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from pymongo import DESCENDING, ReturnDocument
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from smart_gate.domain.entities import (
     AuthSession,
@@ -191,11 +191,15 @@ _CARD_UID_KEY_PATTERN = {"card_uid_normalized": 1}
 _CARD_DRIVER_ACTIVE_KEY_PATTERN = {"driver_id": 1}
 
 
-def _card_conflict_from_duplicate_key(exc: DuplicateKeyError) -> ConflictError:
+def _card_conflict_from_duplicate_key(
+    exc: DuplicateKeyError, *, replace: bool = False
+) -> ConflictError:
     key_pattern = exc.details.get("keyPattern", {}) if exc.details else {}
     if key_pattern == _CARD_UID_KEY_PATTERN:
         return ConflictError("CARD_UID_ALREADY_EXISTS", "UID thẻ đã tồn tại trong hệ thống")
     if key_pattern == _CARD_DRIVER_ACTIVE_KEY_PATTERN:
+        if replace:
+            return ConflictError("CARD_REPLACEMENT_CONFLICT", "Tài xế đã có thẻ đang hoạt động")
         return ConflictError("ACTIVE_CARD_ALREADY_EXISTS", "Tài xế đã có thẻ đang hoạt động")
     return ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi")
 
@@ -241,13 +245,15 @@ class BeanieEmployeeCardRepository:
     async def list_by_driver(self, driver_id: UUID) -> list[EmployeeCard]:
         documents = (
             await EmployeeCardDocument.find(EmployeeCardDocument.driver_id == driver_id)
-            .sort("-issued_at")
+            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])
             .to_list()
         )
         return [_employee_card_from_document(document) for document in documents]
 
     async def list_all(self) -> list[EmployeeCard]:
-        documents = await EmployeeCardDocument.find_all().sort("-issued_at").to_list()
+        documents = (
+            await EmployeeCardDocument.find_all().sort([("issued_at", DESCENDING), ("_id", DESCENDING)]).to_list()
+        )
         return [_employee_card_from_document(document) for document in documents]
 
     async def change_active_status(
@@ -258,18 +264,25 @@ class BeanieEmployeeCardRepository:
         updated_at: datetime,
     ) -> EmployeeCard | None:
         collection = EmployeeCardDocument.get_pymongo_collection()
-        payload = await collection.find_one_and_update(
-            {"_id": card_id, "status": CardStatus.ACTIVE.value},
-            {
-                "$set": {
-                    "status": target.value,
-                    "status_reason": status_reason,
-                    "updated_at": updated_at,
-                }
-            },
-            return_document=ReturnDocument.AFTER,
-            session=current_session(),
-        )
+        try:
+            payload = await collection.find_one_and_update(
+                {"_id": card_id, "status": CardStatus.ACTIVE.value},
+                {
+                    "$set": {
+                        "status": target.value,
+                        "status_reason": status_reason,
+                        "updated_at": updated_at,
+                    }
+                },
+                return_document=ReturnDocument.AFTER,
+                session=current_session(),
+            )
+        except OperationFailure as exc:
+            if exc.code == 112:
+                raise ConflictError(
+                    "CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi"
+                ) from exc
+            raise
         if payload is None:
             return None
         return _employee_card_from_document(EmployeeCardDocument.model_validate(payload))
@@ -285,19 +298,30 @@ class BeanieEmployeeCardRepository:
         old: EmployeeCard | None = None
 
         if expected_active_card_id is not None:
-            payload = await collection.find_one_and_update(
-                {"_id": expected_active_card_id, "status": CardStatus.ACTIVE.value},
-                {
-                    "$set": {
-                        "status": CardStatus.REPLACED.value,
-                        "status_reason": status_reason,
-                        "replaced_by_card_id": replacement.id,
-                        "updated_at": replaced_at,
-                    }
-                },
-                return_document=ReturnDocument.AFTER,
-                session=current_session(),
-            )
+            try:
+                payload = await collection.find_one_and_update(
+                    {
+                        "_id": expected_active_card_id,
+                        "driver_id": replacement.driver_id,
+                        "status": CardStatus.ACTIVE.value,
+                    },
+                    {
+                        "$set": {
+                            "status": CardStatus.REPLACED.value,
+                            "status_reason": status_reason,
+                            "replaced_by_card_id": replacement.id,
+                            "updated_at": replaced_at,
+                        }
+                    },
+                    return_document=ReturnDocument.AFTER,
+                    session=current_session(),
+                )
+            except OperationFailure as exc:
+                if exc.code == 112:
+                    raise ConflictError(
+                        "CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi"
+                    ) from exc
+                raise
             if payload is None:
                 raise ConflictError("CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi")
             old = _employee_card_from_document(EmployeeCardDocument.model_validate(payload))
@@ -326,7 +350,13 @@ class BeanieEmployeeCardRepository:
         try:
             await document.insert(session=current_session())
         except DuplicateKeyError as exc:
-            raise _card_conflict_from_duplicate_key(exc) from exc
+            raise _card_conflict_from_duplicate_key(exc, replace=True) from exc
+        except OperationFailure as exc:
+            if exc.code == 112:
+                raise ConflictError(
+                    "CARD_REPLACEMENT_CONFLICT", "Thẻ đang hoạt động đã thay đổi"
+                ) from exc
+            raise
         return _employee_card_from_document(document), old
 
 

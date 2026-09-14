@@ -154,6 +154,14 @@ async def test_issue_replace_rollback_and_concurrency() -> None:
         assert active_after_rollback.id == second.id
 
         # 5. Two concurrent replacements against the same old card: one wins, one conflicts.
+        # Warm the connection pool so concurrent operations truly race.
+        await asyncio.gather(
+            *(
+                EmployeeCardDocument.get_pymongo_collection().find_one({"_id": "warmup"})
+                for _ in range(10)
+            )
+        )
+
         async def replace_one() -> EmployeeCard:
             return await service.replace(
                 second.id,
