@@ -1,6 +1,3 @@
-export const BLOCKED_OPENAI_KEY_MESSAGE =
-  "BLOCKED: OPENAI_API_KEY is required to generate the final narrated MP4.";
-
 function requireArray(value, label) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${label} must be a non-empty array.`);
@@ -17,12 +14,6 @@ function indexUnique(items, label) {
     indexed.set(id, item);
   }
   return indexed;
-}
-
-export function requireOpenAiApiKey(value) {
-  const key = value?.trim();
-  if (!key) throw new Error(BLOCKED_OPENAI_KEY_MESSAGE);
-  return key;
 }
 
 export function segmentAudioFilename(index, id) {

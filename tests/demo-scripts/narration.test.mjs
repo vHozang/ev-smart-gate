@@ -1,29 +1,92 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
-  BLOCKED_OPENAI_KEY_MESSAGE,
   audioDurationMsFromProbe,
   buildSrtCues,
   formatSrtTimestamp,
-  requireOpenAiApiKey,
   segmentAudioFilename,
   validateNarrationTimeline,
 } from "../../scripts/demo/narration.mjs";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = path.resolve(__dirname, "../..");
+
+const expectedIds = [
+  "intro",
+  "login",
+  "identity-registration",
+  "card-issuance",
+  "card-replacement",
+  "gate-entry",
+  "safe-rejection",
+  "gate-exit",
+  "history",
+  "success",
+];
+
+test("narration manifest uses parking segments with correct IDs, language and voice", async () => {
+  const narrationPath = path.join(repositoryRoot, "demo", "narration.json");
+  const narration = JSON.parse(await readFile(narrationPath, "utf8"));
+
+  // Exact ordered IDs from Task 8
+  assert.deepEqual(
+    narration.segments.map((s) => s.id),
+    expectedIds,
+  );
+
+  // Language and Edge TTS voice
+  assert.equal(narration.language, "vi");
+  assert.equal(narration.voice, "vi-VN-HoaiMyNeural");
+
+  // No warehouse copy in any step or text
+  const allText = narration.segments
+    .map((s) => `${s.step} ${s.text}`)
+    .join(" ");
+  assert.doesNotMatch(
+    allText,
+    /xuất kho|lệnh kho|quy trình kho|dock|kiểm hàng|Exit Slip|QR/i,
+  );
+
+  // Contains parking domain concepts
+  assert.match(allText, /bãi xe|barrier|thẻ|khuôn mặt|biển số/i);
+});
+
+// Fixtures using first two parking segments for unit-level narration tests
 const narration = {
-  title: "MVP Demo",
+  title: "EV Smart Gate — MVP Demo",
   language: "vi",
-  voice: "marin",
+  voice: "vi-VN-HoaiMyNeural",
   segments: [
-    { id: "intro", step: "Giới thiệu", text: "Chào mừng đến với EV Smart Gate." },
-    { id: "login", step: "Đăng nhập", text: "Phiên vận hành an toàn đã sẵn sàng." },
+    {
+      id: "intro",
+      step: "Mở trung tâm kiểm soát bãi xe EV Smart Gate",
+      text: "EV Smart Gate tập trung vào kiểm soát bãi xe ra vào bằng ba yếu tố độc lập.",
+    },
+    {
+      id: "login",
+      step: "Đăng nhập bằng phiên vận hành an toàn",
+      text: "Quản trị viên đăng nhập bằng phiên vận hành được bảo vệ.",
+    },
   ],
 };
 
 const timeline = [
-  { id: "intro", step: "Giới thiệu", startMs: 1200, endMs: 6200 },
-  { id: "login", step: "Đăng nhập", startMs: 6200, endMs: 12000 },
+  {
+    id: "intro",
+    step: "Mở trung tâm kiểm soát bãi xe EV Smart Gate",
+    startMs: 1200,
+    endMs: 6200,
+  },
+  {
+    id: "login",
+    step: "Đăng nhập bằng phiên vận hành an toàn",
+    startMs: 6200,
+    endMs: 12000,
+  },
 ];
 
 const audioManifest = {
@@ -50,7 +113,10 @@ test("narration IDs map one-to-one to timeline IDs", () => {
   assert.throws(
     () =>
       validateNarrationTimeline(
-        { ...narration, segments: [...narration.segments, narration.segments[0]] },
+        {
+          ...narration,
+          segments: [...narration.segments, narration.segments[0]],
+        },
         timeline,
       ),
     /duplicate.*intro/i,
@@ -81,14 +147,14 @@ test("SRT cues use actual timing, exact text, and never overlap", () => {
       id: "intro",
       startMs: 1200,
       endMs: 6199,
-      text: "Chào mừng đến với EV Smart Gate.",
+      text: "EV Smart Gate tập trung vào kiểm soát bãi xe ra vào bằng ba yếu tố độc lập.",
     },
     {
       index: 2,
       id: "login",
       startMs: 6200,
       endMs: 9550,
-      text: "Phiên vận hành an toàn đã sẵn sàng.",
+      text: "Quản trị viên đăng nhập bằng phiên vận hành được bảo vệ.",
     },
   ]);
   assert.ok(cues[0].endMs < cues[1].startMs);
@@ -114,19 +180,28 @@ test("SRT cues use actual timing, exact text, and never overlap", () => {
 });
 
 test("audio metadata uses positive ffprobe duration and safe filenames", () => {
-  assert.equal(audioDurationMsFromProbe({ format: { duration: "5.4321" } }), 5432);
+  assert.equal(
+    audioDurationMsFromProbe({ format: { duration: "5.4321" } }),
+    5432,
+  );
   assert.throws(
     () => audioDurationMsFromProbe({ format: { duration: "0" } }),
     /positive duration/i,
   );
   assert.equal(segmentAudioFilename(0, "gate-entry"), "001-gate-entry.mp3");
-  assert.throws(() => segmentAudioFilename(0, "../secret"), /safe segment ID/i);
+  assert.throws(
+    () => segmentAudioFilename(0, "../secret"),
+    /safe segment ID/i,
+  );
 });
 
-test("TTS refuses to run without a real OpenAI API key", () => {
-  assert.equal(requireOpenAiApiKey("  test-key  "), "test-key");
-  assert.throws(
-    () => requireOpenAiApiKey(""),
-    (error) => error.message === BLOCKED_OPENAI_KEY_MESSAGE,
-  );
+test("Edge TTS engine is available and configurable", async () => {
+  // Edge TTS replaces OpenAI TTS — verify the engine is importable
+  const { createRequire } = await import("node:module");
+  const require = createRequire(import.meta.url);
+  const { EdgeTTS } = require("node-edge-tts");
+  assert.equal(typeof EdgeTTS, "function", "EdgeTTS constructor must be available");
+  // Verify it can be instantiated with Vietnamese voice
+  const tts = new EdgeTTS({ voice: "vi-VN-HoaiMyNeural", lang: "vi-VN" });
+  assert.ok(tts, "EdgeTTS instance must be created");
 });

@@ -30,8 +30,6 @@ export function loadDemoEnv() {
     quiet: true,
   });
   process.env.DEMO_BASE_URL ||= "http://localhost:8000";
-  process.env.OPENAI_TTS_MODEL ||= "gpt-4o-mini-tts";
-  process.env.OPENAI_TTS_VOICE ||= "marin";
   process.env.DEMO_LANGUAGE ||= "vi";
   process.env.DEMO_BURN_SUBTITLES ||= "true";
   process.env.DEMO_INTRO_MS ||= "1200";

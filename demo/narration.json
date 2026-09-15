@@ -1,52 +1,57 @@
 {
   "title": "EV Smart Gate — MVP Demo",
   "language": "vi",
-  "voice": "marin",
+  "voice": "vi-VN-HoaiMyNeural",
   "segments": [
     {
       "id": "intro",
-      "step": "Mở trung tâm điều hành EV Smart Gate",
-      "text": "EV Smart Gate hợp nhất kiểm soát cổng và vận hành xuất kho trong một quy trình số an toàn."
+      "step": "Mở trung tâm kiểm soát bãi xe EV Smart Gate",
+      "text": "EV Smart Gate tập trung vào kiểm soát bãi xe ra vào bằng ba yếu tố độc lập."
     },
     {
       "id": "login",
       "step": "Đăng nhập bằng phiên vận hành an toàn",
-      "text": "Nhân viên đăng nhập vào trung tâm điều hành để theo dõi trạng thái hệ thống theo thời gian thực."
+      "text": "Quản trị viên đăng nhập bằng phiên vận hành được bảo vệ."
     },
     {
-      "id": "identity",
-      "step": "Hiển thị hồ sơ tin cậy của chuyến xe",
-      "text": "Hồ sơ tài xế, phương tiện và ủy quyền được liên kết, tạo nền tảng tin cậy cho mỗi chuyến xe."
+      "id": "identity-registration",
+      "step": "Hiển thị hồ sơ nhân viên, khuôn mặt, xe và loại xe",
+      "text": "Hồ sơ nhân viên liên kết khuôn mặt với xe, biển số và loại xe đã đăng ký."
+    },
+    {
+      "id": "card-issuance",
+      "step": "Cấp thẻ nhân viên",
+      "text": "Mỗi nhân viên được cấp một thẻ hoạt động duy nhất."
+    },
+    {
+      "id": "card-replacement",
+      "step": "Thay thẻ và lưu lịch sử thẻ cũ",
+      "text": "Khi thay thẻ, thẻ cũ bị vô hiệu hóa và toàn bộ lịch sử vẫn được giữ lại."
     },
     {
       "id": "gate-entry",
-      "step": "Xác minh tài xế và phương tiện tại Gate In",
-      "text": "Tại Gate In, hệ thống đối chiếu khuôn mặt, biển số và ủy quyền trước khi yêu cầu mở barrier."
+      "step": "Xác thực thẻ, khuôn mặt và biển số tại Gate In",
+      "text": "Gate In chỉ mở khi thẻ hợp lệ, khuôn mặt đúng chủ thẻ và xe được cấp quyền."
     },
     {
-      "id": "warehouse-order",
-      "step": "Tạo lệnh xuất kho cho chuyến xe đã xác minh",
-      "text": "Sau khi xe được xác minh, nhân viên tạo lệnh xuất kho với tài xế, phương tiện và danh sách hàng rõ ràng."
-    },
-    {
-      "id": "cargo-inspection",
-      "step": "Kiểm hàng và xác nhận trạng thái tại dock",
-      "text": "Tại dock, ảnh hàng hóa được lưu làm bằng chứng, rồi nhân viên kho xác nhận lô hàng đã xếp đủ."
-    },
-    {
-      "id": "signed-slip",
-      "step": "Phát hành Exit Slip QR ký số",
-      "text": "Exit Slip được ký số và phát hành dưới dạng mã QR, giúp bảo vệ tính toàn vẹn của lệnh xuất."
+      "id": "safe-rejection",
+      "step": "Từ chối an toàn thẻ đã được thay thế",
+      "text": "Thẻ đã thay thế bị từ chối an toàn, vì vậy barrier luôn giữ đóng."
     },
     {
       "id": "gate-exit",
-      "step": "Đối chiếu ba chiều và mở Gate Out",
-      "text": "Gate Out đối chiếu đồng thời tài xế, phương tiện và Exit Slip trước khi cho phép xe rời kho."
+      "step": "Xác thực cùng ba yếu tố tại Gate Out",
+      "text": "Gate Out dùng cùng ba yếu tố: thẻ RFID, khuôn mặt và biển số."
+    },
+    {
+      "id": "history",
+      "step": "Xem lịch sử vào, từ chối và ra",
+      "text": "Mọi lượt vào, lượt ra và lần từ chối đều lưu kết quả từng yếu tố để kiểm tra."
     },
     {
       "id": "success",
-      "step": "Xác nhận lệnh đã hoàn tất và lưu vết",
-      "text": "Lệnh chuyển sang hoàn tất, để lại đầy đủ dấu vết vận hành cho giám sát và kiểm toán."
+      "step": "Hoàn tất luồng kiểm soát bãi xe",
+      "text": "Luồng bãi xe hoàn tất với quyết định rõ ràng, an toàn và có thể truy vết."
     }
   ]
 }

@@ -1,8 +1,8 @@
-# EV Smart Gate — Hệ thống xác minh cổng và kho hàng bằng AI
+# EV Smart Gate — Hệ thống kiểm soát bãi xe bằng xác thực ba yếu tố
 
-> Nền tảng tự động hóa quy trình xe ra/vào và xuất hàng bằng **Face Recognition**, **ALPR**, giám sát hàng hóa, phiếu xuất kho QR ký số, FastAPI, MongoDB và WebSockets.
+> Nền tảng kiểm soát bãi xe ra/vào bằng **thẻ RFID**, **nhận diện khuôn mặt** và **nhận diện biển số** (ALPR), FastAPI, MongoDB và WebSockets. Backend kho hàng được giữ nguyên ở lớp API.
 
-EV Smart Gate kết hợp camera AI tại cổng, camera tại kho và dữ liệu đăng ký nội bộ để xác minh đúng **tài xế — phương tiện — lệnh xuất kho** trước khi phát lệnh mở barrier. Hệ thống được thiết kế theo nguyên tắc **fail-closed**: nếu AI, lưu trữ, cơ sở dữ liệu, chữ ký số hoặc thiết bị barrier gặp lỗi, cổng vẫn đóng và nhân viên an ninh nhận cảnh báo thời gian thực.
+EV Smart Gate xác thực ba yếu tố độc lập — **thẻ nhân viên (RFID) + khuôn mặt + biển số** — trước khi phát lệnh mở barrier. Hệ thống được thiết kế theo nguyên tắc **fail-closed**: nếu bất kỳ yếu tố nào không đạt, thiết bị barrier lỗi, hoặc hạ tầng gặp sự cố, cổng vẫn đóng và nhân viên an ninh nhận cảnh báo thời gian thực.
 
 ## Mục lục
 
@@ -22,11 +22,12 @@ EV Smart Gate kết hợp camera AI tại cổng, camera tại kho và dữ li�
 
 ### 1.1. Mục tiêu
 
-Hệ thống giải quyết ba bài toán vận hành chính:
+Hệ thống giải quyết các bài toán vận hành chính:
 
-- **Cổng vào:** nhận diện khuôn mặt tài xế, đọc biển số và kiểm tra quan hệ tài xế–xe đã được ủy quyền.
-- **Kho hàng:** ghi nhận diễn biến xếp hàng, yêu cầu nhân viên kho xác nhận và phát hành phiếu xuất kho điện tử.
-- **Cổng ra:** đối soát ba bên giữa khuôn mặt trực tiếp, biển số trực tiếp, QR ký số và lệnh xuất kho trong cơ sở dữ liệu.
+- **Cổng vào (Gate In):** xác thực thẻ RFID, nhận diện khuôn mặt tài xế, đọc biển số và kiểm tra quan hệ tài xế–xe đã được ủy quyền.
+- **Cổng ra (Gate Out):** cùng ba yếu tố xác thực, không phụ thuộc phiếu hay quy trình kho.
+- **Quản lý thẻ:** cấp, thay thế và vô hiệu hóa thẻ RFID với lịch sử đầy đủ.
+- **Kho hàng (backend):** ghi nhận diễn biến xếp hàng, yêu cầu nhân viên kho xác nhận và phát hành phiếu xuất kho điện tử — backend được giữ nguyên nhưng không hiển thị trên giao diện.
 
 ### 1.2. Năng lực nổi bật
 
@@ -49,7 +50,7 @@ Hệ thống giải quyết ba bài toán vận hành chính:
 flowchart LR
     CAM[Camera IP<br/>RTSP / ONVIF] --> EDGE[Edge Agent<br/>chụp và lấy mẫu]
     EDGE -->|Ảnh + event_id + X-Device-Key| API[FastAPI bất đồng bộ]
-    UI[Giao diện vận hành<br/>Kho / An ninh / Quản trị] -->|Session + CSRF| API
+    UI[Giao diện vận hành<br/>Bãi xe / An ninh / Quản trị] -->|Session + CSRF| API
     API --> APP[Application Use Cases]
     APP --> AI[AI mã nguồn mở<br/>Face / ALPR / Cargo / QR]
     APP --> DB[(MongoDB Replica Set)]
@@ -287,32 +288,35 @@ OPEX = chi phí nền tảng
 
 ### 3.1. Luồng Cổng Vào — Entry Check-in
 
-1. Edge Agent chụp ảnh khuôn mặt và biển số từ camera Gate In, gắn `event_id` duy nhất.
+1. Hệ thống nhận `card_uid` từ đầu đọc RFID, ảnh khuôn mặt và ảnh biển số từ camera Gate In, kèm `event_id` duy nhất.
 2. API lưu ảnh evidence vào MinIO private; nếu lưu trữ lỗi, quy trình dừng và cổng giữ đóng.
-3. ALPR chuẩn hóa ký tự biển số và tìm phương tiện đăng ký:
+3. Hệ thống xác thực thẻ RFID: thẻ phải tồn tại và ở trạng thái ACTIVE (chưa bị thay thế, vô hiệu hóa hoặc mất).
+4. Từ thẻ hợp lệ, hệ thống xác định chủ thẻ (tài xế đã đăng ký).
+5. Face model kiểm tra chất lượng/liveness, trích xuất embedding đã chuẩn hóa L2 và so Cosine Similarity với embedding của chủ thẻ; mặc định yêu cầu `similarity >= 0.75`.
+6. ALPR chuẩn hóa ký tự biển số và tìm phương tiện đăng ký:
    - Ưu tiên exact match.
    - Fuzzy match chỉ hợp lệ khi cùng độ dài, hai số tỉnh đầu trùng, Levenshtein không quá 1, RapidFuzz tối thiểu 90 và không có candidate đồng hạng.
-4. Face model kiểm tra chất lượng/liveness, trích xuất embedding đã chuẩn hóa L2.
-5. Hệ thống so Cosine Similarity với embedding đăng ký; mặc định yêu cầu `similarity >= 0.75`.
-6. Hệ thống xác nhận tài xế và phương tiện thuộc cùng authorization còn hiệu lực.
-7. Nếu mọi điều kiện đạt, Gate Log được ghi `PASSED` và hệ thống phát gate command idempotent.
-8. Chỉ khi barrier trả ACK, API mới trả `permit_granted=true`. Mọi mismatch hoặc lỗi thiết bị tạo Gate Log `FAILED`, giữ cổng đóng và phát WebSocket alert.
+7. Hệ thống xác nhận chủ thẻ và phương tiện thuộc cùng authorization còn hiệu lực.
+8. Nếu mọi điều kiện đạt, Gate Log được ghi `PASSED` và hệ thống phát gate command idempotent.
+9. Chỉ khi barrier trả ACK, API mới trả `permit_granted=true`. Mọi mismatch hoặc lỗi thiết bị tạo Gate Log `FAILED`, giữ cổng đóng và phát WebSocket alert.
 
 ```mermaid
 flowchart TD
-    A[Chụp mặt và biển số] --> B[Lưu evidence]
-    B --> C[ALPR và Face Inference]
-    C --> D{Plate khớp?}
-    D -- Không --> X[FAILED + Cảnh báo]
-    D -- Có --> E{Face >= 0.75 và live?}
+    A[Quẹt thẻ RFID + Chụp mặt + Biển số] --> B[Lưu evidence]
+    B --> C{Thẻ ACTIVE?}
+    C -- Không --> X[FAILED + Cảnh báo]
+    C -- Có --> D[Xác định chủ thẻ]
+    D --> E{Face >= 0.75 và live?}
     E -- Không --> X
-    E -- Có --> F{Authorization hợp lệ?}
+    E -- Có --> F{Plate khớp xe đăng ký?}
     F -- Không --> X
-    F -- Có --> G[Ghi Gate Log PASSED]
-    G --> H[Phát lệnh mở barrier]
-    H --> I{Barrier ACK?}
-    I -- Có --> J[Cho phép xe vào]
-    I -- Không --> K[Giữ permit=false + Cảnh báo lỗi cổng]
+    F -- Có --> G{Authorization hợp lệ?}
+    G -- Không --> X
+    G -- Có --> H[Ghi Gate Log PASSED]
+    H --> I[Phát lệnh mở barrier]
+    I --> J{Barrier ACK?}
+    J -- Có --> K[Cho phép xe vào]
+    J -- Không --> L[Giữ permit=false + Cảnh báo lỗi cổng]
 ```
 
 ### 3.2. Luồng Tại Kho — Warehouse Inspection & Exit Slip
@@ -332,36 +336,23 @@ PENDING -> LOADING -> READY_FOR_EXIT -> SLIP_ISSUED -> COMPLETED
 8. QR chứa JWS Ed25519 với `order_id`, `vehicle_id`, `driver_id`, `slip_version`, `jti`, `iat`, `exp` và `kid`.
 9. Thời hạn token là thời điểm sớm hơn giữa `order.valid_until` và 8 giờ. Reissue tăng `slip_version` và vô hiệu phiếu cũ.
 
-### 3.3. Luồng Cổng Ra — Exit Check-out & 3-Way Matching
+### 3.3. Luồng Cổng Ra — Exit Check-out
 
-Điều kiện cho phép rời bãi:
+Điều kiện cho phép rời bãi — cùng ba yếu tố với Gate In:
 
 ```text
-Dữ liệu QR đã ký
-    = Tài xế và phương tiện trực tiếp tại Gate Out
-    = Lệnh xuất kho nội bộ trong MongoDB
+Thẻ RFID hợp lệ + Khuôn mặt đúng chủ thẻ + Biển số đúng phương tiện được ủy quyền
 ```
 
-1. Gate Out chụp khuôn mặt, biển số và quét ảnh QR Exit Slip.
-2. Hệ thống xác minh chữ ký Ed25519, `kid`, issuer/audience, thời hạn, `jti` và `slip_version`.
-3. Order phải tồn tại và ở trạng thái `SLIP_ISSUED`.
-4. Face trực tiếp phải khớp chính xác `assigned_driver_id`.
-5. Plate trực tiếp phải resolve về chính xác `assigned_vehicle_id`.
-6. Nếu một điều kiện sai, hệ thống ghi `FAILED`, giữ order nguyên trạng, giữ barrier đóng và phát cảnh báo `CRITICAL`.
-7. Nếu ba chiều đều đúng, hệ thống ghi Gate Log `PASSED` và phát gate command.
-8. Order chỉ chuyển sang `COMPLETED` sau barrier ACK. Timeout hoặc lỗi barrier không được phép hoàn tất order.
+1. Gate Out chụp khuôn mặt, đọc biển số và quẹt thẻ RFID.
+2. Hệ thống xác thực thẻ: trạng thái ACTIVE, chưa bị thay thế hoặc vô hiệu hóa.
+3. Face trực tiếp phải khớp với chủ thẻ (`similarity >= 0.75`).
+4. Plate trực tiếp phải resolve về phương tiện được ủy quyền cho tài xế.
+5. Nếu một điều kiện sai, hệ thống ghi `FAILED`, giữ barrier đóng và phát cảnh báo.
+6. Nếu ba yếu tố đều đúng, hệ thống ghi Gate Log `PASSED` và phát gate command.
+7. Chỉ khi barrier trả ACK, API mới trả `permit_granted=true`.
 
-### 3.4. Trạng thái khi có lỗi
-
-| Tình huống | Hành vi an toàn |
-|---|---|
-| AI model không tải hoặc inference lỗi | `FAILED`, barrier đóng, phát cảnh báo |
-| Không lưu được evidence | Từ chối trước khi ra quyết định mở cổng |
-| Face/plate không khớp | `FAILED`, giữ order, phát cảnh báo |
-| QR giả, hỏng, hết hạn hoặc bị replay | `CRITICAL`, barrier đóng, order không đổi |
-| Barrier không ACK | `permit_granted=false`; Gate Out không hoàn tất order |
-| Camera gửi lại cùng `event_id` | Trả kết quả idempotent, không mở cổng lần hai |
-| MongoDB không sẵn sàng | Readiness fail; hệ thống không fail-open |
+> Backend kho hàng (Exit Slip QR ký số, lệnh xuất kho, dock session) được giữ nguyên ở lớp API nhưng không hiển thị trên giao diện bãi xe.
 
 ---
 
@@ -395,73 +386,64 @@ Mật khẩu: Local-SmartGate-Admin-2026
 **Thời lượng:** khoảng 2 phút.
 
 1. Mở màn hình **Tài xế**, chọn **Thêm tài xế** và dùng nút **Ảnh mẫu** để enrollment.
-2. Mở màn hình **Phương tiện**, đăng ký biển số `30A12345`.
+2. Mở màn hình **Phương tiện**, đăng ký biển số và loại xe (ví dụ: Xe điện).
 3. Mở màn hình **Ủy quyền**, liên kết tài xế vừa tạo với phương tiện và chọn thời gian hiệu lực hiện tại.
-4. Nhấn mạnh với khách hàng rằng client không được gửi embedding trực tiếp; server tự trích xuất và lưu embedding đã mã hóa.
 
 **Kết quả mong đợi:** hồ sơ tài xế, xe và authorization đều ở trạng thái `ACTIVE`.
 
-### Bước 2 — Demo Cổng Vào
+### Bước 2 — Cấp và thay thẻ nhân viên
 
 **Thời lượng:** khoảng 2 phút.
 
-1. Vào màn hình **Gate In**, sử dụng cùng ảnh mặt mẫu và ảnh biển số mẫu.
+1. Mở màn hình **Quản lý thẻ**, cấp thẻ mới cho nhân viên.
+2. Thay thẻ bằng nút **Thay thẻ**, nhập thẻ mới và lý do.
+3. Chỉ ra thẻ cũ chuyển sang "Đã thay thế", thẻ mới là "Đang hoạt động".
+
+**Kết quả mong đợi:** lịch sử thẻ hiển thị đầy đủ, thẻ hoạt động duy nhất.
+
+### Bước 3 — Demo Cổng Vào (ba yếu tố)
+
+**Thời lượng:** khoảng 2 phút.
+
+1. Vào màn hình **Gate In**, quẹt thẻ RFID, sử dụng ảnh khuôn mặt và ảnh biển số.
 2. Gửi xác minh thành công.
-3. Chỉ ra các score Face/Plate, trạng thái `PASSED`, barrier `ACKNOWLEDGED` và `permit_granted=true`.
-4. Thực hiện test vi phạm bằng ảnh khuôn mặt khác hoặc cặp tài xế–xe không được ủy quyền.
+3. Chỉ ra kết quả từng yếu tố: thẻ hợp lệ, khuôn mặt đúng, biển số đúng, ủy quyền hợp lệ.
+4. Thử dùng thẻ đã thay thế để minh họa từ chối an toàn — barrier giữ đóng.
 
 **Kết quả mong đợi:**
 
-- Test hợp lệ: barrier simulator mở và Gate Log ghi `PASSED`.
-- Test vi phạm: barrier giữ đóng, Gate Log ghi `FAILED` và cảnh báo đỏ xuất hiện tức thời trên màn hình an ninh.
+- Xác thực hợp lệ: barrier mở và hiển thị "Đã mở cổng".
+- Thẻ đã thay: từ chối, barrier đóng, hiển thị "Barrier đóng".
 
-### Bước 3 — Demo Nghiệp vụ Kho và sinh Exit Slip
+### Bước 4 — Demo Cổng Ra (cùng ba yếu tố)
 
-**Thời lượng:** khoảng 2–3 phút.
+**Thời lượng:** khoảng 1 phút.
 
-1. Tạo **Lệnh xuất kho**, chọn đúng tài xế và phương tiện vừa qua Gate In.
-2. Bắt đầu dock session, gửi một hoặc nhiều ảnh hàng hóa bằng **Ảnh mẫu**.
-3. Trình bày timeline cargo state và dữ liệu detection của AI.
-4. Nhân viên kho finalize `LOADED` để order chuyển sang `READY_FOR_EXIT`.
-5. Chọn **Phát hành Exit Slip**, sau đó mở QR, HTML hoặc tải PDF.
+1. Chuyển sang tab **Gate Out**, dùng cùng thẻ mới, khuôn mặt và biển số.
+2. Gửi xác minh và trình bày kết quả ba yếu tố.
 
-**Kết quả mong đợi:** order chuyển sang `SLIP_ISSUED`; QR có chữ ký Ed25519 và thời hạn rõ ràng.
+**Kết quả mong đợi:** barrier mở, không cần phiếu xuất kho hay QR.
 
-### Bước 4 — Demo Đối soát ba bên tại Cổng Ra
+### Bước 5 — Xem lịch sử và KPI
 
-**Thời lượng:** khoảng 2 phút.
-
-1. Vào màn hình **Gate Out**.
-2. Chọn cùng ảnh khuôn mặt, cùng ảnh biển số và QR vừa phát hành.
-3. Gửi xác minh và trình bày ba lớp đối chiếu: QR đã ký, dữ liệu live và order nội bộ.
-4. Có thể thử QR của order khác hoặc QR đã bị sửa để minh họa cảnh báo `CRITICAL`.
-
-**Kết quả mong đợi:** khi ba chiều cùng đúng và barrier ACK, `permit_granted=true` và order chuyển sang `COMPLETED`. Nếu bất kỳ yếu tố nào sai, barrier giữ đóng và order không thay đổi.
+1. Mở **Nhật ký cổng** để xem lịch sử vào, từ chối và ra với kết quả từng yếu tố.
+2. Quay lại **Tổng quan** để xem KPI bãi xe.
 
 ### Chạy demo tự động bằng dòng lệnh
 
-Lệnh sau tạo/tái sử dụng dữ liệu mẫu và chạy toàn bộ Gate In → Dock → Exit Slip → Gate Out ở cấp API:
-
-```bash
-docker compose --profile workflow run --rm workflow-simulator
-```
-
-Kết quả thành công:
-
-```text
-Workflow hoàn tất: entry=PASSED, exit=PASSED, permit=true, order_status=COMPLETED
-```
-
-Để chạy cùng quy trình qua giao diện thật, tạo video Playwright 1440×900, thuyết minh OpenAI tiếng Việt, phụ đề và trace/report đã sanitize:
+Tạo video Playwright 1440×900, thuyết minh Edge TTS tiếng Việt, phụ đề và trace/report đã sanitize:
 
 ```bash
 npm install
 npx playwright install chromium
-# Đặt OPENAI_API_KEY trong file .env cục bộ đã được Git ignore.
 npm run demo:mvp
 ```
 
 Deliverable cuối được ffprobe kiểm tra tại `dist/demo/MVP-Demo.mp4`. Xem [hướng dẫn MVP demo video](demo/README.md) để biết prerequisites, toàn bộ output và cách xử lý sự cố.
+
+Chạy lại tạo demo identity/card history mới trên cùng dữ liệu Mongo/MinIO.
+
+> Backend kho hàng được giữ nguyên ở lớp API nhưng không hiển thị trên giao diện và video demo.
 
 ---
 
@@ -531,13 +513,17 @@ Tên đăng nhập: admin
 Mật khẩu: Local-SmartGate-Admin-2026
 ```
 
-#### Bước 5: Seed dữ liệu và chạy workflow mẫu
+#### Bước 5: Seed dữ liệu mẫu
+
+Đăng nhập vào giao diện tại `http://localhost:8000` và tạo tài xế, phương tiện, ủy quyền và thẻ RFID bằng các màn hình quản lý. Xem [kịch bản demo](#4-kịch-bản-demo-cho-khách-hàng) để biết các bước chi tiết.
+
+Hoặc chạy demo tự động bằng Playwright (tạo dữ liệu và thực hiện toàn bộ luồng kiểm soát bãi xe):
 
 ```bash
-docker compose --profile workflow run --rm workflow-simulator
+npm run demo:test
 ```
 
-Workflow simulator có tính idempotent với dữ liệu nền: nếu tài xế, xe hoặc authorization mẫu hợp lệ đã tồn tại, script sẽ tái sử dụng thay vì tạo bản ghi trùng.
+> Workflow simulator cũ (`docker compose --profile workflow run --rm workflow-simulator`) chưa hỗ trợ thẻ RFID và sẽ được cập nhật trong phiên bản sau.
 
 #### Bước 6: Chạy Edge Agent giả lập
 
@@ -546,6 +532,8 @@ docker compose --profile edge up -d --build
 ```
 
 Edge Agent mặc định lấy ảnh từ camera simulator và gửi verification request theo chu kỳ bằng `X-Device-Key`.
+
+> Edge Agent chưa hỗ trợ đọc thẻ RFID tự động; chức năng này sẽ được bổ sung khi tích hợp đầu đọc thẻ phần cứng.
 
 ### 5.3. Cấu hình biến môi trường
 
@@ -670,17 +658,18 @@ Lệnh trên giữ nguyên MongoDB và MinIO volumes. Chỉ xóa volumes khi ch�
 
 | Màn hình | Chức năng |
 |---|---|
-| Tổng quan | KPI Gate In/Gate Out, order và cảnh báo gần nhất |
-| Gate In | Upload ảnh, camera trình duyệt, ảnh mẫu và kết quả xác minh |
-| Gate Out | Face + Plate + QR, kết quả đối soát ba bên và barrier |
+| Tổng quan | KPI bãi xe: vào thành công, ra thành công, từ chối |
+| Gate In | Xác thực thẻ RFID + khuôn mặt + biển số, kết quả từng yếu tố và barrier |
+| Gate Out | Cùng ba yếu tố, kết quả xác thực và barrier |
 | Tài xế | Đăng ký bằng ảnh, xem và cập nhật trạng thái hồ sơ |
-| Phương tiện | Quản lý biển số chuẩn hóa và metadata |
+| Phương tiện | Quản lý biển số chuẩn hóa, loại xe và metadata |
 | Ủy quyền | Liên kết tài xế–xe theo khoảng thời gian hiệu lực |
-| Kho hàng | Tạo order, dock capture, finalize và theo dõi cargo timeline |
-| Exit Slip | Phát hành, cấp lại, xem QR/HTML và tải PDF |
-| Nhật ký cổng | Tra cứu Gate Log, score, reason code và ảnh evidence |
+| Quản lý thẻ | Cấp, thay thế, vô hiệu hóa thẻ RFID với lịch sử đầy đủ |
+| Nhật ký cổng | Tra cứu Gate Log, kết quả từng yếu tố, reason code và ảnh evidence |
 | Cảnh báo | Nhận WebSocket alert, REST resync và cập nhật trạng thái xử lý |
 | Hệ thống | Theo dõi liveness/readiness của API và dependency |
+
+> Kho hàng và Exit Slip vẫn hoạt động ở lớp API backend nhưng không hiển thị trên giao diện bãi xe.
 
 SPA được phục vụ cùng origin với FastAPI nên cookie HttpOnly, SameSite và CSRF hoạt động mà không cần Node.js hoặc frontend server riêng.
 
@@ -716,10 +705,10 @@ SPA được phục vụ cùng origin với FastAPI nên cookie HttpOnly, SameSi
 
 - **Fail-closed:** không có nhánh lỗi nào được tự động chuyển thành `PASSED`.
 - **Tách quyền điều khiển:** AI chỉ tạo observation; model không có quyền gọi barrier trực tiếp.
-- **Barrier ACK:** xác minh đúng chưa đồng nghĩa được rời bãi; Gate Out chỉ hoàn tất order sau ACK.
+- **Barrier ACK:** xác minh đúng chưa đồng nghĩa được rời bãi; cổng chỉ mở sau barrier ACK.
 - **Mã hóa sinh trắc học:** face embedding được mã hóa AES-256-GCM trước khi lưu MongoDB.
 - **Mã hóa evidence:** ảnh khuôn mặt, biển số, hàng hóa và Exit Slip được mã hóa trước khi lưu MinIO.
-- **Ký số phiếu:** JWS Ed25519 bảo vệ tính toàn vẹn, nguồn phát hành và thời hạn QR.
+- **Ký số phiếu (backend):** JWS Ed25519 bảo vệ tính toàn vẹn Exit Slip — chức năng backend được giữ nguyên.
 - **Password hashing:** mật khẩu được băm bằng Argon2; session/device key chỉ lưu dạng hash.
 - **CSRF và cookie:** mutation của operator yêu cầu CSRF; cookie production bật `Secure` khi `APP_PUBLIC_ORIGIN` dùng HTTPS.
 - **Idempotency:** `event_id`, `jti`, `slip_version` và gate command ID chống retry/replay.
@@ -750,11 +739,11 @@ Node.js chỉ dùng cho kiểm tra cú pháp, Playwright và pipeline tạo vide
 - Cosine Similarity ngay dưới, bằng và trên ngưỡng `0.75`.
 - Exact plate, fuzzy plate hợp lệ và tie rejection.
 - Authorization đúng cặp và còn hiệu lực.
-- State transition của order và dock session.
-- JWS bị sửa, hết hạn, reissue và replay.
-- Đối soát ba bên tại Gate Out.
+- Cấp, thay thế và vô hiệu hóa thẻ RFID với lịch sử đầy đủ.
+- Xác thực ba yếu tố (thẻ + khuôn mặt + biển số) tại Gate In và Gate Out.
+- Từ chối an toàn thẻ đã thay thế hoặc vô hiệu hóa.
 - Idempotency khi camera reconnect hoặc client retry.
-- Barrier timeout và nguyên tắc không hoàn tất order khi chưa ACK.
+- Barrier timeout giữ `permit_granted=false` và cổng đóng.
 - MongoDB transaction, index, MinIO private evidence và WebSocket resync.
 
 Real-model smoke test được tách khỏi test mặc định vì cần tải model và tài nguyên CPU/GPU lớn.

@@ -61,7 +61,7 @@ export async function discoverSingleRunArtifact(root, basename, sinceMs) {
 }
 
 export function validateRunnerEnvironment(environment = process.env) {
-  // Edge TTS is used instead of OpenAI — no API key required.
+  // Edge TTS requires no API key.
   if (environment.DEMO_BURN_SUBTITLES === "false") {
     throw new Error("DEMO_BURN_SUBTITLES must be true for the final MVP demo.");
   }
@@ -173,7 +173,7 @@ export async function runDemo() {
     { secrets: configuredSecrets },
   );
 
-  console.log("NARRATION: generating OpenAI TTS segments.");
+  console.log("NARRATION: generating Edge TTS segments.");
   const voice = await generateVoice();
   console.log("SUBTITLES: generating timeline-derived SRT cues.");
   const subtitles = await generateSrt();
