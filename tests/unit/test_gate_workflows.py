@@ -35,7 +35,7 @@ from smart_gate.domain.enums import (
     RecordStatus,
     VerificationStatus,
 )
-from smart_gate.domain.exceptions import ConflictError
+from smart_gate.domain.exceptions import ConflictError, InfrastructureError, SmartGateError
 from smart_gate.domain.services import FaceMatchingService, PlateMatchingService, normalize_card_uid
 from smart_gate.infrastructure.security.crypto import SecretHasher
 from tests.fakes import (
@@ -779,9 +779,7 @@ async def test_parking_gate_rejects_missing_card_owner() -> None:
 
 @pytest.mark.asyncio
 async def test_parking_gate_rejects_inactive_card_owner() -> None:
-    inactive_driver = Driver(
-        "Tài xế nghỉ việc", (1.0, 0.0), "test", status=RecordStatus.INACTIVE
-    )
+    inactive_driver = Driver("Tài xế nghỉ việc", (1.0, 0.0), "test", status=RecordStatus.INACTIVE)
     harness = _parking_setup(driver=inactive_driver)
 
     output = await harness.use_case.execute(
@@ -1012,3 +1010,400 @@ async def test_parking_gate_returns_registered_vehicle_type() -> None:
 
     assert output.verification_status == VerificationStatus.PASSED
     assert output.vehicle_type == "electric_suv"
+
+
+@pytest.mark.asyncio
+async def test_parking_gate_rejects_invalid_card_uid() -> None:
+    harness = _parking_setup()
+
+    output = await harness.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-invalid-uid-001",
+            gate_id="gate-in",
+            card_uid="---A",
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+
+    assert output.verification_status == VerificationStatus.FAILED
+    assert output.permit_granted is False
+    assert "CARD_UID_INVALID" in output.reason_codes
+    assert output.card_verified is False
+    assert len(harness.evidence.items) == 0
+    assert len(harness.barrier_gateway.calls) == 0
+    assert len(harness.alerts_repo.items) == 1
+
+
+@pytest.mark.asyncio
+async def test_parking_gate_rejects_low_confidence_plate() -> None:
+    harness = _parking_setup(plate_confidence=0.4)
+
+    output = await harness.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-low-conf-plate-001",
+            gate_id="gate-in",
+            card_uid=harness.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+
+    assert output.verification_status == VerificationStatus.FAILED
+    assert output.permit_granted is False
+    assert "PLATE_LOW_CONFIDENCE" in output.reason_codes
+    assert output.plate_verified is False
+    assert len(harness.barrier_gateway.calls) == 0
+    assert len(harness.alerts_repo.items) == 1
+
+
+class _AdapterEvidenceStorageError:
+    async def store(
+        self,
+        payload: bytes,
+        *,
+        category: str,
+        correlation_id: str,
+        content_type: str,
+        extension: str,
+    ) -> str:
+        raise InfrastructureError("EVIDENCE_STORE_FAILED", "MinIO cluster unavailable")
+
+    async def read(self, object_key: str) -> bytes:
+        raise InfrastructureError("EVIDENCE_READ_FAILED", "MinIO cluster unavailable")
+
+
+class _AdapterPlateError:
+    async def recognize(self, image: bytes):
+        raise SmartGateError("PLATE_NOT_FOUND", "Không phát hiện được biển số", status_code=422)
+
+
+class _AdapterAlprLoadError:
+    async def recognize(self, image: bytes):
+        raise InfrastructureError("ALPR_LOAD_FAILED", "Không thể nạp model FastALPR")
+
+
+class _AdapterPaddleOcrError:
+    async def recognize(self, image: bytes):
+        raise InfrastructureError("PADDLE_OCR_FAILED", "PaddleOCR xử lý ký tự thất bại")
+
+
+class _AdapterFaceError:
+    async def extract(self, image: bytes):
+        raise SmartGateError("FACE_NOT_FOUND", "Không phát hiện được khuôn mặt", status_code=422)
+
+
+class _AdapterArbitrarySmartGateError:
+    async def extract(self, image: bytes):
+        raise SmartGateError("CUSTOM_VISION_CRASH", "Custom model error", status_code=500)
+
+
+@pytest.mark.asyncio
+async def test_parking_gate_maps_production_adapter_errors() -> None:
+    # 1. Evidence storage error -> EVIDENCE_STORE_UNEXPECTED_ERROR
+    harness_ev = _parking_setup(evidence_storage=_AdapterEvidenceStorageError())
+    out_ev = await harness_ev.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-ev-001",
+            gate_id="gate-in",
+            card_uid=harness_ev.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_ev.verification_status == VerificationStatus.FAILED
+    assert "EVIDENCE_STORE_UNEXPECTED_ERROR" in out_ev.reason_codes
+    assert "EVIDENCE_STORE_FAILED" not in out_ev.reason_codes
+
+    # 2. Plate genuine no-detection -> VEHICLE_NOT_MATCHED
+    harness_plate = _parking_setup(lpr_gateway=_AdapterPlateError())
+    out_plate = await harness_plate.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-plate-001",
+            gate_id="gate-in",
+            card_uid=harness_plate.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_plate.verification_status == VerificationStatus.FAILED
+    assert "VEHICLE_NOT_MATCHED" in out_plate.reason_codes
+    assert "PLATE_NOT_FOUND" not in out_plate.reason_codes
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" not in out_plate.reason_codes
+    assert len(harness_plate.alerts_repo.items) == 1
+    assert harness_plate.alerts_repo.items[0].alert_type == "ENTRY_MISMATCH"
+
+    # 2b. ALPR load infrastructure failure -> AI_PIPELINE_UNEXPECTED_ERROR + ENTRY_PROCESSING_FAILED
+    harness_alpr = _parking_setup(lpr_gateway=_AdapterAlprLoadError())
+    out_alpr = await harness_alpr.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-alpr-001",
+            gate_id="gate-in",
+            card_uid=harness_alpr.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_alpr.verification_status == VerificationStatus.FAILED
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" in out_alpr.reason_codes
+    assert "VEHICLE_NOT_MATCHED" not in out_alpr.reason_codes
+    assert len(harness_alpr.alerts_repo.items) == 1
+    assert harness_alpr.alerts_repo.items[0].alert_type == "ENTRY_PROCESSING_FAILED"
+
+    # 2c. Paddle OCR infrastructure failure -> AI_PIPELINE_UNEXPECTED_ERROR + ENTRY_PROCESSING_FAILED
+    harness_ocr = _parking_setup(lpr_gateway=_AdapterPaddleOcrError())
+    out_ocr = await harness_ocr.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-ocr-001",
+            gate_id="gate-in",
+            card_uid=harness_ocr.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_ocr.verification_status == VerificationStatus.FAILED
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" in out_ocr.reason_codes
+    assert "VEHICLE_NOT_MATCHED" not in out_ocr.reason_codes
+    assert len(harness_ocr.alerts_repo.items) == 1
+    assert harness_ocr.alerts_repo.items[0].alert_type == "ENTRY_PROCESSING_FAILED"
+
+    # 2d. Exit direction ALPR infrastructure failure -> EXIT_PROCESSING_FAILED
+    harness_exit_alpr = _parking_setup(lpr_gateway=_AdapterAlprLoadError())
+    out_exit_alpr = await harness_exit_alpr.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.EXIT,
+            event_id="parking-adapter-alpr-exit-001",
+            gate_id="gate-out",
+            card_uid=harness_exit_alpr.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_exit_alpr.verification_status == VerificationStatus.FAILED
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" in out_exit_alpr.reason_codes
+    assert "VEHICLE_NOT_MATCHED" not in out_exit_alpr.reason_codes
+    assert len(harness_exit_alpr.alerts_repo.items) == 1
+    assert harness_exit_alpr.alerts_repo.items[0].alert_type == "EXIT_PROCESSING_FAILED"
+
+    # 3. Face error -> AI_PIPELINE_UNEXPECTED_ERROR
+    harness_face = _parking_setup(face_gateway=_AdapterFaceError())
+    out_face = await harness_face.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-face-001",
+            gate_id="gate-in",
+            card_uid=harness_face.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_face.verification_status == VerificationStatus.FAILED
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" in out_face.reason_codes
+    assert "FACE_NOT_FOUND" not in out_face.reason_codes
+
+    # 4. Any other SmartGateError -> AI_PIPELINE_UNEXPECTED_ERROR
+    harness_other = _parking_setup(face_gateway=_AdapterArbitrarySmartGateError())
+    out_other = await harness_other.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-adapter-other-001",
+            gate_id="gate-in",
+            card_uid=harness_other.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+    assert out_other.verification_status == VerificationStatus.FAILED
+    assert "AI_PIPELINE_UNEXPECTED_ERROR" in out_other.reason_codes
+    assert "CUSTOM_VISION_CRASH" not in out_other.reason_codes
+
+
+class _ConcurrentRaceGateLogRepo(GateLogRepositoryFake):
+    def __init__(self, competing_direction: Direction) -> None:
+        super().__init__()
+        self.competing_direction = competing_direction
+        self._first_lookup = True
+
+    async def get_by_event_id(self, event_id: str) -> GateLog | None:
+        if self._first_lookup:
+            self._first_lookup = False
+            return None
+        return await super().get_by_event_id(event_id)
+
+    async def add(self, gate_log: GateLog) -> GateLog:
+        if gate_log.event_id not in self.items:
+            competing_log = GateLog(
+                event_id=gate_log.event_id,
+                direction=self.competing_direction,
+                verification_status=VerificationStatus.PASSED,
+                observed_plate="30A12345",
+                plate_score=1.0,
+                plate_match_type=PlateMatchType.EXACT,
+                face_similarity=1.0,
+                verification_score=1.0,
+                reason_codes=["ALL_CHECKS_PASSED"],
+                threshold_version="v1",
+            )
+            self.items[gate_log.event_id] = competing_log
+        return await super().add(gate_log)
+
+
+@pytest.mark.asyncio
+async def test_parking_gate_concurrent_cross_direction_raises_conflict() -> None:
+    # 1. Success path concurrent race
+    driver = Driver("Tài xế", (1.0, 0.0), "test")
+    vehicle = Vehicle("30A-12345", "30A12345", "sedan")
+    card = EmployeeCard(
+        card_uid="CARD-1234",
+        card_uid_normalized="CARD1234",
+        driver_id=driver.id,
+        status=CardStatus.ACTIVE,
+    )
+    cards_repo = EmployeeCardRepositoryFake(card)
+    drivers_repo = DriverRepositoryFake(driver)
+    vehicles_repo = VehicleRepositoryFake(vehicle)
+    authorizations_repo = AuthorizationRepositoryFake(True)
+    race_logs = _ConcurrentRaceGateLogRepo(competing_direction=Direction.EXIT)
+    alerts_repo = AlertRepositoryFake()
+    alerts = AlertService(alerts_repo, SequenceRepositoryFake(), RealtimePublisherFake())
+    barrier_gateway = BarrierGatewayFake(True)
+    barrier = BarrierService(barrier_gateway, GateCommandRepositoryFake(), race_logs, alerts)
+    use_case = VerifyParkingGateUseCase(
+        _settings(),
+        cards_repo,
+        drivers_repo,
+        vehicles_repo,
+        authorizations_repo,
+        race_logs,
+        EvidenceStorageFake(),
+        StaticPlateGateway("30A12345"),
+        StaticFaceGateway((1.0, 0.0)),
+        PlateMatchingService(90),
+        FaceMatchingService(0.75),
+        alerts,
+        barrier,
+    )
+
+    with pytest.raises(ConflictError) as exc_info:
+        await use_case.execute(
+            ParkingGateVerificationInput(
+                direction=Direction.ENTRY,
+                event_id="concurrent-cross-001",
+                gate_id="gate-in",
+                card_uid=card.card_uid,
+                plate_image=b"plate",
+                face_image=b"face",
+            )
+        )
+    assert exc_info.value.code == "EVENT_ID_WORKFLOW_CONFLICT"
+
+    # 2. Failed path concurrent race (e.g. invalid card UID)
+    race_logs_failed = _ConcurrentRaceGateLogRepo(competing_direction=Direction.EXIT)
+    barrier_failed = BarrierService(
+        barrier_gateway, GateCommandRepositoryFake(), race_logs_failed, alerts
+    )
+    use_case_failed = VerifyParkingGateUseCase(
+        _settings(),
+        cards_repo,
+        drivers_repo,
+        vehicles_repo,
+        authorizations_repo,
+        race_logs_failed,
+        EvidenceStorageFake(),
+        StaticPlateGateway("30A12345"),
+        StaticFaceGateway((1.0, 0.0)),
+        PlateMatchingService(90),
+        FaceMatchingService(0.75),
+        alerts,
+        barrier_failed,
+    )
+    with pytest.raises(ConflictError) as exc_info_failed:
+        await use_case_failed.execute(
+            ParkingGateVerificationInput(
+                direction=Direction.ENTRY,
+                event_id="concurrent-cross-002",
+                gate_id="gate-in",
+                card_uid="---A",
+                plate_image=b"plate",
+                face_image=b"face",
+            )
+        )
+    assert exc_info_failed.value.code == "EVENT_ID_WORKFLOW_CONFLICT"
+
+
+@pytest.mark.asyncio
+async def test_parking_gate_barrier_no_ack_keeps_permit_closed() -> None:
+    harness = _parking_setup(barrier_opened=False)
+
+    output = await harness.use_case.execute(
+        ParkingGateVerificationInput(
+            direction=Direction.ENTRY,
+            event_id="parking-barrier-no-ack-001",
+            gate_id="gate-in",
+            card_uid=harness.card.card_uid,
+            plate_image=b"plate",
+            face_image=b"face",
+        )
+    )
+
+    assert output.verification_status == VerificationStatus.PASSED
+    assert output.permit_granted is False
+    assert output.barrier_status == BarrierStatus.FAILED
+    assert len(harness.barrier_gateway.calls) == 1
+    assert any(item.alert_type == "GATE_FAILURE" for item in harness.alerts_repo.items)
+
+
+@pytest.mark.asyncio
+async def test_gate_router_rejects_malformed_card_uid_without_leak() -> None:
+    from types import SimpleNamespace
+
+    from httpx import ASGITransport, AsyncClient
+
+    from smart_gate.domain.entities import User
+    from smart_gate.domain.enums import UserRole
+    from smart_gate.main import create_app
+    from smart_gate.presentation.dependencies import get_container
+    from smart_gate.presentation.routers.gates import router as gates_router
+
+    settings = Settings(_env_file=None, APP_ENV="test")
+    app = create_app(settings)
+    user = User(id=uuid4(), username="admin", password_hash="hash", role=UserRole.ADMIN)
+    for r in gates_router.routes:
+        for d in r.dependant.dependencies:
+            if d.call and d.call.__name__ == "authorize":
+                app.dependency_overrides[d.call] = lambda: user
+    app.dependency_overrides[get_container] = lambda: SimpleNamespace(settings=settings)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Too short (< 4 chars)
+        res_short = await client.post(
+            "/api/v1/gates/entry/verifications",
+            data={"event_id": "event-12345678", "gate_id": "gate-1", "card_uid": "ab"},
+            files={
+                "plate_image": ("p.jpg", b"plate", "image/jpeg"),
+                "face_image": ("f.jpg", b"face", "image/jpeg"),
+            },
+        )
+        assert res_short.status_code == 422
+        assert res_short.json()["error"]["code"] == "CARD_UID_INVALID"
+        assert "ab" not in res_short.text
+
+        # Too long (> 128 chars)
+        long_uid = "x" * 150
+        res_long = await client.post(
+            "/api/v1/gates/entry/verifications",
+            data={"event_id": "event-12345678", "gate_id": "gate-1", "card_uid": long_uid},
+            files={
+                "plate_image": ("p.jpg", b"plate", "image/jpeg"),
+                "face_image": ("f.jpg", b"face", "image/jpeg"),
+            },
+        )
+        assert res_long.status_code == 422
+        assert res_long.json()["error"]["code"] == "CARD_UID_INVALID"
+        assert long_uid not in res_long.text

@@ -252,7 +252,7 @@ class BeanieEmployeeCardRepository:
     async def list_by_driver(self, driver_id: UUID) -> list[EmployeeCard]:
         documents = (
             await EmployeeCardDocument.find(EmployeeCardDocument.driver_id == driver_id)
-            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])
+            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])  # type: ignore[list-item]
             .to_list()
         )
         return [_employee_card_from_document(document) for document in documents]
@@ -260,7 +260,7 @@ class BeanieEmployeeCardRepository:
     async def list_all(self) -> list[EmployeeCard]:
         documents = (
             await EmployeeCardDocument.find_all()
-            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])
+            .sort([("issued_at", DESCENDING), ("_id", DESCENDING)])  # type: ignore[list-item]
             .to_list()
         )
         return [_employee_card_from_document(document) for document in documents]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from uuid import uuid4
 
 import pytest
@@ -241,3 +242,86 @@ async def test_role_permissions(
         )
         assert post_response.status_code == 403
         assert post_response.json()["error"]["code"] == "ROLE_DENIED"
+
+
+async def test_employee_card_validation_redacts_raw_card_uid(app, active_driver: Driver) -> None:
+    transport = ASGITransport(app=app)
+    raw_uid_too_long = "SENSITIVE-RAW-UID-" + ("X" * 150)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Issue endpoint with invalid (too long) card_uid
+        issue_res = await client.post(
+            "/api/v1/employee-cards",
+            json={
+                "driver_id": str(active_driver.id),
+                "card_uid": raw_uid_too_long,
+            },
+        )
+        assert issue_res.status_code == 422
+        assert raw_uid_too_long not in issue_res.text
+        body = issue_res.json()
+        assert body["error"]["code"] == "REQUEST_VALIDATION_FAILED"
+        errors = body["error"]["details"]["errors"]
+        card_errors = [e for e in errors if "card_uid" in e.get("loc", ())]
+        assert len(card_errors) > 0
+        for err in card_errors:
+            assert "input" not in err
+            assert "ctx" not in err
+
+        # 2. Replace endpoint with invalid (too long) card_uid
+        replace_res = await client.post(
+            f"/api/v1/employee-cards/{uuid4()}/replace",
+            json={
+                "card_uid": raw_uid_too_long,
+                "status_reason": "Thẻ hỏng",
+            },
+        )
+        assert replace_res.status_code == 422
+        assert raw_uid_too_long not in replace_res.text
+        replace_body = replace_res.json()
+        assert replace_body["error"]["code"] == "REQUEST_VALIDATION_FAILED"
+        replace_errors = replace_body["error"]["details"]["errors"]
+        replace_card_errors = [e for e in replace_errors if "card_uid" in e.get("loc", ())]
+        assert len(replace_card_errors) > 0
+        for err in replace_card_errors:
+            assert "input" not in err
+            assert "ctx" not in err
+
+        # 3. Non-sensitive fields also have input/ctx stripped globally
+        driver_res = await client.post(
+            "/api/v1/employee-cards",
+            json={
+                "driver_id": "invalid-uuid-format",
+                "card_uid": "11-22-33-44",
+            },
+        )
+        assert driver_res.status_code == 422
+        driver_body = driver_res.json()
+        driver_errors = [
+            e for e in driver_body["error"]["details"]["errors"] if "driver_id" in e.get("loc", ())
+        ]
+        assert len(driver_errors) > 0
+        assert "input" not in driver_errors[0]
+        assert "ctx" not in driver_errors[0]
+
+
+async def test_employee_card_wrong_root_shape_does_not_leak_card_uid(
+    app, active_driver: Driver
+) -> None:
+    """Sending a JSON array instead of object should not leak card_uid in validation errors."""
+    transport = ASGITransport(app=app)
+    raw_uid = "BODY-LEVEL-RAW-UID-LEAK-TEST"
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post(
+            "/api/v1/employee-cards",
+            content=json.dumps([{"driver_id": str(active_driver.id), "card_uid": raw_uid}]),
+            headers={"Content-Type": "application/json"},
+        )
+        assert res.status_code == 422
+        assert raw_uid not in res.text
+        body = res.json()
+        assert body["error"]["code"] == "REQUEST_VALIDATION_FAILED"
+        for err in body["error"]["details"]["errors"]:
+            assert "input" not in err
+            assert "ctx" not in err

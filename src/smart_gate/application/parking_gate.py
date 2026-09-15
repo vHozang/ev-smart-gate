@@ -121,16 +121,22 @@ class VerifyParkingGateUseCase:
         try:
             snapshot_refs = await self._store_snapshots(payload)
         except SmartGateError as exc:
+            logger.warning(
+                "Lưu bằng chứng bãi xe thất bại với adapter error %s: %s cho event %s",
+                exc.code,
+                exc.message,
+                payload.event_id,
+            )
             return await self._failed(
                 payload,
-                [exc.code],
+                ["EVIDENCE_STORE_UNEXPECTED_ERROR"],
                 card_id=card.id,
                 card_status=card.status,
                 card_verified=True,
                 driver_id=driver.id,
                 driver_name=driver.full_name,
                 is_processing_error=True,
-                message=exc.message,
+                message="Không thể lưu bằng chứng cổng; hệ thống từ chối mở cổng",
             )
         except Exception as exc:
             logger.exception(
@@ -151,30 +157,25 @@ class VerifyParkingGateUseCase:
             )
 
         # 5. Parallel AI (LPR + face extraction)
-        try:
-            plate_observation, face_observation = await asyncio.gather(
-                self.lpr.recognize(payload.plate_image),
-                self.face.extract(payload.face_image),
-            )
-        except SmartGateError as exc:
-            return await self._failed(
-                payload,
-                [exc.code],
-                card_id=card.id,
-                card_status=card.status,
-                card_verified=True,
-                driver_id=driver.id,
-                driver_name=driver.full_name,
-                snapshot_refs=snapshot_refs,
-                is_processing_error=True,
-                message=exc.message,
-            )
-        except Exception as exc:
-            logger.exception(
-                "Pipeline AI bãi xe phát sinh lỗi ngoài dự kiến cho event %s",
-                payload.event_id,
-                exc_info=exc,
-            )
+        plate_res, face_res = await asyncio.gather(
+            self.lpr.recognize(payload.plate_image),
+            self.face.extract(payload.face_image),
+            return_exceptions=True,
+        )
+        if isinstance(face_res, BaseException):
+            if isinstance(face_res, SmartGateError):
+                logger.warning(
+                    "Trích xuất khuôn mặt bãi xe thất bại với adapter error %s: %s cho event %s",
+                    face_res.code,
+                    face_res.message,
+                    payload.event_id,
+                )
+            else:
+                logger.exception(
+                    "Pipeline AI bãi xe phát sinh lỗi ngoài dự kiến khi trích xuất khuôn mặt cho event %s",
+                    payload.event_id,
+                    exc_info=face_res,
+                )
             return await self._failed(
                 payload,
                 ["AI_PIPELINE_UNEXPECTED_ERROR"],
@@ -187,6 +188,48 @@ class VerifyParkingGateUseCase:
                 is_processing_error=True,
                 message="Pipeline AI gặp lỗi; hệ thống từ chối mở cổng",
             )
+
+        if isinstance(plate_res, BaseException):
+            if isinstance(plate_res, SmartGateError):
+                logger.warning(
+                    "Nhận dạng biển số bãi xe thất bại với adapter error %s: %s cho event %s",
+                    plate_res.code,
+                    plate_res.message,
+                    payload.event_id,
+                )
+                code_upper = plate_res.code.upper()
+                if code_upper == "PLATE_NOT_FOUND":
+                    reason_code = "VEHICLE_NOT_MATCHED"
+                    is_proc = False
+                    msg = None
+                else:
+                    reason_code = "AI_PIPELINE_UNEXPECTED_ERROR"
+                    is_proc = True
+                    msg = "Pipeline AI gặp lỗi; hệ thống từ chối mở cổng"
+            else:
+                logger.exception(
+                    "Pipeline AI bãi xe phát sinh lỗi ngoài dự kiến khi nhận dạng biển số cho event %s",
+                    payload.event_id,
+                    exc_info=plate_res,
+                )
+                reason_code = "AI_PIPELINE_UNEXPECTED_ERROR"
+                is_proc = True
+                msg = "Pipeline AI gặp lỗi; hệ thống từ chối mở cổng"
+            return await self._failed(
+                payload,
+                [reason_code],
+                card_id=card.id,
+                card_status=card.status,
+                card_verified=True,
+                driver_id=driver.id,
+                driver_name=driver.full_name,
+                snapshot_refs=snapshot_refs,
+                is_processing_error=is_proc,
+                message=msg,
+            )
+
+        plate_observation = plate_res
+        face_observation = face_res
 
         # 6. Factor evaluation (deterministic order)
         reason_codes: list[str] = []
@@ -234,9 +277,7 @@ class VerifyParkingGateUseCase:
         verification_status = (
             VerificationStatus.FAILED if reason_codes else VerificationStatus.PASSED
         )
-        verification_score = (
-            min(plate_match.score, face_similarity) if not reason_codes else 0.0
-        )
+        verification_score = min(plate_match.score, face_similarity) if not reason_codes else 0.0
         vehicle_type = plate_match.vehicle.vehicle_type if plate_match.vehicle else None
 
         gate_log = GateLog(
@@ -270,6 +311,11 @@ class VerifyParkingGateUseCase:
         # 7. Store GateLog & handle concurrent duplicate race
         stored = await self.gate_logs.add(gate_log)
         if stored.id != gate_log.id:
+            if stored.direction != payload.direction:
+                raise ConflictError(
+                    "EVENT_ID_WORKFLOW_CONFLICT",
+                    "event_id đã được dùng cho hướng cổng khác",
+                )
             return await self._output(stored)
 
         # 8. Alert handling on failure
@@ -277,9 +323,7 @@ class VerifyParkingGateUseCase:
             alert = await self.alerts.create(
                 event_id=payload.event_id,
                 alert_type=(
-                    "ENTRY_MISMATCH"
-                    if payload.direction == Direction.ENTRY
-                    else "EXIT_MISMATCH"
+                    "ENTRY_MISMATCH" if payload.direction == Direction.ENTRY else "EXIT_MISMATCH"
                 ),
                 severity=AlertSeverity.HIGH,
                 message=(
@@ -310,9 +354,7 @@ class VerifyParkingGateUseCase:
             driver_name=driver.full_name,
         )
 
-    async def _store_snapshots(
-        self, payload: ParkingGateVerificationInput
-    ) -> list[str]:
+    async def _store_snapshots(self, payload: ParkingGateVerificationInput) -> list[str]:
         prefix = "gate-entry" if payload.direction == Direction.ENTRY else "gate-exit"
         return list(
             await asyncio.gather(
@@ -370,6 +412,11 @@ class VerifyParkingGateUseCase:
         )
         stored = await self.gate_logs.add(gate_log)
         if stored.id != gate_log.id:
+            if stored.direction != payload.direction:
+                raise ConflictError(
+                    "EVENT_ID_WORKFLOW_CONFLICT",
+                    "event_id đã được dùng cho hướng cổng khác",
+                )
             return await self._output(stored)
 
         alert_type = (
@@ -379,11 +426,7 @@ class VerifyParkingGateUseCase:
                 else "EXIT_PROCESSING_FAILED"
             )
             if is_processing_error
-            else (
-                "ENTRY_MISMATCH"
-                if payload.direction == Direction.ENTRY
-                else "EXIT_MISMATCH"
-            )
+            else ("ENTRY_MISMATCH" if payload.direction == Direction.ENTRY else "EXIT_MISMATCH")
         )
         alert_msg = message or (
             (

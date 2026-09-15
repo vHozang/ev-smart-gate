@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,6 +11,16 @@ from fastapi.responses import JSONResponse
 from smart_gate.domain.exceptions import SmartGateError
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_validation_errors(errors: Sequence[Any]) -> list[dict[str, Any]]:
+    """Strip raw input values from all validation errors to prevent sensitive data leakage."""
+    sanitized: list[dict[str, Any]] = []
+    for err in errors:
+        if isinstance(err, dict):
+            err = {k: v for k, v in err.items() if k not in ("input", "ctx")}
+        sanitized.append(err)
+    return sanitized
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -31,13 +43,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def validation_error_handler(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        sanitized_errors = _sanitize_validation_errors(exc.errors())
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "code": "REQUEST_VALIDATION_FAILED",
                     "message": "Dữ liệu yêu cầu không hợp lệ",
-                    "details": {"errors": exc.errors()},
+                    "details": {"errors": sanitized_errors},
                 }
             },
         )
