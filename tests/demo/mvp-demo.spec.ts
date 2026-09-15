@@ -14,10 +14,11 @@ interface DemoIdentity {
   driverName: string;
   vehicleId: string;
   plateNumber: string;
-  orderId: string;
+  vehicleType: string;
+  oldCardUid: string;
+  newCardUid: string;
   faceImage: Buffer;
   plateImage: Buffer;
-  cargoImage: Buffer;
 }
 
 const outputDirectory = path.resolve("dist/demo");
@@ -33,29 +34,27 @@ function assertConfiguredPassword(value: string | undefined): asserts value is s
 }
 
 async function expectOk(response: Awaited<ReturnType<APIRequestContext["get"]>>, label: string) {
-  expect(response.ok(), `${label}: HTTP ${response.status()} ${await response.text()}`).toBeTruthy();
+  expect(response.ok(), `${label}: HTTP ${response.status()}`).toBeTruthy();
 }
 
 async function prepareDemoIdentity(page: Page): Promise<DemoIdentity> {
   const runLabel = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
   const driverName = `Tài xế Demo ${runLabel.slice(-6)}`;
   const employeeCode = `MVP-${runLabel}`;
-  const orderId = `MVP-DEMO-${runLabel}`;
   const plateNumber = "30A-12345";
+  const oldCardUid = `DEMO-${runLabel}-OLDC`;
+  const newCardUid = `DEMO-${runLabel}-NEWC`;
 
-  const [faceResponse, plateResponse, cargoResponse] = await Promise.all([
+  const [faceResponse, plateResponse] = await Promise.all([
     page.request.get(`${cameraURL}/face.jpg`),
     page.request.get(`${cameraURL}/plate.jpg`),
-    page.request.get(`${cameraURL}/cargo.jpg`),
   ]);
   await expectOk(faceResponse, "Load simulated face image");
   await expectOk(plateResponse, "Load simulated plate image");
-  await expectOk(cargoResponse, "Load simulated cargo image");
 
   // JPEG decoders ignore bytes after EOI, while simulated face embeddings remain unique per run.
   const faceImage = Buffer.concat([await faceResponse.body(), Buffer.from(employeeCode)]);
   const plateImage = await plateResponse.body();
-  const cargoImage = await cargoResponse.body();
 
   const meResponse = await page.request.get(`${baseURL}/api/v1/auth/me`);
   await expectOk(meResponse, "Read authenticated demo session");
@@ -83,6 +82,7 @@ async function prepareDemoIdentity(page: Page): Promise<DemoIdentity> {
     id: string;
     plate_number: string;
     plate_normalized: string;
+    vehicle_type: string;
     status: string;
   }>;
   let vehicle = vehicles.find(
@@ -93,9 +93,9 @@ async function prepareDemoIdentity(page: Page): Promise<DemoIdentity> {
       headers: mutationHeaders,
       data: {
         plate_number: plateNumber,
-        vehicle_type: "Xe tải điện",
-        make: "EV Logistics",
-        model: "MVP Demo",
+        vehicle_type: "Xe điện",
+        make: "VinFast",
+        model: "VF e34",
         color: "Xanh",
         metadata: { purpose: "automated-demo" },
       },
@@ -124,10 +124,11 @@ async function prepareDemoIdentity(page: Page): Promise<DemoIdentity> {
     driverName,
     vehicleId: vehicle.id,
     plateNumber: vehicle.plate_number,
-    orderId,
+    vehicleType: vehicle.vehicle_type,
+    oldCardUid,
+    newCardUid,
     faceImage,
     plateImage,
-    cargoImage,
   };
 }
 
@@ -162,12 +163,17 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
 
   let identity: DemoIdentity;
 
-  await demoStep("intro", "Mở trung tâm điều hành EV Smart Gate", async () => {
+  // 1. intro — Open parking control center
+  await demoStep("intro", "Mở trung tâm kiểm soát bãi xe EV Smart Gate", async () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/EV Smart Gate/);
     await expect(page.getByRole("heading", { name: "Đăng nhập vận hành" })).toBeVisible();
+
+    const introBodyText = await page.locator("body").textContent();
+    expect(introBodyText).not.toMatch(/Xuất kho|lệnh kho|dock|Exit Slip|QR phiếu xuất/i);
   });
 
+  // 2. login — Log in with safe operations session
   await demoStep("login", "Đăng nhập bằng phiên vận hành an toàn", async () => {
     await page.getByLabel("Tên đăng nhập").fill(username);
     await page.evaluate((secret) => {
@@ -178,110 +184,191 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
     }, password);
     await page.getByRole("button", { name: /Vào trung tâm điều hành/ }).click();
     await expect(page.getByRole("heading", { name: /hệ thống đã sẵn sàng/i })).toBeVisible();
-    await expect(page.getByText("Hệ thống đang trực tuyến", { exact: true })).toBeVisible();
+
+    // Assert absence of warehouse copy after login
+    const bodyText = await page.locator("body").textContent();
+    expect(bodyText).not.toMatch(/Xuất kho|lệnh kho|dock|Exit Slip|QR phiếu xuất/i);
   });
 
   identity = await prepareDemoIdentity(page);
 
-  await demoStep("identity", "Hiển thị hồ sơ tin cậy của chuyến xe", async () => {
+  // 3. identity-registration — Show employee profile, face, vehicle & vehicle type
+  await demoStep("identity-registration", "Hiển thị hồ sơ nhân viên, khuôn mặt, xe và loại xe", async () => {
     await page.getByRole("button", { name: "Làm mới" }).click();
+    // Show driver page with face enrollment
     await page.getByRole("button", { name: "Tài xế", exact: true }).click();
     await expect(page.getByText(identity.driverName, { exact: true })).toBeVisible();
+    // Show vehicle page with plate and vehicle type
+    await page.getByRole("button", { name: "Phương tiện", exact: true }).click();
+    const vehicleRow = page.getByRole("row").filter({ hasText: identity.plateNumber });
+    await expect(vehicleRow.getByText(identity.plateNumber, { exact: true })).toBeVisible();
+    await expect(vehicleRow.getByText(identity.vehicleType, { exact: true })).toBeVisible();
+    // Show authorization linking driver to vehicle
     await page.getByRole("button", { name: /Ủy quyền/ }).click();
-    const authorizationRow = page.getByRole("row").filter({ hasText: identity.driverName });
-    await expect(authorizationRow.getByText(identity.driverName, { exact: true })).toBeVisible();
-    await expect(
-      authorizationRow.getByText(identity.plateNumber, { exact: true }),
-    ).toBeVisible();
+    const authRow = page.getByRole("row").filter({ hasText: identity.driverName });
+    await expect(authRow.getByText(identity.driverName, { exact: true })).toBeVisible();
+    await expect(authRow.getByText(identity.plateNumber, { exact: true })).toBeVisible();
   });
 
-  await demoStep("gate-entry", "Xác minh tài xế và phương tiện tại Gate In", async () => {
+  // 4. card-issuance — Issue employee card
+  await demoStep("card-issuance", "Cấp thẻ nhân viên", async () => {
+    // Navigate to employee cards
+    await page.getByRole("button", { name: /Quản lý thẻ|Thẻ nhân viên/ }).click();
+    // Click "Cấp thẻ mới" button
+    await page.getByRole("button", { name: /Cấp thẻ mới/ }).click();
+    // Fill card issuance form - find the dialog
+    const dialog = page.getByRole("dialog");
+    // Select the demo driver
+    await dialog.locator('[name="driver_id"]').selectOption(identity.driverId);
+    // Fill card_uid using page.evaluate to avoid exposing in trace
+    await page.evaluate((uid) => {
+      const input = document.querySelector<HTMLInputElement>('[role="dialog"] [name="card_uid"]');
+      if (!input) throw new Error("card_uid field not found");
+      input.value = uid;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, identity.oldCardUid);
+    // Submit
+    await dialog.getByRole("button", { name: /Cấp thẻ|Lưu/ }).click();
+    // Assert masked suffix and ACTIVE status visible for the demo driver
+    const driverArticle = page.locator("article.card").filter({ hasText: identity.driverName });
+    await expect(driverArticle.locator('.card-active .card-uid')).toContainText("OLDC");
+    await expect(driverArticle.locator('.card-active').getByText("Đang hoạt động")).toBeVisible();
+  });
+
+  // 5. card-replacement — Replace card and keep old card history
+  await demoStep("card-replacement", "Thay thẻ và lưu lịch sử thẻ cũ", async () => {
+    // Click "Thay thẻ" button on the demo driver's card
+    const driverArticle = page.locator("article.card").filter({ hasText: identity.driverName });
+    await driverArticle.getByRole("button", { name: /Thay thẻ/ }).click();
+    const replaceDialog = page.getByRole("dialog");
+    // Fill new card UID securely
+    await page.evaluate((uid) => {
+      const input = document.querySelector<HTMLInputElement>('[role="dialog"] [name="card_uid"]');
+      if (!input) throw new Error("card_uid field not found in replace dialog");
+      input.value = uid;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, identity.newCardUid);
+    // Fill reason
+    await replaceDialog.locator('[name="status_reason"]').fill("Thẻ cũ bị mờ chip");
+    // Submit
+    await replaceDialog.getByRole("button", { name: /Thay thẻ|Xác nhận/ }).click();
+    // New card is active with distinct suffix
+    await expect(driverArticle.locator('.card-active .card-uid')).toContainText("NEWC");
+    await expect(driverArticle.locator('.card-active').getByText("Đang hoạt động")).toBeVisible();
+    // Old card in history shows "Đã thay thế"
+    await expect(driverArticle.locator('.card-history').getByText("Đã thay thế")).toBeVisible();
+  });
+
+  // 6. gate-entry — Three-factor verification at Gate In
+  await demoStep("gate-entry", "Xác thực thẻ, khuôn mặt và biển số tại Gate In", async () => {
     await page.getByRole("button", { name: /Kiểm soát cổng/ }).click();
-    await setImage(page, "Ảnh biển số", "mvp-demo-plate.jpg", identity.plateImage);
+    // Fill card_uid securely (password field)
+    await page.evaluate((uid) => {
+      const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
+      if (!input) throw new Error("card_uid gate field not found");
+      input.value = uid;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, identity.newCardUid);
     await setImage(page, "Ảnh khuôn mặt", "mvp-demo-face.jpg", identity.faceImage);
-    await page
-      .getByRole("button", { name: /Xác minh và yêu cầu mở Gate In/ })
-      .click();
+    await setImage(page, "Ảnh biển số", "mvp-demo-plate.jpg", identity.plateImage);
+    await page.getByRole("button", { name: /Xác minh và mở Gate In/ }).click();
     await expect(page.getByRole("heading", { name: "Đã mở cổng" })).toBeVisible();
     await expect(page.getByText(identity.driverName, { exact: true })).toBeVisible();
+    await expect(page.getByText(identity.plateNumber, { exact: true })).toBeVisible();
+    await expect(page.getByText(identity.vehicleType, { exact: false })).toBeVisible();
+    // Verify factor badges all pass
+    await expect(page.locator(".factor-pass")).toHaveCount(4);
   });
 
-  await demoStep("warehouse-order", "Tạo lệnh xuất kho cho chuyến xe đã xác minh", async () => {
-    await page.getByRole("button", { name: /Xuất kho/ }).click();
-    await page.getByRole("button", { name: /Tạo lệnh mới/ }).click();
-    const dialog = page.getByRole("dialog", { name: "Tạo lệnh xuất kho" });
-    await dialog.locator('[name="order_id"]').fill(identity.orderId);
-    await dialog.locator('[name="assigned_driver_id"]').selectOption(identity.driverId);
-    await dialog.locator('[name="assigned_vehicle_id"]').selectOption(identity.vehicleId);
-    await dialog.locator('[name="cargo_sku"]').fill("PIN-EV-MVP");
-    await dialog.locator('[name="cargo_quantity"]').fill("12");
-    const orderCreated = page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return (
-        response.request().method() === "POST" &&
-        url.pathname === "/api/v1/warehouse/orders"
-      );
-    });
-    await page.getByRole("button", { name: "Tạo lệnh", exact: true }).click();
-    expect((await orderCreated).status()).toBe(201);
-    await expect(page.getByRole("heading", { name: identity.orderId })).toBeVisible();
-  });
-
-  await demoStep("cargo-inspection", "Kiểm hàng và xác nhận trạng thái tại dock", async () => {
-    await page.getByRole("heading", { name: identity.orderId }).click();
-    await page.getByRole("button", { name: /Bắt đầu kiểm hàng/ }).click();
-    await page.getByRole("button", { name: /Ghi nhận ảnh hàng/ }).click();
-    await setImage(page, "Ảnh khoang hàng / pallet", "mvp-demo-cargo.jpg", identity.cargoImage);
-    await page.getByRole("button", { name: /Lưu ghi nhận/ }).click();
-    await expect(page.getByText("1 lần ghi nhận", { exact: false })).toBeVisible();
-    await page.getByRole("button", { name: /Nhân viên kho kết luận/ }).click();
-    const conclusion = page.getByRole("dialog", { name: "Nhân viên kho kết luận" });
-    await conclusion.locator('[name="final_cargo_state"]').selectOption("LOADED");
-    await conclusion
-      .locator('[name="operator_note"]')
-      .fill("Hàng hóa đã đủ và sẵn sàng rời kho.");
-    await page.getByRole("button", { name: /Xác nhận kết luận/ }).click();
-    const finalizedDock = page.getByRole("dialog", {
-      name: `Phiên dock · ${identity.orderId}`,
-    });
-    await expect(
-      finalizedDock.getByText("Đã duyệt · 1 lần ghi nhận", { exact: true }),
-    ).toBeVisible();
-  });
-
-  await demoStep("signed-slip", "Phát hành Exit Slip QR ký số", async () => {
-    await page
-      .getByRole("dialog", { name: `Phiên dock · ${identity.orderId}` })
-      .getByRole("contentinfo")
-      .getByRole("button", { name: "Đóng", exact: true })
-      .click();
-    await page.getByRole("heading", { name: identity.orderId }).click();
-    await page.getByRole("button", { name: /Phát hành Exit Slip/ }).click();
-    await expect(page.getByRole("heading", { name: `Exit Slip · ${identity.orderId}` })).toBeVisible();
-    await expect(page.getByRole("img", { name: `QR Exit Slip ${identity.orderId}` })).toBeVisible();
-  });
-
-  await demoStep("gate-exit", "Đối chiếu ba chiều và mở Gate Out", async () => {
-    await page.getByRole("button", { name: "Đóng" }).click();
-    await page.getByRole("button", { name: /Kiểm soát cổng/ }).click();
-    await page.getByRole("button", { name: /Gate Out/ }).click();
-    await setImage(page, "Ảnh biển số", "mvp-demo-plate.jpg", identity.plateImage);
+  // 7. safe-rejection — Reject old (replaced) card safely
+  await demoStep("safe-rejection", "Từ chối an toàn thẻ đã được thay thế", async () => {
+    // Reload gate form (may need to navigate back or use a new event_id)
+    // Fill OLD card_uid
+    await page.evaluate((uid) => {
+      const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
+      if (!input) throw new Error("card_uid gate field not found");
+      input.value = uid;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      // Also update event_id for new attempt
+      const eventInput = document.querySelector<HTMLInputElement>('input[name="event_id"]');
+      if (eventInput) {
+        eventInput.value = `reject-${Date.now()}`;
+        eventInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    }, identity.oldCardUid);
     await setImage(page, "Ảnh khuôn mặt", "mvp-demo-face.jpg", identity.faceImage);
-    await page.getByLabel("Lấy QR từ lệnh đã cấp").selectOption(identity.orderId);
-    await page.getByRole("button", { name: /Nạp QR của lệnh/ }).click();
-    await expect(page.getByText("QR của lệnh đã được nạp", { exact: false })).toBeVisible();
-    await page
-      .getByRole("button", { name: /Xác minh ba chiều và yêu cầu mở Gate Out/ })
-      .click();
-    await expect(page.getByRole("heading", { name: "Đã mở cổng" })).toBeVisible();
-    await expect(page.getByText(identity.orderId, { exact: true })).toBeVisible();
+    await setImage(page, "Ảnh biển số", "mvp-demo-plate.jpg", identity.plateImage);
+    await page.getByRole("button", { name: /Xác minh và mở Gate In/ }).click();
+    // Should be rejected
+    await expect(page.getByRole("heading", { name: "Từ chối" })).toBeVisible();
+    // CARD_NOT_ACTIVE guidance — safe Vietnamese, not revealing blocked/lost/replaced
+    await expect(page.getByText("Thẻ không còn hoạt động", { exact: false })).toBeVisible();
+    await expect(page.locator(".factor-fail").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Đã mở cổng" })).not.toBeVisible();
+    // Assert barrier is closed/not-requested
+    await expect(page.getByText("Barrier đóng", { exact: false })).toBeVisible();
+    await expect(page.getByText("Đã mở barrier", { exact: false })).not.toBeVisible();
   });
 
-  await demoStep("success", "Xác nhận lệnh đã hoàn tất và lưu vết", async () => {
-    await page.getByRole("button", { name: /Xuất kho/ }).click();
-    await page.getByRole("heading", { name: identity.orderId }).click();
-    await expect(page.getByText("Lệnh xuất kho · Hoàn tất", { exact: true })).toBeVisible();
-    await expect(page.getByText("Hoàn tất", { exact: true }).last()).toBeVisible();
+  // 8. gate-exit — Three-factor at Gate Out
+  await demoStep("gate-exit", "Xác thực cùng ba yếu tố tại Gate Out", async () => {
+    // Switch to Gate Out tab
+    await page.getByRole("button", { name: /Gate Out/ }).click();
+    // Fill new card_uid securely
+    await page.evaluate((uid) => {
+      const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
+      if (!input) throw new Error("card_uid gate field not found");
+      input.value = uid;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }, identity.newCardUid);
+    await setImage(page, "Ảnh khuôn mặt", "mvp-demo-face.jpg", identity.faceImage);
+    await setImage(page, "Ảnh biển số", "mvp-demo-plate.jpg", identity.plateImage);
+    await page.getByRole("button", { name: /Xác minh và mở Gate Out/ }).click();
+    await expect(page.getByRole("heading", { name: "Đã mở cổng" })).toBeVisible();
+    await expect(page.getByText(identity.driverName, { exact: true })).toBeVisible();
+    await expect(page.getByText(identity.plateNumber, { exact: true })).toBeVisible();
+    await expect(page.getByText(identity.vehicleType, { exact: false })).toBeVisible();
+    await expect(page.locator(".factor-pass")).toHaveCount(4);
+    // No order/QR interaction needed
+  });
+
+  // 9. history — View entry, rejection, and exit history
+  await demoStep("history", "Xem lịch sử vào, từ chối và ra", async () => {
+    // Check gate log history shows all three events
+    // Scroll to history or click history tab
+    await page.getByRole("button", { name: /Nhật ký cổng/ }).click();
+    // Demo driver's successful gate rows
+    const demoRows = page.locator("tbody tr").filter({ hasText: identity.driverName });
+    await expect(demoRows.first()).toBeVisible();
+    // Entry and exit by driver name
+    await expect(demoRows.filter({ hasText: "Cổng vào" }).first()).toBeVisible();
+    await expect(demoRows.filter({ hasText: "Cổng ra" }).first()).toBeVisible();
+    // Rejection event: no driver_name (card fails before owner lookup), find by event_id prefix
+    const rejectionRow = page.locator("tbody tr").filter({ hasText: /reject-/ });
+    await expect(rejectionRow.first()).toBeVisible();
+    // Plate and vehicle type in driver's successful rows
+    await expect(demoRows.filter({ hasText: identity.plateNumber }).first()).toBeVisible();
+    await expect(demoRows.filter({ hasText: identity.vehicleType }).first()).toBeVisible();
+    // No raw card_uid visible anywhere in the page
+    const hasNoRawCardUids = await page.evaluate(
+      ({ oldUid, newUid }) => {
+        const text = document.body.textContent || "";
+        return !text.includes(oldUid) && !text.includes(newUid);
+      },
+      { oldUid: identity.oldCardUid, newUid: identity.newCardUid },
+    );
+    expect(hasNoRawCardUids, "Raw card UIDs must not appear in page text").toBeTruthy();
+  });
+
+  // 10. success — Complete parking control flow
+  await demoStep("success", "Hoàn tất luồng kiểm soát bãi xe", async () => {
+    // Go back to dashboard
+    await page.getByRole("button", { name: /Tổng quan|Dashboard/ }).click();
+    // Verify parking KPIs visible
+    await expect(page.getByText("Vào bãi thành công", { exact: false })).toBeVisible();
+    // Assert no warehouse navigation or copy visible
+    const finalBodyText = await page.locator("body").textContent();
+    expect(finalBodyText).not.toMatch(/Xuất kho|lệnh kho|dock|Exit Slip|QR phiếu xuất/i);
   }, Number(process.env.DEMO_OUTRO_MS || 1_800) + 4_500);
 
   expect(pageErrors, `Unexpected page errors: ${pageErrors.join(" | ")}`).toEqual([]);
@@ -292,4 +379,6 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
     path: timelinePath,
     contentType: "application/json",
   });
+  // Verify exactly 10 timeline entries
+  expect(timeline).toHaveLength(10);
 });
