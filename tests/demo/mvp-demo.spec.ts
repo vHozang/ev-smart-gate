@@ -262,6 +262,7 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
   // 6. gate-entry — Three-factor verification at Gate In
   await demoStep("gate-entry", "Xác thực thẻ, khuôn mặt và biển số tại Gate In", async () => {
     await page.getByRole("button", { name: /Kiểm soát cổng/ }).click();
+    await page.waitForSelector('input[name="card_uid"]');
     // Fill card_uid securely (password field)
     await page.evaluate((uid) => {
       const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
@@ -283,6 +284,7 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
   // 7. safe-rejection — Reject old (replaced) card safely
   await demoStep("safe-rejection", "Từ chối an toàn thẻ đã được thay thế", async () => {
     // Reload gate form (may need to navigate back or use a new event_id)
+    await page.waitForSelector('input[name="card_uid"]');
     // Fill OLD card_uid
     await page.evaluate((uid) => {
       const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
@@ -314,6 +316,7 @@ test("MVP narrated demo", async ({ page }, testInfo) => {
   await demoStep("gate-exit", "Xác thực cùng ba yếu tố tại Gate Out", async () => {
     // Switch to Gate Out tab
     await page.getByRole("button", { name: /Gate Out/ }).click();
+    await page.waitForSelector('input[name="card_uid"]');
     // Fill new card_uid securely
     await page.evaluate((uid) => {
       const input = document.querySelector<HTMLInputElement>('input[name="card_uid"]');
