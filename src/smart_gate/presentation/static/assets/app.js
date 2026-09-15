@@ -698,24 +698,87 @@ function renderSearchToolbar(key, placeholder) {
   return `<form class="search-toolbar" data-form="search" data-key="${key}"><div class="search-box">${icon("search")}<input name="query" value="${escapeHtml(state.search[key] || "")}" placeholder="${escapeHtml(placeholder)}" /></div><button class="btn btn-secondary" type="submit">${icon("search")} Tìm kiếm</button>${state.search[key] ? `<button class="btn btn-ghost" type="button" data-action="clear-search" data-key="${key}">Xóa lọc</button>` : ""}</form>`;
 }
 
+const reasonMap = {
+  CARD_UID_INVALID: "UID thẻ không hợp lệ",
+  CARD_NOT_FOUND: "Thẻ không tìm thấy trong hệ thống",
+  CARD_NOT_ACTIVE: "Thẻ không còn hoạt động",
+  CARD_OWNER_NOT_FOUND: "Chủ thẻ không tìm thấy",
+  CARD_OWNER_INACTIVE: "Chủ thẻ không còn hoạt động",
+  FACE_NOT_CARD_OWNER: "Khuôn mặt không khớp với chủ thẻ",
+  FACE_LOW_CONFIDENCE: "Không nhận diện được khuôn mặt",
+  FACE_SPOOF: "Phát hiện giả mạo khuôn mặt",
+  VEHICLE_NOT_MATCHED: "Không nhận diện được biển số xe",
+  PLATE_LOW_CONFIDENCE: "Biển số xe không rõ ràng",
+  DRIVER_VEHICLE_NOT_AUTHORIZED: "Chủ thẻ không được phép sử dụng xe này",
+  EVIDENCE_STORE_UNEXPECTED_ERROR: "Lỗi lưu trữ bằng chứng",
+  AI_PIPELINE_UNEXPECTED_ERROR: "Lỗi hệ thống nhận diện",
+  ALL_CHECKS_PASSED: "Tất cả kiểm tra đạt yêu cầu",
+};
+
 function renderGates() {
   const isEntry = state.gateTab === "entry";
   const result = state.verificationResults[state.gateTab];
   const tabs = `<button class="btn ${isEntry ? "btn-primary" : "btn-secondary"}" data-action="gate-tab" data-tab="entry">${icon("gate")} Gate In</button><button class="btn ${!isEntry ? "btn-primary" : "btn-secondary"}" data-action="gate-tab" data-tab="exit">${icon("logout")} Gate Out</button>`;
   return `${pageHeader("Xác minh có hỗ trợ AI", isEntry ? "Xác minh cổng vào" : "Xác minh cổng ra", isEntry ? "Đối chiếu thẻ nhân viên, khuôn mặt, biển số và quan hệ ủy quyền đang hiệu lực." : "Đối chiếu ba yếu tố giữa thẻ nhân viên, khuôn mặt và biển số xe tại cổng ra.", tabs)}
-    <div class="verification-layout"><section class="card verification-panel">${renderGateForm(isEntry)}</section><aside class="verification-side"><section class="card verification-result">${renderVerificationResult(result)}</section>${renderGateGuidance(isEntry)}</aside></div>`;
+    <div class="verification-layout"><section class="card verification-panel">${renderGateForm(isEntry)}</section><aside class="verification-side"><section class="card">${renderVerificationResult(result)}</section>${renderGateGuidance(isEntry)}</aside></div>`;
 }
 
 function renderGateForm(isEntry) {
   const prefix = isEntry ? "entry" : "exit";
+  const submitLabel = isEntry ? "Xác minh và mở Gate In" : "Xác minh và mở Gate Out";
   return `<form data-form="gate-${prefix}">
     <div class="field-row"><div class="field"><label for="gate-${prefix}-event">Event ID chống lặp</label><input id="gate-${prefix}-event" name="event_id" value="${escapeHtml(uniqueEventId(prefix))}" minlength="8" maxlength="128" required /><span class="field-hint">Giữ nguyên ID khi retry cùng một sự kiện.</span></div><div class="field"><label for="gate-${prefix}-id">Mã cổng</label><input id="gate-${prefix}-id" name="gate_id" value="${isEntry ? "gate-in-01" : "gate-out-01"}" required /></div></div>
-    <div class="field" style="margin-top:14px"><label for="gate-${prefix}-card-uid">UID thẻ nhân viên RFID</label><input id="gate-${prefix}-card-uid" name="card_uid" type="password" minlength="4" maxlength="128" autocomplete="off" aria-label="UID thẻ nhân viên" required /><span class="field-hint">Quẹt thẻ RFID của tài xế vào đầu đọc</span></div>
-    <div class="capture-grid" style="margin-top:14px">
-      ${fileDrop(`gate-${prefix}-plate`, "plate_image", "Ảnh biển số", "Ưu tiên khung hình chính diện", "environment", true, "plate")}
-      ${fileDrop(`gate-${prefix}-face`, "face_image", "Ảnh khuôn mặt", "Khuôn mặt rõ, đủ sáng", "user", true, "face")}
+    <div class="gate-steps" style="margin-top:16px">
+      <div class="gate-step">
+        <div class="gate-step-number">01</div>
+        <div class="gate-step-content" style="flex:1">
+          <label for="gate-${prefix}-card-uid" style="font-weight:600;display:block;margin-bottom:6px">01 · Quẹt thẻ nhân viên</label>
+          <input id="gate-${prefix}-card-uid" name="card_uid" type="password" minlength="4" maxlength="128" autocomplete="off" aria-label="UID thẻ nhân viên" placeholder="Quẹt thẻ hoặc nhập UID..." required />
+          <span class="field-hint" style="display:block;margin-top:4px">Quẹt thẻ hoặc nhập UID nhân viên để tiếp tục</span>
+        </div>
+      </div>
+      <div class="gate-step">
+        <div class="gate-step-number">02</div>
+        <div class="gate-step-content" style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">02 · Xác minh khuôn mặt chủ thẻ</div>
+          <div class="file-drop" data-drop-for="gate-${prefix}-face">
+            <input id="gate-${prefix}-face" name="face_image" type="file" accept="image/*" capture="user" aria-label="Ảnh khuôn mặt" required />
+            <img class="file-drop-preview" data-preview-for="gate-${prefix}-face" alt="Xem trước" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" hidden />
+            <div class="file-drop-content">
+              <div class="file-drop-icon">${icon("camera")}</div>
+              <strong data-file-title>Ảnh khuôn mặt</strong>
+              <span data-file-hint>Khuôn mặt rõ, đủ sáng</span>
+              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px">
+                <label class="btn btn-secondary" for="gate-${prefix}-face">${icon("upload")} Chọn ảnh</label>
+                <button class="btn btn-secondary" type="button" data-action="open-camera" data-target="gate-${prefix}-face" data-facing="user">${icon("camera")} Camera</button>
+                <button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="gate-${prefix}-face" data-demo-type="face">${icon("package")} Ảnh mẫu</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="gate-step">
+        <div class="gate-step-number">03</div>
+        <div class="gate-step-content" style="flex:1">
+          <div style="font-weight:600;margin-bottom:6px">03 · Nhận diện biển số xe</div>
+          <div class="file-drop" data-drop-for="gate-${prefix}-plate">
+            <input id="gate-${prefix}-plate" name="plate_image" type="file" accept="image/*" capture="environment" aria-label="Ảnh biển số" required />
+            <img class="file-drop-preview" data-preview-for="gate-${prefix}-plate" alt="Xem trước" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" hidden />
+            <div class="file-drop-content">
+              <div class="file-drop-icon">${icon("camera")}</div>
+              <strong data-file-title>Ảnh biển số</strong>
+              <span data-file-hint>Ưu tiên khung hình chính diện</span>
+              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px">
+                <label class="btn btn-secondary" for="gate-${prefix}-plate">${icon("upload")} Chọn ảnh</label>
+                <button class="btn btn-secondary" type="button" data-action="open-camera" data-target="gate-${prefix}-plate" data-facing="environment">${icon("camera")} Camera</button>
+                <button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="gate-${prefix}-plate" data-demo-type="plate">${icon("package")} Ảnh mẫu</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px">${icon("shield")} ${isEntry ? "Xác minh và yêu cầu mở Gate In" : "Xác minh ba yếu tố và yêu cầu mở Gate Out"}</button>
+    <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px">${icon("shield")} ${submitLabel}</button>
   </form>`;
 }
 
@@ -725,33 +788,74 @@ function fileDrop(id, name, title, hint, facingMode, cameraButton = true, demoTy
 
 function renderVerificationResult(result) {
   if (!result) {
-    return `<div class="result-idle"><div class="radar"><i class="radar-line"></i></div><strong>Đang chờ dữ liệu xác minh</strong><p>Quẹt thẻ và tải ảnh hoặc chụp trực tiếp từ camera để bắt đầu.</p></div>`;
+    return `<div class="verification-result"><div class="result-idle"><div class="radar"><i class="radar-line"></i></div><strong>Đang chờ dữ liệu xác minh</strong><p>Quẹt thẻ và tải ảnh hoặc chụp trực tiếp từ camera để bắt đầu.</p></div></div>`;
   }
-  const passed = result.verification_status === "PASSED";
-  const trulyOpened = result.permit_granted && result.barrier_status === "OPENED";
-  const resolvedDriver = driverById(result.driver_id);
-  const resolvedVehicle = vehicleById(result.vehicle_id);
-  return `<div class="result-hero"><div class="result-symbol ${passed ? "passed" : "failed"}">${icon(passed ? "check" : "x")}</div><h3>${trulyOpened ? "Đã mở cổng" : passed ? "Xác minh đạt · cổng chưa mở" : "Từ chối qua cổng"}</h3><p>${trulyOpened ? "Barrier đã ACK lệnh mở an toàn." : passed ? `Barrier: ${labelFor(result.barrier_status)}` : "Hệ thống giữ cổng đóng và đã lưu sự kiện."}</p></div>
-    <div class="score-grid">
-      <div class="score-item"><strong>${result.card_verified ? "Đạt" : "Không đạt"}</strong><span>Thẻ nhân viên</span></div>
-      <div class="score-item"><strong>${formatPercent(result.face_similarity)}</strong><span>Khuôn mặt</span></div>
-      <div class="score-item"><strong>${formatPercent(result.plate_score)}</strong><span>Biển số</span></div>
-      <div class="score-item"><strong>${formatPercent(result.verification_score)}</strong><span>Tổng hợp</span></div>
+
+  const reasonMap = {
+    CARD_UID_INVALID: "UID thẻ không hợp lệ",
+    CARD_NOT_FOUND: "Thẻ không tìm thấy trong hệ thống",
+    CARD_NOT_ACTIVE: "Thẻ không còn hoạt động",
+    CARD_OWNER_NOT_FOUND: "Chủ thẻ không tìm thấy",
+    CARD_OWNER_INACTIVE: "Chủ thẻ không còn hoạt động",
+    FACE_NOT_CARD_OWNER: "Khuôn mặt không khớp với chủ thẻ",
+    FACE_LOW_CONFIDENCE: "Không nhận diện được khuôn mặt",
+    FACE_SPOOF: "Phát hiện giả mạo khuôn mặt",
+    VEHICLE_NOT_MATCHED: "Không nhận diện được biển số xe",
+    PLATE_LOW_CONFIDENCE: "Biển số xe không rõ ràng",
+    DRIVER_VEHICLE_NOT_AUTHORIZED: "Chủ thẻ không được phép sử dụng xe này",
+    EVIDENCE_STORE_UNEXPECTED_ERROR: "Lỗi lưu trữ bằng chứng",
+    AI_PIPELINE_UNEXPECTED_ERROR: "Lỗi hệ thống nhận diện",
+    ALL_CHECKS_PASSED: "Tất cả kiểm tra đạt yêu cầu",
+  };
+
+  const factors = [
+    { label: "Thẻ nhân viên", key: "card_verified", icon: "card" },
+    { label: "Khuôn mặt", key: "face_verified", icon: "face" },
+    { label: "Biển số xe", key: "plate_verified", icon: "vehicle" },
+    { label: "Ủy quyền", key: "authorization_verified", icon: "authorization" },
+  ];
+
+  const factorGrid = factors.map(f => `
+    <div class="factor-result ${result[f.key] ? 'factor-pass' : 'factor-fail'}">
+      <span>${f.label}</span>
+      <span class="factor-badge">${result[f.key] ? '✓' : '✗'}</span>
     </div>
-    <div class="info-list" style="margin-top:12px">
-      <div class="info-row"><span>Biển số quan sát</span><strong><span class="plate-number">${escapeHtml(result.observed_plate || "—")}</span></strong></div>
-      <div class="info-row"><span>Tài xế đã đối chiếu</span><strong>${escapeHtml(resolvedDriver?.full_name || result.driver_id || "—")}</strong></div>
-      <div class="info-row"><span>Phương tiện đã đối chiếu</span><strong>${escapeHtml(resolvedVehicle?.plate_number || result.vehicle_id || "—")}</strong></div>
-      <div class="info-row"><span>Xác thực ủy quyền</span><strong>${result.authorization_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
-      <div class="info-row"><span>Event ID</span><strong>${escapeHtml(result.event_id)}</strong></div>
-    </div>
-    <div class="reason-list">${(result.reason_codes?.length ? result.reason_codes : ["VERIFIED_WITHOUT_MISMATCH"]).map((code) => `<span class="reason-chip">${escapeHtml(code)}</span>`).join("")}</div>`;
+  `).join("");
+
+  let heading, headingClass;
+  const barrierOpened = result.verification_status === "PASSED" && result.permit_granted && result.barrier_status === "OPENED";
+  if (barrierOpened) {
+    heading = "Đã mở cổng";
+    headingClass = "result-success";
+  } else if (result.verification_status === "PASSED") {
+    heading = "Xác thực hợp lệ — barrier chưa xác nhận";
+    headingClass = "result-warning";
+  } else {
+    heading = "Từ chối";
+    headingClass = "result-fail";
+  }
+
+  const driverName = result.driver_name || driverById(result.driver_id)?.full_name;
+  const vehicleType = result.vehicle_type || vehicleById(result.vehicle_id)?.vehicle_type;
+
+  return `
+    <div class="verification-result ${headingClass}">
+      <h3>${heading}</h3>
+      <div class="factor-grid">${factorGrid}</div>
+      <div class="info-list" style="margin-top:12px">
+        ${driverName ? `<div class="info-row"><span>Nhân viên</span><strong>${escapeHtml(driverName)}</strong></div>` : ""}
+        ${result.observed_plate ? `<div class="info-row"><span>Biển số</span><strong class="plate-number">${escapeHtml(result.observed_plate)}</strong></div>` : ""}
+        ${vehicleType ? `<div class="info-row"><span>Loại xe</span><strong>${escapeHtml(vehicleType)}</strong></div>` : ""}
+        ${result.reason_codes?.length ? `<div class="info-row"><span>Chi tiết</span><strong>${result.reason_codes.map(c => escapeHtml(reasonMap[c] || c)).join(", ")}</strong></div>` : ""}
+        <div class="info-row"><span>Barrier</span><strong>${result.barrier_status === "OPENED" ? "Đã mở barrier" : result.barrier_status === "FAILED" ? "Barrier không phản hồi" : "Barrier đóng"}</strong></div>
+      </div>
+    </div>`;
 }
 
 function renderGateGuidance(isEntry) {
   const steps = isEntry
-    ? [["card", "Quẹt thẻ RFID", "Quẹt thẻ nhân viên hợp lệ vào đầu đọc."], ["camera", "Chụp dữ liệu", "Hai ảnh độc lập cho khuôn mặt và biển số."], ["shield", "Đối chiếu", "Thẻ ACTIVE, Face ≥ 0.75, biển số khớp ủy quyền."], ["gate", "Barrier ACK", "Chỉ hiển thị đã mở khi thiết bị trả xác nhận."]]
-    : [["card", "Quẹt thẻ RFID", "Quẹt thẻ nhân viên khi rời bãi."], ["camera", "Chụp dữ liệu", "Xác minh lại khuôn mặt và biển số."], ["shield", "Khớp ba yếu tố", "Thẻ + khuôn mặt + biển số trùng khớp ủy quyền."], ["gate", "Barrier ACK", "Hoàn tất lượt qua cổng sau khi barrier ACK."]];
+    ? [["card", "Quẹt thẻ RFID", "Quẹt thẻ hoặc nhập UID nhân viên hợp lệ."], ["camera", "Chụp dữ liệu", "Hai ảnh độc lập cho khuôn mặt và biển số."], ["shield", "Đối chiếu", "Thẻ ACTIVE, Face ≥ 0.75, biển số khớp ủy quyền."], ["gate", "Barrier ACK", "Chỉ hiển thị đã mở khi thiết bị trả xác nhận."]]
+    : [["card", "Quẹt thẻ RFID", "Quẹt thẻ hoặc nhập UID nhân viên khi rời bãi."], ["camera", "Chụp dữ liệu", "Xác minh lại khuôn mặt và biển số."], ["shield", "Khớp ba yếu tố", "Thẻ + khuôn mặt + biển số trùng khớp ủy quyền."], ["gate", "Barrier ACK", "Hoàn tất lượt qua cổng sau khi barrier ACK."]];
   return `<section class="card"><header class="card-header"><div><h3>Chuỗi kiểm soát bãi xe</h3><p>Hệ thống luôn fail-closed</p></div></header><div class="card-body"><div class="timeline">${steps.map(([iconName, title, text]) => `<div class="timeline-item"><div class="timeline-dot">${icon(iconName)}</div><div class="timeline-copy"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div></div>`).join("")}</div></div></section>`;
 }
 
@@ -763,11 +867,36 @@ function renderGateLogs() {
   if (state.filters.logStatus !== "ALL") items = items.filter((item) => item.verification_status === state.filters.logStatus);
   return `${pageHeader("Dấu vết kiểm toán", "Nhật ký xác minh cổng", "Truy vết điểm số, model, reason code, ảnh bằng chứng và trạng thái barrier.", `<button class="btn btn-secondary" data-action="reload-gate-logs">${icon("refresh")} Tải mới</button>`)}
     <div class="search-toolbar"><form class="search-box" data-form="search" data-key="logs">${icon("search")}<input name="query" value="${escapeHtml(state.search.logs || "")}" placeholder="Tìm event, biển số hoặc reason code" /></form><select class="toolbar-select" data-filter="logDirection"><option value="ALL">Cả hai chiều</option><option value="ENTRY" ${state.filters.logDirection === "ENTRY" ? "selected" : ""}>Cổng vào</option><option value="EXIT" ${state.filters.logDirection === "EXIT" ? "selected" : ""}>Cổng ra</option></select><select class="toolbar-select" data-filter="logStatus"><option value="ALL">Mọi kết quả</option><option value="PASSED" ${state.filters.logStatus === "PASSED" ? "selected" : ""}>Đạt</option><option value="FAILED" ${state.filters.logStatus === "FAILED" ? "selected" : ""}>Không đạt</option></select></div>
-    <div class="table-shell">${items.length ? `<div class="table-scroll"><table><thead><tr><th>Thời gian / Event</th><th>Chiều</th><th>Biển số</th><th>Điểm xác minh</th><th>Kết quả</th><th>Barrier</th><th>Lý do</th><th></th></tr></thead><tbody>${items.map(renderGateLogRow).join("")}</tbody></table></div>` : emptyState("logs", "Không có nhật ký phù hợp", "Thay đổi bộ lọc hoặc thực hiện một lượt xác minh tại cổng.")}</div>`;
+    <div class="table-shell">${items.length ? `<div class="table-scroll"><table><thead><tr><th>Thời gian / Event</th><th>Chiều</th><th>Nhân viên</th><th>Biển số / Loại xe</th><th>Yếu tố xác minh</th><th>Kết quả</th><th>Barrier</th><th>Lý do</th><th></th></tr></thead><tbody>${items.map(renderGateLogRow).join("")}</tbody></table></div>` : emptyState("logs", "Không có nhật ký phù hợp", "Thay đổi bộ lọc hoặc thực hiện một lượt xác minh tại cổng.")}</div>`;
 }
 
 function renderGateLogRow(item) {
-  return `<tr><td><div class="entity-copy"><strong>${escapeHtml(formatDate(item.occurred_at))}</strong><span title="${escapeHtml(item.event_id)}">${escapeHtml(shortId(item.event_id, 18))}</span></div></td><td>${statusBadge(item.direction)}</td><td><span class="plate-number">${escapeHtml(item.observed_plate || "—")}</span></td><td><strong>${formatPercent(item.verification_score)}</strong><br/><small>Face ${formatPercent(item.face_similarity)} · Plate ${formatPercent(item.plate_score)}</small></td><td>${statusBadge(item.verification_status)}</td><td>${statusBadge(item.barrier_status)}</td><td><span title="${escapeHtml((item.reason_codes || []).join(", "))}">${escapeHtml(shortId((item.reason_codes || []).join(", ") || "Không sai lệch", 28))}</span></td><td><button class="btn btn-ghost btn-icon" data-action="view-gate-log" data-id="${item.id}">${icon("eye")}</button></td></tr>`;
+  const driver = driverById(item.driver_id);
+  const vehicle = vehicleById(item.vehicle_id);
+  const driverName = item.driver_name || driver?.full_name || "—";
+  const vehicleType = item.vehicle_type || vehicle?.vehicle_type || "—";
+  const reasons = (item.reason_codes || []).map((code) => reasonMap[code] || code).join(", ") || "Đạt tất cả kiểm tra";
+
+  const factorBadges = `
+    <div class="factor-mini-badges" style="display:flex;gap:4px;flex-wrap:wrap">
+      <span class="factor-result ${item.card_verified ? "factor-pass" : "factor-fail"}" style="padding:2px 6px;font-size:11px" title="Thẻ nhân viên">Thẻ ${item.card_verified ? "✓" : "✗"}</span>
+      <span class="factor-result ${item.face_verified ? "factor-pass" : "factor-fail"}" style="padding:2px 6px;font-size:11px" title="Khuôn mặt">Face ${item.face_verified ? "✓" : "✗"}</span>
+      <span class="factor-result ${item.plate_verified ? "factor-pass" : "factor-fail"}" style="padding:2px 6px;font-size:11px" title="Biển số xe">Biển số ${item.plate_verified ? "✓" : "✗"}</span>
+      <span class="factor-result ${item.authorization_verified ? "factor-pass" : "factor-fail"}" style="padding:2px 6px;font-size:11px" title="Ủy quyền">Ủy quyền ${item.authorization_verified ? "✓" : "✗"}</span>
+    </div>
+  `;
+
+  return `<tr>
+    <td><div class="entity-copy"><strong>${escapeHtml(formatDate(item.occurred_at))}</strong><span title="${escapeHtml(item.event_id)}">${escapeHtml(shortId(item.event_id, 18))}</span></div></td>
+    <td>${statusBadge(item.direction)}</td>
+    <td><strong>${escapeHtml(driverName)}</strong></td>
+    <td><span class="plate-number">${escapeHtml(item.observed_plate || "—")}</span><br/><small style="color:rgba(16,44,43,0.65)">${escapeHtml(vehicleType)}</small></td>
+    <td>${factorBadges}</td>
+    <td>${statusBadge(item.verification_status)}</td>
+    <td>${statusBadge(item.barrier_status)}</td>
+    <td><span title="${escapeHtml(reasons)}">${escapeHtml(shortId(reasons, 32))}</span></td>
+    <td><button class="btn btn-ghost btn-icon" data-action="view-gate-log" data-id="${item.id}" title="Xem chi tiết">${icon("eye")}</button></td>
+  </tr>`;
 }
 
 function renderAlerts() {
@@ -971,23 +1100,51 @@ function openGateLogDetail(logId) {
   if (!item) return;
   const driver = driverById(item.driver_id);
   const vehicle = vehicleById(item.vehicle_id);
+  const driverName = item.driver_name || driver?.full_name || item.driver_id || "Không xác định";
+  const vehicleType = item.vehicle_type || vehicle?.vehicle_type || "—";
+  const plateNumber = item.observed_plate || vehicle?.plate_number || "Không nhận diện";
+
+  const factors = [
+    { label: "Thẻ nhân viên", key: "card_verified" },
+    { label: "Khuôn mặt", key: "face_verified" },
+    { label: "Biển số xe", key: "plate_verified" },
+    { label: "Ủy quyền", key: "authorization_verified" },
+  ];
+
+  const factorGrid = factors.map(f => `
+    <div class="factor-result ${item[f.key] ? "factor-pass" : "factor-fail"}">
+      <span>${f.label}</span>
+      <span class="factor-badge">${item[f.key] ? "✓" : "✗"}</span>
+    </div>
+  `).join("");
+
+  const reasonLabels = (item.reason_codes?.length ? item.reason_codes : ["ALL_CHECKS_PASSED"])
+    .map(code => reasonMap[code] || code);
+
   openModal({
-    title: `${labelFor(item.direction)} · ${item.observed_plate || "Không nhận diện"}`,
+    title: `${labelFor(item.direction)} · ${plateNumber}`,
     subtitle: item.event_id,
     wide: true,
     body: `<div class="detail-grid">
       <div class="detail-box"><span>Kết quả</span><strong>${labelFor(item.verification_status)}</strong></div>
       <div class="detail-box"><span>Barrier</span><strong>${labelFor(item.barrier_status)}</strong></div>
-      <div class="detail-box"><span>Tài xế</span><strong>${escapeHtml(driver?.full_name || item.driver_id || "Không xác định")}</strong></div>
-      <div class="detail-box"><span>Phương tiện</span><strong>${escapeHtml(vehicle?.plate_number || item.vehicle_id || "Không xác định")}</strong></div>
-      <div class="detail-box"><span>Xác minh thẻ</span><strong>${item.card_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
-      <div class="detail-box"><span>Xác minh ủy quyền</span><strong>${item.authorization_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
+      <div class="detail-box"><span>Nhân viên</span><strong>${escapeHtml(driverName)}</strong></div>
+      <div class="detail-box"><span>Biển số / Loại xe</span><strong>${escapeHtml(plateNumber)} · ${escapeHtml(vehicleType)}</strong></div>
       <div class="detail-box"><span>Face similarity</span><strong>${formatPercent(item.face_similarity)}</strong></div>
       <div class="detail-box"><span>Plate score / kiểu khớp</span><strong>${formatPercent(item.plate_score)} · ${labelFor(item.plate_match_type)}</strong></div>
       <div class="detail-box"><span>Điểm tổng hợp</span><strong>${formatPercent(item.verification_score)}</strong></div>
       <div class="detail-box"><span>Thời gian</span><strong>${escapeHtml(formatDate(item.occurred_at))}</strong></div>
     </div>
-    <div class="form-section" style="margin-top:22px"><div class="form-section-title">${icon("info")} Reason codes</div><div class="reason-list" style="justify-content:flex-start">${(item.reason_codes?.length ? item.reason_codes : ["Không có sai lệch"]).map((code) => `<span class="reason-chip">${escapeHtml(code)}</span>`).join("")}</div></div>
+    <div class="form-section" style="margin-top:18px">
+      <div class="form-section-title">${icon("shield")} Yếu tố xác minh</div>
+      <div class="factor-grid">${factorGrid}</div>
+    </div>
+    <div class="form-section" style="margin-top:18px">
+      <div class="form-section-title">${icon("info")} Lý do xác minh</div>
+      <div class="reason-list" style="justify-content:flex-start">
+        ${reasonLabels.map((text) => `<span class="reason-chip">${escapeHtml(text)}</span>`).join("")}
+      </div>
+    </div>
     ${item.snapshot_count ? `<div class="form-section"><div class="form-section-title">${icon("camera")} Ảnh bằng chứng</div><div class="evidence-gallery">${Array.from({ length: item.snapshot_count }, (_, index) => `<article class="evidence-card"><img src="/api/v1/gate-logs/${item.id}/snapshots/${index}" alt="Ảnh bằng chứng ${index + 1}" loading="lazy" /><div class="evidence-label">Snapshot ${index + 1}</div></article>`).join("")}</div></div>` : ""}
     <div class="form-section"><div class="form-section-title">${icon("system")} Model và threshold</div><pre style="white-space:pre-wrap;font-size:11px;background:var(--ink-950);color:var(--mint);padding:14px;border-radius:10px">${escapeHtml(JSON.stringify({ threshold_version: item.threshold_version, model_versions: item.model_versions }, null, 2))}</pre></div>`,
     footer: `<button class="btn btn-primary" data-action="close-modal">Đóng</button>`,
@@ -1181,11 +1338,32 @@ async function submitAuthorization(form) {
 
 async function submitGateVerification(form, direction) {
   const endpoint = direction === "entry" ? "/api/v1/gates/entry/verifications" : "/api/v1/gates/exit/verifications";
-  const result = await api.post(endpoint, cleanFormData(form));
+  const rawData = new FormData(form);
+  const data = new FormData();
+  const allowed = ["event_id", "gate_id", "card_uid", "face_image", "plate_image"];
+  for (const field of allowed) {
+    const val = rawData.get(field);
+    if (val !== null && val !== undefined && val !== "") {
+      if (val instanceof File && val.size === 0) continue;
+      data.append(field, val);
+    }
+  }
+  const result = await api.post(endpoint, data);
+  const cardUidInput = form.querySelector('input[name="card_uid"]');
+  if (cardUidInput) {
+    cardUidInput.value = "";
+  }
   state.verificationResults[direction] = result;
   await Promise.all([reloadGateLogsWithoutRender(), canManageSecurity() ? reloadAlertsWithoutRender() : Promise.resolve()]);
   renderShell();
-  showToast(result.permit_granted ? "Barrier đã xác nhận mở cổng." : result.verification_status === "PASSED" ? "Xác minh đạt nhưng barrier chưa mở." : "Xác minh không đạt; cổng được giữ đóng.", result.permit_granted ? "success" : "warning", result.permit_granted ? "Cho phép qua cổng" : "Cổng giữ đóng");
+  const barrierOpened = result.verification_status === "PASSED" && result.permit_granted && result.barrier_status === "OPENED";
+  showToast(
+    barrierOpened ? "Barrier đã xác nhận mở cổng."
+      : result.verification_status === "PASSED" ? "Xác minh đạt nhưng barrier chưa mở."
+      : "Xác minh không đạt; cổng được giữ đóng.",
+    barrierOpened ? "success" : "warning",
+    barrierOpened ? "Cho phép qua cổng" : "Cổng giữ đóng"
+  );
 }
 
 async function reloadGateLogsWithoutRender() {
