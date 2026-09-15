@@ -23,7 +23,6 @@ const api = new ApiClient();
 
 const roleLabels = {
   ADMIN: "Quản trị hệ thống",
-  WAREHOUSE: "Điều hành kho",
   SECURITY: "An ninh cổng",
 };
 
@@ -36,7 +35,13 @@ const navigation = [
     icon: "gate",
     roles: ["ADMIN", "SECURITY"],
   },
-  { section: "Điều hành", route: "/warehouse", label: "Xuất kho", icon: "warehouse" },
+  {
+    section: "Hồ sơ",
+    route: "/employee-cards",
+    label: "Thẻ nhân viên",
+    icon: "card",
+    roles: ["ADMIN"],
+  },
   { section: "Hồ sơ", route: "/drivers", label: "Tài xế", icon: "driver" },
   { section: "Hồ sơ", route: "/vehicles", label: "Phương tiện", icon: "vehicle" },
   {
@@ -58,8 +63,8 @@ const navigation = [
 
 const pageMetadata = {
   "/dashboard": ["Trung tâm điều hành", "Quan sát toàn bộ luồng vận hành theo thời gian thực"],
-  "/gates": ["Kiểm soát cổng", "Xác minh khuôn mặt, biển số và phiếu xuất kho"],
-  "/warehouse": ["Điều hành xuất kho", "Quản lý lệnh, kiểm hàng và phiếu QR đã ký"],
+  "/gates": ["Kiểm soát cổng", "Xác minh thẻ nhân viên, khuôn mặt và biển số xe"],
+  "/employee-cards": ["Quản lý thẻ nhân viên", "Cấp, thay thế và quản lý vòng đời thẻ RFID"],
   "/drivers": ["Hồ sơ tài xế", "Đăng ký và quản lý nhận diện khuôn mặt"],
   "/vehicles": ["Hồ sơ phương tiện", "Quản lý biển số và thông tin phương tiện"],
   "/authorizations": ["Ủy quyền tài xế – xe", "Kiểm soát cặp vận hành có hiệu lực"],
@@ -70,15 +75,12 @@ const pageMetadata = {
 
 const state = {
   user: null,
-  route: normalizeRoute(location.hash.slice(1) || "/dashboard"),
+  route: authorizedRoute(normalizeRoute(location.hash.slice(1) || "/dashboard")),
   loading: false,
   sidebarOpen: false,
   gateTab: "entry",
-  warehouseTab: "orders",
-  orderView: "board",
   search: {},
   filters: {
-    orderStatus: "ALL",
     logDirection: "ALL",
     logStatus: "ALL",
     alertSeverity: "ALL",
@@ -87,8 +89,7 @@ const state = {
   drivers: [],
   vehicles: [],
   authorizations: [],
-  orders: [],
-  docks: [],
+  employeeCards: [],
   gateLogs: [],
   alerts: [],
   health: { live: "checking", ready: "checking" },
@@ -106,16 +107,20 @@ function normalizeRoute(route) {
   return allowed.includes(route) ? route : "/dashboard";
 }
 
+function authorizedRoute(route) {
+  const navItem = navigation.find((n) => n.route === route);
+  if (navItem?.roles && state.user && !navItem.roles.includes(state.user.role)) {
+    return "/dashboard";
+  }
+  return route;
+}
+
 function hasRole(...roles) {
   return roles.includes(state.user?.role);
 }
 
 function canManageMasterData() {
   return hasRole("ADMIN");
-}
-
-function canManageWarehouse() {
-  return hasRole("ADMIN", "WAREHOUSE");
 }
 
 function canManageSecurity() {
@@ -130,8 +135,12 @@ function vehicleById(id) {
   return state.vehicles.find((item) => item.id === id);
 }
 
-function dockById(id) {
-  return state.docks.find((item) => item.id === id);
+function cardById(id) {
+  return state.employeeCards.find((c) => c.id === id);
+}
+
+function maskCardUidForDisplay(value) {
+  return value || "—";
 }
 
 function openAlertCount() {
@@ -218,18 +227,18 @@ function renderLogin() {
     <section class="login-story">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true"></div>
-        <div class="brand-copy"><strong>EV Smart Gate</strong><span>Kiểm soát thông minh</span></div>
+        <div class="brand-copy"><strong>EV Smart Gate</strong><span>Kiểm soát bãi xe thông minh</span></div>
       </div>
       <div class="login-headline">
-        <div class="eyebrow">Trung tâm điều hành hợp nhất</div>
-        <h1>Mỗi chuyến xe.<br />Một chuỗi <em>xác minh.</em></h1>
-        <p>Đồng bộ cổng vào, bến xuất hàng và cổng ra trong một không gian vận hành an toàn, minh bạch và có thể truy vết.</p>
+        <div class="eyebrow">Trung tâm điều hành bãi xe</div>
+        <h1>Mỗi lượt xe.<br />Một chuỗi <em>xác minh.</em></h1>
+        <p>Kiểm soát ra vào bãi đỗ xe thông minh bằng sự kết hợp giữa thẻ nhân viên RFID, nhận diện sinh trắc học khuôn mặt và nhận diện biển số xe.</p>
       </div>
       <div class="login-flow">
-        <div class="login-flow-item"><strong>01 · Gate In</strong><span>Khuôn mặt + biển số</span></div>
-        <div class="login-flow-item"><strong>02 · Dock</strong><span>Giám sát hàng hóa</span></div>
-        <div class="login-flow-item"><strong>03 · Exit Slip</strong><span>QR ký Ed25519</span></div>
-        <div class="login-flow-item"><strong>04 · Gate Out</strong><span>Xác minh ba chiều</span></div>
+        <div class="login-flow-item"><strong>01 · Thẻ RFID</strong><span>Xác thực thẻ nhân viên</span></div>
+        <div class="login-flow-item"><strong>02 · Khuôn mặt</strong><span>Đối chiếu sinh trắc học</span></div>
+        <div class="login-flow-item"><strong>03 · Biển số xe</strong><span>Nhận diện ANPR</span></div>
+        <div class="login-flow-item"><strong>04 · Barrier</strong><span>Xác nhận đóng/mở an toàn</span></div>
       </div>
     </section>
     <section class="login-panel">
@@ -259,6 +268,10 @@ function renderLogin() {
 }
 
 function renderShell() {
+  state.route = authorizedRoute(state.route);
+  if (location.hash && normalizeRoute(location.hash.slice(1)) !== state.route) {
+    location.hash = state.route;
+  }
   const routeMeta = pageMetadata[state.route] || pageMetadata["/dashboard"];
   const allowedNavigation = navigation.filter(
     (item) => !item.roles || item.roles.includes(state.user.role),
@@ -337,7 +350,7 @@ function renderCurrentPage() {
   const pages = {
     "/dashboard": renderDashboard,
     "/gates": renderGates,
-    "/warehouse": renderWarehouse,
+    "/employee-cards": renderEmployeeCards,
     "/drivers": renderDrivers,
     "/vehicles": renderVehicles,
     "/authorizations": renderAuthorizations,
@@ -349,11 +362,24 @@ function renderCurrentPage() {
 }
 
 function renderDashboard() {
-  const activeDrivers = state.drivers.filter((item) => item.status === "ACTIVE").length;
-  const activeVehicles = state.vehicles.filter((item) => item.status === "ACTIVE").length;
-  const activeOrders = state.orders.filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status)).length;
-  const passedToday = state.gateLogs.filter(
-    (item) => item.verification_status === "PASSED" && isToday(item.occurred_at),
+  const activeCards = state.employeeCards.filter((item) => item.status === "ACTIVE").length;
+  const successfulEntries = state.gateLogs.filter(
+    (item) => item.direction === "ENTRY" && item.verification_status === "PASSED",
+  ).length;
+  const successfulExits = state.gateLogs.filter(
+    (item) => item.direction === "EXIT" && item.verification_status === "PASSED",
+  ).length;
+  const safeRejections = state.gateLogs.filter(
+    (item) => item.verification_status === "FAILED",
+  ).length;
+  const entryPassedToday = state.gateLogs.filter(
+    (item) => item.direction === "ENTRY" && item.verification_status === "PASSED" && isToday(item.occurred_at),
+  ).length;
+  const exitPassedToday = state.gateLogs.filter(
+    (item) => item.direction === "EXIT" && item.verification_status === "PASSED" && isToday(item.occurred_at),
+  ).length;
+  const failedToday = state.gateLogs.filter(
+    (item) => item.verification_status === "FAILED" && isToday(item.occurred_at),
   ).length;
   const recentLogs = state.gateLogs.slice(0, 6);
   const recentAlerts = [...state.alerts]
@@ -362,35 +388,35 @@ function renderDashboard() {
     .slice(0, 5);
 
   return `${pageHeader(
-    "Toàn cảnh vận hành",
+    "Toàn cảnh vận hành bãi xe",
     `Chào ${state.user.username}, hệ thống đã sẵn sàng.`,
-    "Theo dõi luồng phương tiện từ cổng vào, kiểm hàng tại dock đến hoàn tất cổng ra.",
+    "Theo dõi luồng phương tiện qua cổng vào và cổng ra theo thời gian thực.",
     `<button class="btn btn-secondary" data-action="refresh-all">${icon("refresh")} Đồng bộ</button>`,
   )}
   <section class="kpi-grid">
-    ${kpiCard("driver", activeDrivers, "Tài xế đang hoạt động", "mint")}
-    ${kpiCard("vehicle", activeVehicles, "Phương tiện đã đăng ký", "amber")}
-    ${kpiCard("package", activeOrders, "Lệnh đang trong quy trình", "")}
-    ${kpiCard(canManageSecurity() && openAlertCount() ? "alert" : "gate", canManageSecurity() ? openAlertCount() : passedToday, canManageSecurity() ? "Cảnh báo cần xử lý" : "Lượt cổng đạt hôm nay", canManageSecurity() && openAlertCount() ? "coral" : "mint")}
+    ${kpiCard("gate", successfulEntries, "Vào bãi thành công", "mint")}
+    ${kpiCard("gate", successfulExits, "Ra bãi thành công", "amber")}
+    ${kpiCard("card", activeCards, "Thẻ đang hoạt động", "")}
+    ${kpiCard("shield", safeRejections, "Từ chối an toàn", "coral")}
   </section>
   <section class="dashboard-layout">
     <div>
       <article class="control-hero">
         <div class="control-hero-content">
-          <div class="eyebrow">Chuỗi xác minh fail-closed</div>
-          <h2>Cổng chỉ mở khi <em>con người, phương tiện và lệnh</em> cùng khớp.</h2>
-          <p>AI tạo quan sát; nghiệp vụ quyết định; barrier xác nhận. Mọi sai lệch đều được lưu dấu và chuyển tới bộ phận an ninh.</p>
+          <div class="eyebrow">Chuỗi xác minh ba yếu tố</div>
+          <h2>Cổng chỉ mở khi <em>thẻ nhân viên, khuôn mặt và biển số</em> cùng khớp.</h2>
+          <p>AI tạo quan sát; nghiệp vụ xác minh; barrier xác nhận. Mọi sai lệch đều được lưu dấu và chuyển tới bộ phận an ninh.</p>
           <div class="hero-actions">
-            ${canManageSecurity() ? `<button class="btn btn-accent" data-nav="/gates">${icon("gate")} Thực hiện xác minh</button>` : `<button class="btn btn-accent" data-nav="/warehouse">${icon("warehouse")} Mở điều hành kho</button>`}
+            ${canManageSecurity() ? `<button class="btn btn-accent" data-nav="/gates">${icon("gate")} Thực hiện xác minh</button>` : ""}
             <button class="btn btn-secondary" data-nav="/gate-logs">${icon("logs")} Xem nhật ký</button>
           </div>
         </div>
       </article>
       <div class="workflow-strip">
-        ${workflowSummary("01", "Gate In", state.gateLogs.filter((item) => item.direction === "ENTRY" && isToday(item.occurred_at)).length, "lượt hôm nay")}
-        ${workflowSummary("02", "Đang xếp hàng", state.orders.filter((item) => item.status === "LOADING").length, "lệnh tại dock")}
-        ${workflowSummary("03", "Phiếu đã cấp", state.orders.filter((item) => item.status === "SLIP_ISSUED").length, "chờ Gate Out")}
-        ${workflowSummary("04", "Hoàn tất", state.orders.filter((item) => item.status === "COMPLETED").length, "lệnh xuất kho")}
+        ${workflowSummary("01", "Vào bãi", entryPassedToday, "lượt vào đạt")}
+        ${workflowSummary("02", "Ra bãi", exitPassedToday, "lượt ra đạt")}
+        ${workflowSummary("03", "Thẻ hoạt động", activeCards, "thẻ RFID")}
+        ${workflowSummary("04", "Từ chối", failedToday, "lượt không đạt")}
       </div>
       <article class="card" style="margin-top:18px">
         <header class="card-header"><div><h2>Hoạt động cổng gần đây</h2><p>Kết quả xác minh và trạng thái barrier</p></div><button class="btn btn-ghost" data-nav="/gate-logs">Xem tất cả ${icon("arrow")}</button></header>
@@ -398,8 +424,8 @@ function renderDashboard() {
       </article>
     </div>
     <aside class="card">
-      <header class="card-header"><div><h2>${canManageSecurity() ? "Tín hiệu an ninh" : "Lệnh cần chú ý"}</h2><p>${canManageSecurity() ? "Ưu tiên sự kiện đang mở" : "Các lệnh đang chờ thao tác"}</p></div>${canManageSecurity() ? `<span class="status-badge status-${state.socketStatus === "connected" ? "active" : "inactive"}"><i></i>${state.socketStatus === "connected" ? "Trực tuyến" : "Mất kết nối"}</span>` : ""}</header>
-      ${canManageSecurity() ? renderDashboardAlerts(recentAlerts) : renderDashboardOrders()}
+      <header class="card-header"><div><h2>Tín hiệu an ninh</h2><p>Ưu tiên sự kiện đang mở</p></div>${canManageSecurity() ? `<span class="status-badge status-${state.socketStatus === "connected" ? "active" : "inactive"}"><i></i>${state.socketStatus === "connected" ? "Trực tuyến" : "Mất kết nối"}</span>` : ""}</header>
+      ${renderDashboardAlerts(recentAlerts)}
     </aside>
   </section>`;
 }
@@ -437,19 +463,172 @@ function renderDashboardAlerts(items) {
     .join("")}</div>`;
 }
 
-function renderDashboardOrders() {
-  const items = state.orders
-    .filter((item) => !["COMPLETED", "CANCELLED"].includes(item.status))
-    .slice(0, 6);
-  if (!items.length) return emptyState("package", "Không có lệnh chờ", "Kho hiện không có lệnh xuất hàng đang hoạt động.");
-  return `<div class="activity-list">${items
-    .map((item) => {
-      const vehicle = vehicleById(item.assigned_vehicle_id);
-      return `<button class="activity-item" type="button" data-action="view-order" data-id="${escapeHtml(item.order_id)}" style="width:100%;border:0;background:transparent;text-align:left">
-        <div class="activity-icon">${icon("package")}</div><div class="activity-copy"><strong>${escapeHtml(item.order_id)}</strong><span>${escapeHtml(vehicle?.plate_number || "Chưa có xe")} · ${labelFor(item.status)}</span></div><span class="activity-time">${escapeHtml(formatRelative(item.valid_until))}</span>
-      </button>`;
-    })
-    .join("")}</div>`;
+function renderEmployeeCards() {
+  const byDriver = new Map();
+  for (const card of state.employeeCards) {
+    const list = byDriver.get(card.driver_id) || [];
+    list.push(card);
+    byDriver.set(card.driver_id, list);
+  }
+
+  let content = "";
+  const actions = `<div class="page-actions">
+    <button class="btn btn-accent" data-action="open-card-modal">${icon("plus")} Cấp thẻ mới</button>
+  </div>`;
+
+  if (!state.employeeCards.length) {
+    content = `<div class="card">${emptyState("card", "Chưa có thẻ nhân viên", "Cấp thẻ RFID cho tài xế để bắt đầu kiểm soát bãi xe.")}</div>`;
+  } else {
+    for (const [driverId, cards] of byDriver) {
+      const driver = driverById(driverId);
+      const driverName = driver?.full_name || driverId;
+      const activeCard = cards.find((c) => c.status === "ACTIVE");
+      const history = cards.filter((c) => c.status !== "ACTIVE");
+
+      content += `<article class="card" style="margin-bottom:18px">
+        <div class="card-body">
+          <div class="card-head">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="entity-avatar">${escapeHtml(initials(driverName))}</div>
+              <div>
+                <h3 style="margin:0;font-size:18px">${escapeHtml(driverName)}</h3>
+                <span class="text-muted" style="font-size:13px">${driver?.employee_code ? escapeHtml(driver.employee_code) : `ID ${escapeHtml(shortId(driverId))}`}</span>
+              </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" data-action="open-card-modal" data-driver="${driverId}">${icon("plus")} Cấp thẻ</button>
+          </div>
+          ${activeCard ? renderEmployeeCardRow(activeCard, true) : '<p class="text-muted" style="margin:10px 0 0 0">Không có thẻ đang hoạt động</p>'}
+          ${history.length ? `<div class="card-history"><div class="card-history-title">Lịch sử thẻ</div>${history.map((c) => renderEmployeeCardRow(c, false)).join("")}</div>` : ""}
+        </div>
+      </article>`;
+    }
+  }
+
+  return `${pageHeader("Thẻ nhân viên", "Quản lý thẻ nhân viên", "Cấp, thay thế và quản lý vòng đời thẻ RFID.", actions)}${content}`;
+}
+
+function renderEmployeeCardRow(card, isActive) {
+  const statusLabels = {
+    ACTIVE: "Đang hoạt động",
+    BLOCKED: "Đã khóa",
+    LOST: "Đã báo mất",
+    REPLACED: "Đã thay thế",
+  };
+  const statusClass = `card-status card-status-${card.status.toLowerCase()}`;
+
+  let actions = "";
+  if (isActive) {
+    actions = `
+      <button class="btn btn-secondary btn-sm" data-action="replace-card" data-id="${card.id}">Thay thẻ</button>
+      <button class="btn btn-secondary btn-sm" data-action="block-card" data-id="${card.id}">Khóa thẻ</button>
+      <button class="btn btn-secondary btn-sm" data-action="lost-card" data-id="${card.id}">Báo mất</button>
+    `;
+  }
+
+  const isUpdated = Boolean(card.updated_at && card.updated_at !== card.issued_at);
+
+  return `<div class="card-history-item ${isActive ? "card-active" : ""}">
+    <div class="card-row">
+      <span class="card-uid">${escapeHtml(maskCardUidForDisplay(card.card_uid_masked))}</span>
+      <span class="${statusClass}">${statusLabels[card.status] || card.status}</span>
+      ${card.status_reason ? `<span class="text-muted">${escapeHtml(card.status_reason)}</span>` : ""}
+      <span class="text-muted">${escapeHtml(formatDate(card.issued_at))}</span>
+      ${isUpdated ? `<span class="text-muted">Cập nhật: ${escapeHtml(formatDate(card.updated_at))}</span>` : ""}
+      ${card.replaces_card_id ? `<span class="text-muted">Thay thẻ: ${escapeHtml(shortId(card.replaces_card_id))}</span>` : ""}
+      ${card.replaced_by_card_id ? `<span class="text-muted">Được thay bởi: ${escapeHtml(shortId(card.replaced_by_card_id))}</span>` : ""}
+    </div>
+    ${actions ? `<div class="card-actions">${actions}</div>` : ""}
+  </div>`;
+}
+
+function openEmployeeCardModal(driverId = null) {
+  const drivers = state.drivers.filter((d) => d.status === "ACTIVE");
+  openModal({
+    title: "Cấp thẻ nhân viên",
+    body: `<form data-form="issue-card">
+      <div class="field">
+        <label for="card-driver">Tài xế</label>
+        <select id="card-driver" name="driver_id" required>
+          <option value="">Chọn tài xế</option>
+          ${drivers.map((d) => `<option value="${d.id}" ${driverId === d.id ? "selected" : ""}>${escapeHtml(d.full_name)}${d.employee_code ? ` · ${escapeHtml(d.employee_code)}` : ""}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label for="card-uid">UID thẻ RFID</label>
+        <input id="card-uid" name="card_uid" type="password" minlength="4" maxlength="128" autocomplete="off" aria-label="UID thẻ nhân viên" required />
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label for="card-reason">Lý do (tùy chọn)</label>
+        <input id="card-reason" name="status_reason" maxlength="500" />
+      </div>
+      <button type="submit" class="btn btn-accent btn-block" style="margin-top:18px">Cấp thẻ</button>
+    </form>`,
+  });
+}
+
+function openReplaceEmployeeCardModal(cardId) {
+  openModal({
+    title: "Thay thẻ nhân viên",
+    body: `<form data-form="replace-card" data-card-id="${cardId}">
+      <div class="field">
+        <label for="replace-uid">UID thẻ mới</label>
+        <input id="replace-uid" name="card_uid" type="password" minlength="4" maxlength="128" autocomplete="off" aria-label="UID thẻ nhân viên" required />
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label for="replace-reason">Lý do thay thẻ</label>
+        <input id="replace-reason" name="status_reason" minlength="2" maxlength="500" required />
+      </div>
+      <button type="submit" class="btn btn-accent btn-block" style="margin-top:18px">Thay thẻ</button>
+    </form>`,
+  });
+}
+
+function openEmployeeCardStatusModal(cardId, status) {
+  const labels = { BLOCKED: "Khóa thẻ", LOST: "Báo mất thẻ" };
+  openModal({
+    title: labels[status] || "Đổi trạng thái thẻ",
+    body: `<form data-form="card-status" data-card-id="${cardId}" data-status="${status}">
+      <div class="field">
+        <label for="status-reason">Lý do</label>
+        <input id="status-reason" name="status_reason" minlength="2" maxlength="500" required />
+      </div>
+      <button type="submit" class="btn btn-danger btn-block" style="margin-top:18px">${labels[status] || "Xác nhận"}</button>
+    </form>`,
+  });
+}
+
+async function submitEmployeeCard(form) {
+  const data = new FormData(form);
+  await api.post("/api/v1/employee-cards", {
+    driver_id: data.get("driver_id"),
+    card_uid: data.get("card_uid"),
+    status_reason: data.get("status_reason") || null,
+    metadata: { source: "operator-console" },
+  });
+  closeModal();
+  await loadAllData({ showLoading: false });
+  showToast("Cấp thẻ thành công", "success");
+}
+
+async function replaceEmployeeCard(cardId, form) {
+  const data = new FormData(form);
+  await api.post(`/api/v1/employee-cards/${cardId}/replace`, {
+    card_uid: data.get("card_uid"),
+    status_reason: data.get("status_reason"),
+  });
+  closeModal();
+  await loadAllData({ showLoading: false });
+  showToast("Thay thẻ thành công", "success");
+}
+
+async function changeEmployeeCardStatus(cardId, status, reason) {
+  const endpoint = status === "BLOCKED" ? "block" : "report-lost";
+  await api.post(`/api/v1/employee-cards/${cardId}/${endpoint}`, {
+    status_reason: reason,
+  });
+  closeModal();
+  await loadAllData({ showLoading: false });
+  showToast(status === "BLOCKED" ? "Đã khóa thẻ" : "Đã báo mất thẻ", "success");
 }
 
 function renderDrivers() {
@@ -502,7 +681,7 @@ function renderAuthorizations() {
   const action = canManageMasterData()
     ? `<button class="btn btn-primary" data-action="open-authorization">${icon("plus")} Tạo ủy quyền</button>`
     : "";
-  return `${pageHeader("Quan hệ có thời hạn", "Ủy quyền tài xế – phương tiện", "Gate In chỉ đạt khi khuôn mặt và biển số thuộc cùng một cặp ủy quyền đang hiệu lực.", action)}
+  return `${pageHeader("Quan hệ có thời hạn", "Ủy quyền tài xế – phương tiện", "Gate In chỉ đạt khi thẻ RFID, khuôn mặt và biển số thuộc cùng một cặp ủy quyền đang hiệu lực.", action)}
     ${renderSearchToolbar("authorizations", "Tìm tên tài xế hoặc biển số")}
     <div class="table-shell">${items.length ? `<div class="table-scroll"><table><thead><tr><th>Tài xế</th><th>Phương tiện</th><th>Hiệu lực từ</th><th>Hiệu lực đến</th><th>Trạng thái</th><th></th></tr></thead><tbody>${items.map(renderAuthorizationRow).join("")}</tbody></table></div>` : emptyState("authorization", "Chưa có quan hệ ủy quyền", "Tạo cặp tài xế – phương tiện trước khi thực hiện Gate In.", action)}</div>`;
 }
@@ -519,127 +698,71 @@ function renderSearchToolbar(key, placeholder) {
   return `<form class="search-toolbar" data-form="search" data-key="${key}"><div class="search-box">${icon("search")}<input name="query" value="${escapeHtml(state.search[key] || "")}" placeholder="${escapeHtml(placeholder)}" /></div><button class="btn btn-secondary" type="submit">${icon("search")} Tìm kiếm</button>${state.search[key] ? `<button class="btn btn-ghost" type="button" data-action="clear-search" data-key="${key}">Xóa lọc</button>` : ""}</form>`;
 }
 
-function renderWarehouse() {
-  const tabs = `<div class="page-actions"><button class="btn ${state.warehouseTab === "orders" ? "btn-primary" : "btn-secondary"}" data-action="warehouse-tab" data-tab="orders">${icon("package")} Lệnh xuất kho</button><button class="btn ${state.warehouseTab === "docks" ? "btn-primary" : "btn-secondary"}" data-action="warehouse-tab" data-tab="docks">${icon("warehouse")} Phiên kiểm hàng</button>${canManageWarehouse() ? `<button class="btn btn-accent" data-action="open-order">${icon("plus")} Tạo lệnh mới</button>` : ""}</div>`;
-  return `${pageHeader("Điều phối kho", "Điều hành xuất kho", "Quản lý chuỗi PENDING → LOADING → READY_FOR_EXIT → SLIP_ISSUED → COMPLETED.", tabs)}${state.warehouseTab === "docks" ? renderDocks() : renderOrders()}`;
-}
-
-function renderOrders() {
-  const query = (state.search.orders || "").toLowerCase();
-  let items = state.orders.filter((item) => {
-    const driver = driverById(item.assigned_driver_id);
-    const vehicle = vehicleById(item.assigned_vehicle_id);
-    return [item.order_id, driver?.full_name, vehicle?.plate_number].some((value) => String(value || "").toLowerCase().includes(query));
-  });
-  if (state.filters.orderStatus !== "ALL") {
-    items = items.filter((item) => item.status === state.filters.orderStatus);
-  }
-  return `<div class="search-toolbar"><form class="search-box" data-form="search" data-key="orders">${icon("search")}<input name="query" value="${escapeHtml(state.search.orders || "")}" placeholder="Tìm mã lệnh, tài xế hoặc biển số" /></form><select class="toolbar-select" data-filter="orderStatus"><option value="ALL">Tất cả trạng thái</option>${["PENDING", "LOADING", "READY_FOR_EXIT", "SLIP_ISSUED", "COMPLETED", "CANCELLED"].map((value) => `<option value="${value}" ${state.filters.orderStatus === value ? "selected" : ""}>${labelFor(value)}</option>`).join("")}</select><button class="btn btn-secondary" data-action="toggle-order-view">${icon(state.orderView === "board" ? "logs" : "dashboard")} ${state.orderView === "board" ? "Dạng bảng" : "Dạng luồng"}</button></div>
-    ${state.orderView === "board" ? renderOrderBoard(items) : renderOrderTable(items)}`;
-}
-
-function renderOrderBoard(items) {
-  const columns = [
-    ["PENDING", "Chờ tiếp nhận", ["PENDING"]],
-    ["LOADING", "Đang tại dock", ["LOADING"]],
-    ["READY_FOR_EXIT", "Chờ rời kho", ["READY_FOR_EXIT", "SLIP_ISSUED"]],
-    ["COMPLETED", "Đã kết thúc", ["COMPLETED", "CANCELLED"]],
-  ];
-  if (!items.length) return `<div class="card">${emptyState("package", "Chưa có lệnh xuất kho", "Tạo lệnh mới sau khi tài xế và phương tiện đã được ủy quyền.")}</div>`;
-  return `<div class="order-board">${columns
-    .map(([status, title, statuses]) => {
-      const columnItems = items.filter((item) => statuses.includes(item.status));
-      return `<section class="order-column"><header class="order-column-header"><strong>${escapeHtml(title)}</strong><span class="count-pill">${columnItems.length}</span></header><div class="order-stack">${columnItems.map(renderOrderCard).join("") || `<div class="empty-state" style="min-height:130px;padding:20px 8px"><p>Không có lệnh</p></div>`}</div></section>`;
-    })
-    .join("")}</div>`;
-}
-
-function renderOrderCard(item) {
-  const driver = driverById(item.assigned_driver_id);
-  const vehicle = vehicleById(item.assigned_vehicle_id);
-  return `<article class="order-card" data-action="view-order" data-id="${escapeHtml(item.order_id)}"><div class="order-card-head"><h3>${escapeHtml(item.order_id)}</h3>${statusBadge(item.status)}</div><div class="order-card-meta"><span>${icon("driver")} ${escapeHtml(driver?.full_name || shortId(item.assigned_driver_id))}</span><span>${icon("vehicle")} ${escapeHtml(vehicle?.plate_number || shortId(item.assigned_vehicle_id))}</span><span>${icon("clock")} Hết hạn ${escapeHtml(formatRelative(item.valid_until))}</span></div></article>`;
-}
-
-function renderOrderTable(items) {
-  if (!items.length) return `<div class="card">${emptyState("package", "Không có lệnh phù hợp", "Thay đổi bộ lọc hoặc tạo một lệnh xuất kho mới.")}</div>`;
-  return `<div class="table-shell"><div class="table-scroll"><table><thead><tr><th>Lệnh xuất kho</th><th>Tài xế</th><th>Phương tiện</th><th>Hiệu lực</th><th>Phiếu</th><th>Trạng thái</th><th></th></tr></thead><tbody>${items
-    .map((item) => {
-      const driver = driverById(item.assigned_driver_id);
-      const vehicle = vehicleById(item.assigned_vehicle_id);
-      return `<tr><td><div class="entity-cell"><div class="entity-avatar order">${icon("package")}</div><div class="entity-copy"><strong>${escapeHtml(item.order_id)}</strong><span>${item.cargo_metadata?.length || 0} dòng hàng</span></div></div></td><td>${escapeHtml(driver?.full_name || shortId(item.assigned_driver_id))}</td><td><span class="plate-number">${escapeHtml(vehicle?.plate_number || shortId(item.assigned_vehicle_id))}</span></td><td>${escapeHtml(formatDate(item.valid_from))}<br/><small>đến ${escapeHtml(formatDate(item.valid_until))}</small></td><td>Phiên bản ${item.slip_version || 0}</td><td>${statusBadge(item.status)}</td><td><button class="btn btn-ghost btn-icon" data-action="view-order" data-id="${escapeHtml(item.order_id)}">${icon("eye")}</button></td></tr>`;
-    })
-    .join("")}</tbody></table></div></div>`;
-}
-
-function renderDocks() {
-  if (!state.docks.length) {
-    return `<div class="card">${emptyState("warehouse", "Chưa có phiên kiểm hàng", "Phiên dock được tạo từ một lệnh PENDING sau khi Gate In đạt.")}</div>`;
-  }
-  return `<div class="grid grid-3">${state.docks
-    .map((dock) => {
-      const order = state.orders.find((item) => item.order_id === dock.order_id);
-      const vehicle = vehicleById(order?.assigned_vehicle_id);
-      return `<article class="card"><div class="card-body"><div class="order-card-head"><div><div class="eyebrow">Phiên kiểm hàng</div><h3 style="margin:0;font-family:var(--font-display);font-size:23px">${escapeHtml(dock.order_id)}</h3></div>${statusBadge(dock.status)}</div><div class="info-list" style="margin-top:12px"><div class="info-row"><span>Phương tiện</span><strong>${escapeHtml(vehicle?.plate_number || "—")}</strong></div><div class="info-row"><span>Trạng thái hàng</span><strong>${escapeHtml(labelFor(dock.current_cargo_state))}</strong></div><div class="info-row"><span>Số lần chụp</span><strong>${dock.capture_count}</strong></div></div><button class="btn btn-secondary btn-block" style="margin-top:14px" data-action="view-dock" data-id="${dock.id}">${icon("eye")} Mở phiên kiểm hàng</button></div></article>`;
-    })
-    .join("")}</div>`;
-}
-
 function renderGates() {
   const isEntry = state.gateTab === "entry";
   const result = state.verificationResults[state.gateTab];
   const tabs = `<button class="btn ${isEntry ? "btn-primary" : "btn-secondary"}" data-action="gate-tab" data-tab="entry">${icon("gate")} Gate In</button><button class="btn ${!isEntry ? "btn-primary" : "btn-secondary"}" data-action="gate-tab" data-tab="exit">${icon("logout")} Gate Out</button>`;
-  return `${pageHeader("Xác minh có hỗ trợ AI", isEntry ? "Xác minh cổng vào" : "Xác minh cổng ra", isEntry ? "Đối chiếu khuôn mặt, biển số và quan hệ ủy quyền đang hiệu lực." : "Đối chiếu ba chiều giữa QR đã ký, khuôn mặt, biển số và lệnh nội bộ.", tabs)}
+  return `${pageHeader("Xác minh có hỗ trợ AI", isEntry ? "Xác minh cổng vào" : "Xác minh cổng ra", isEntry ? "Đối chiếu thẻ nhân viên, khuôn mặt, biển số và quan hệ ủy quyền đang hiệu lực." : "Đối chiếu ba yếu tố giữa thẻ nhân viên, khuôn mặt và biển số xe tại cổng ra.", tabs)}
     <div class="verification-layout"><section class="card verification-panel">${renderGateForm(isEntry)}</section><aside class="verification-side"><section class="card verification-result">${renderVerificationResult(result)}</section>${renderGateGuidance(isEntry)}</aside></div>`;
 }
 
 function renderGateForm(isEntry) {
   const prefix = isEntry ? "entry" : "exit";
-  const slipOrders = state.orders.filter((item) => item.status === "SLIP_ISSUED");
   return `<form data-form="gate-${prefix}">
     <div class="field-row"><div class="field"><label for="gate-${prefix}-event">Event ID chống lặp</label><input id="gate-${prefix}-event" name="event_id" value="${escapeHtml(uniqueEventId(prefix))}" minlength="8" maxlength="128" required /><span class="field-hint">Giữ nguyên ID khi retry cùng một sự kiện.</span></div><div class="field"><label for="gate-${prefix}-id">Mã cổng</label><input id="gate-${prefix}-id" name="gate_id" value="${isEntry ? "gate-in-01" : "gate-out-01"}" required /></div></div>
-    <div class="capture-grid ${isEntry ? "" : "three"}">
+    <div class="field" style="margin-top:14px"><label for="gate-${prefix}-card-uid">UID thẻ nhân viên RFID</label><input id="gate-${prefix}-card-uid" name="card_uid" type="password" minlength="4" maxlength="128" autocomplete="off" aria-label="UID thẻ nhân viên" required /><span class="field-hint">Quẹt thẻ RFID của tài xế vào đầu đọc</span></div>
+    <div class="capture-grid" style="margin-top:14px">
       ${fileDrop(`gate-${prefix}-plate`, "plate_image", "Ảnh biển số", "Ưu tiên khung hình chính diện", "environment", true, "plate")}
       ${fileDrop(`gate-${prefix}-face`, "face_image", "Ảnh khuôn mặt", "Khuôn mặt rõ, đủ sáng", "user", true, "face")}
-      ${!isEntry ? fileDrop("gate-exit-slip", "slip_image", "QR phiếu xuất kho", "Ảnh QR đầy đủ bốn góc", "environment") : ""}
     </div>
-    ${!isEntry && slipOrders.length ? `<div class="field-row" style="margin-bottom:16px"><div class="field"><label for="gate-slip-order">Lấy QR từ lệnh đã cấp</label><select id="gate-slip-order"><option value="">Chọn lệnh xuất kho</option>${slipOrders.map((item) => `<option value="${escapeHtml(item.order_id)}">${escapeHtml(item.order_id)} · ${escapeHtml(vehicleById(item.assigned_vehicle_id)?.plate_number || "")}</option>`).join("")}</select></div><div class="field" style="align-content:end"><button class="btn btn-secondary" type="button" data-action="load-order-qr">${icon("qr")} Nạp QR của lệnh</button></div></div>` : ""}
-    <button class="btn btn-primary btn-block" type="submit">${icon("shield")} ${isEntry ? "Xác minh và yêu cầu mở Gate In" : "Xác minh ba chiều và yêu cầu mở Gate Out"}</button>
+    <button class="btn btn-primary btn-block" type="submit" style="margin-top:18px">${icon("shield")} ${isEntry ? "Xác minh và yêu cầu mở Gate In" : "Xác minh ba yếu tố và yêu cầu mở Gate Out"}</button>
   </form>`;
 }
 
 function fileDrop(id, name, title, hint, facingMode, cameraButton = true, demoType = null) {
-  return `<div class="file-drop" data-drop-for="${id}"><input id="${id}" name="${name}" type="file" accept="image/*" capture="${facingMode}" aria-label="${escapeHtml(title)}" required /><img class="file-drop-preview" data-preview-for="${id}" alt="" hidden /><div class="file-drop-content"><div class="file-drop-icon">${icon("camera")}</div><strong data-file-title>${escapeHtml(title)}</strong><span data-file-hint>${escapeHtml(hint)}</span><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px"><label class="btn btn-secondary" for="${id}">${icon("upload")} Chọn ảnh</label>${cameraButton ? `<button class="btn btn-secondary" type="button" data-action="open-camera" data-target="${id}" data-facing="${facingMode}">${icon("camera")} Camera</button>` : ""}${demoType ? `<button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="${id}" data-demo-type="${demoType}">${icon("package")} Ảnh mẫu</button>` : ""}</div></div></div>`;
+  return `<div class="file-drop" data-drop-for="${id}"><input id="${id}" name="${name}" type="file" accept="image/*" capture="${facingMode}" aria-label="${escapeHtml(title)}" required /><img class="file-drop-preview" data-preview-for="${id}" alt="Xem trước" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" hidden /><div class="file-drop-content"><div class="file-drop-icon">${icon("camera")}</div><strong data-file-title>${escapeHtml(title)}</strong><span data-file-hint>${escapeHtml(hint)}</span><div style="display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:12px"><label class="btn btn-secondary" for="${id}">${icon("upload")} Chọn ảnh</label>${cameraButton ? `<button class="btn btn-secondary" type="button" data-action="open-camera" data-target="${id}" data-facing="${facingMode}">${icon("camera")} Camera</button>` : ""}${demoType ? `<button class="btn btn-secondary" type="button" data-action="load-demo-image" data-target="${id}" data-demo-type="${demoType}">${icon("package")} Ảnh mẫu</button>` : ""}</div></div></div>`;
 }
 
 function renderVerificationResult(result) {
   if (!result) {
-    return `<div class="result-idle"><div class="radar"><i class="radar-line"></i></div><strong>Đang chờ dữ liệu xác minh</strong><p>Tải ảnh hoặc chụp trực tiếp từ camera để bắt đầu.</p></div>`;
+    return `<div class="result-idle"><div class="radar"><i class="radar-line"></i></div><strong>Đang chờ dữ liệu xác minh</strong><p>Quẹt thẻ và tải ảnh hoặc chụp trực tiếp từ camera để bắt đầu.</p></div>`;
   }
   const passed = result.verification_status === "PASSED";
   const trulyOpened = result.permit_granted && result.barrier_status === "OPENED";
   const resolvedDriver = driverById(result.driver_id);
   const resolvedVehicle = vehicleById(result.vehicle_id);
   return `<div class="result-hero"><div class="result-symbol ${passed ? "passed" : "failed"}">${icon(passed ? "check" : "x")}</div><h3>${trulyOpened ? "Đã mở cổng" : passed ? "Xác minh đạt · cổng chưa mở" : "Từ chối qua cổng"}</h3><p>${trulyOpened ? "Barrier đã ACK lệnh mở an toàn." : passed ? `Barrier: ${labelFor(result.barrier_status)}` : "Hệ thống giữ cổng đóng và đã lưu sự kiện."}</p></div>
-    <div class="score-grid"><div class="score-item"><strong>${formatPercent(result.face_similarity)}</strong><span>Khuôn mặt</span></div><div class="score-item"><strong>${formatPercent(result.plate_score)}</strong><span>Biển số</span></div><div class="score-item"><strong>${formatPercent(result.verification_score)}</strong><span>Tổng hợp</span></div></div>
-    <div class="info-list" style="margin-top:12px"><div class="info-row"><span>Biển số quan sát</span><strong><span class="plate-number">${escapeHtml(result.observed_plate || "—")}</span></strong></div><div class="info-row"><span>Tài xế đã đối chiếu</span><strong>${escapeHtml(resolvedDriver?.full_name || result.driver_id || "—")}</strong></div><div class="info-row"><span>Phương tiện đã đối chiếu</span><strong>${escapeHtml(resolvedVehicle?.plate_number || result.vehicle_id || "—")}</strong></div><div class="info-row"><span>Lệnh xuất kho</span><strong>${escapeHtml(result.order_id || "—")}</strong></div><div class="info-row"><span>Event ID</span><strong>${escapeHtml(result.event_id)}</strong></div></div>
+    <div class="score-grid">
+      <div class="score-item"><strong>${result.card_verified ? "Đạt" : "Không đạt"}</strong><span>Thẻ nhân viên</span></div>
+      <div class="score-item"><strong>${formatPercent(result.face_similarity)}</strong><span>Khuôn mặt</span></div>
+      <div class="score-item"><strong>${formatPercent(result.plate_score)}</strong><span>Biển số</span></div>
+      <div class="score-item"><strong>${formatPercent(result.verification_score)}</strong><span>Tổng hợp</span></div>
+    </div>
+    <div class="info-list" style="margin-top:12px">
+      <div class="info-row"><span>Biển số quan sát</span><strong><span class="plate-number">${escapeHtml(result.observed_plate || "—")}</span></strong></div>
+      <div class="info-row"><span>Tài xế đã đối chiếu</span><strong>${escapeHtml(resolvedDriver?.full_name || result.driver_id || "—")}</strong></div>
+      <div class="info-row"><span>Phương tiện đã đối chiếu</span><strong>${escapeHtml(resolvedVehicle?.plate_number || result.vehicle_id || "—")}</strong></div>
+      <div class="info-row"><span>Xác thực ủy quyền</span><strong>${result.authorization_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
+      <div class="info-row"><span>Event ID</span><strong>${escapeHtml(result.event_id)}</strong></div>
+    </div>
     <div class="reason-list">${(result.reason_codes?.length ? result.reason_codes : ["VERIFIED_WITHOUT_MISMATCH"]).map((code) => `<span class="reason-chip">${escapeHtml(code)}</span>`).join("")}</div>`;
 }
 
 function renderGateGuidance(isEntry) {
   const steps = isEntry
-    ? [["camera", "Chụp dữ liệu", "Hai ảnh độc lập cho khuôn mặt và biển số."], ["shield", "Đối chiếu", "Face ≥ 0.75, plate exact/fuzzy duy nhất, cặp đã ủy quyền."], ["gate", "Barrier ACK", "Chỉ hiển thị đã mở khi thiết bị trả xác nhận."]]
-    : [["qr", "Kiểm chữ ký QR", "Xác minh kid, JTI, phiên bản và thời hạn Ed25519."], ["shield", "Khớp ba chiều", "QR = khuôn mặt/biển số live = lệnh nội bộ."], ["logout", "Hoàn tất lệnh", "Order chỉ COMPLETED sau khi barrier ACK."]];
-  return `<section class="card"><header class="card-header"><div><h3>Chuỗi kiểm soát</h3><p>Hệ thống luôn fail-closed</p></div></header><div class="card-body"><div class="timeline">${steps.map(([iconName, title, text]) => `<div class="timeline-item"><div class="timeline-dot">${icon(iconName)}</div><div class="timeline-copy"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div></div>`).join("")}</div></div></section>`;
+    ? [["card", "Quẹt thẻ RFID", "Quẹt thẻ nhân viên hợp lệ vào đầu đọc."], ["camera", "Chụp dữ liệu", "Hai ảnh độc lập cho khuôn mặt và biển số."], ["shield", "Đối chiếu", "Thẻ ACTIVE, Face ≥ 0.75, biển số khớp ủy quyền."], ["gate", "Barrier ACK", "Chỉ hiển thị đã mở khi thiết bị trả xác nhận."]]
+    : [["card", "Quẹt thẻ RFID", "Quẹt thẻ nhân viên khi rời bãi."], ["camera", "Chụp dữ liệu", "Xác minh lại khuôn mặt và biển số."], ["shield", "Khớp ba yếu tố", "Thẻ + khuôn mặt + biển số trùng khớp ủy quyền."], ["gate", "Barrier ACK", "Hoàn tất lượt qua cổng sau khi barrier ACK."]];
+  return `<section class="card"><header class="card-header"><div><h3>Chuỗi kiểm soát bãi xe</h3><p>Hệ thống luôn fail-closed</p></div></header><div class="card-body"><div class="timeline">${steps.map(([iconName, title, text]) => `<div class="timeline-item"><div class="timeline-dot">${icon(iconName)}</div><div class="timeline-copy"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(text)}</span></div></div>`).join("")}</div></div></section>`;
 }
 
 function renderGateLogs() {
   let items = state.gateLogs;
   const query = (state.search.logs || "").toLowerCase();
-  if (query) items = items.filter((item) => [item.event_id, item.observed_plate, item.order_id, ...(item.reason_codes || [])].some((value) => String(value || "").toLowerCase().includes(query)));
+  if (query) items = items.filter((item) => [item.event_id, item.observed_plate, ...(item.reason_codes || [])].some((value) => String(value || "").toLowerCase().includes(query)));
   if (state.filters.logDirection !== "ALL") items = items.filter((item) => item.direction === state.filters.logDirection);
   if (state.filters.logStatus !== "ALL") items = items.filter((item) => item.verification_status === state.filters.logStatus);
   return `${pageHeader("Dấu vết kiểm toán", "Nhật ký xác minh cổng", "Truy vết điểm số, model, reason code, ảnh bằng chứng và trạng thái barrier.", `<button class="btn btn-secondary" data-action="reload-gate-logs">${icon("refresh")} Tải mới</button>`)}
-    <div class="search-toolbar"><form class="search-box" data-form="search" data-key="logs">${icon("search")}<input name="query" value="${escapeHtml(state.search.logs || "")}" placeholder="Tìm event, biển số, order hoặc reason code" /></form><select class="toolbar-select" data-filter="logDirection"><option value="ALL">Cả hai chiều</option><option value="ENTRY" ${state.filters.logDirection === "ENTRY" ? "selected" : ""}>Cổng vào</option><option value="EXIT" ${state.filters.logDirection === "EXIT" ? "selected" : ""}>Cổng ra</option></select><select class="toolbar-select" data-filter="logStatus"><option value="ALL">Mọi kết quả</option><option value="PASSED" ${state.filters.logStatus === "PASSED" ? "selected" : ""}>Đạt</option><option value="FAILED" ${state.filters.logStatus === "FAILED" ? "selected" : ""}>Không đạt</option></select></div>
+    <div class="search-toolbar"><form class="search-box" data-form="search" data-key="logs">${icon("search")}<input name="query" value="${escapeHtml(state.search.logs || "")}" placeholder="Tìm event, biển số hoặc reason code" /></form><select class="toolbar-select" data-filter="logDirection"><option value="ALL">Cả hai chiều</option><option value="ENTRY" ${state.filters.logDirection === "ENTRY" ? "selected" : ""}>Cổng vào</option><option value="EXIT" ${state.filters.logDirection === "EXIT" ? "selected" : ""}>Cổng ra</option></select><select class="toolbar-select" data-filter="logStatus"><option value="ALL">Mọi kết quả</option><option value="PASSED" ${state.filters.logStatus === "PASSED" ? "selected" : ""}>Đạt</option><option value="FAILED" ${state.filters.logStatus === "FAILED" ? "selected" : ""}>Không đạt</option></select></div>
     <div class="table-shell">${items.length ? `<div class="table-scroll"><table><thead><tr><th>Thời gian / Event</th><th>Chiều</th><th>Biển số</th><th>Điểm xác minh</th><th>Kết quả</th><th>Barrier</th><th>Lý do</th><th></th></tr></thead><tbody>${items.map(renderGateLogRow).join("")}</tbody></table></div>` : emptyState("logs", "Không có nhật ký phù hợp", "Thay đổi bộ lọc hoặc thực hiện một lượt xác minh tại cổng.")}</div>`;
 }
 
@@ -667,7 +790,7 @@ function renderSystem() {
   const readyOk = state.health.ready === "ready";
   return `${pageHeader("Giám sát hệ thống", "Trạng thái hệ thống", "Kiểm tra nhanh API, cơ sở dữ liệu và các điểm tích hợp vận hành.", `<button class="btn btn-secondary" data-action="check-health">${icon("refresh")} Kiểm tra lại</button><a class="btn btn-primary" href="/docs" target="_blank" rel="noreferrer">${icon("external")} Swagger API</a>`)}
     <section class="grid grid-3"><article class="card"><div class="card-body"><div class="kpi-top"><div class="kpi-icon ${liveOk ? "mint" : "coral"}">${icon("radio")}</div>${statusBadge(liveOk ? "ACTIVE" : "INACTIVE")}</div><div class="kpi-value" style="font-size:28px">API trực tuyến</div><div class="kpi-label">${liveOk ? "FastAPI đang nhận yêu cầu" : "Không nhận được tín hiệu liveness"}</div></div></article><article class="card"><div class="card-body"><div class="kpi-top"><div class="kpi-icon ${readyOk ? "mint" : "coral"}">${icon("system")}</div>${statusBadge(readyOk ? "ACTIVE" : "INACTIVE")}</div><div class="kpi-value" style="font-size:28px">MongoDB sẵn sàng</div><div class="kpi-label">${readyOk ? "Replica set sẵn sàng truy vấn" : "Cơ sở dữ liệu chưa sẵn sàng"}</div></div></article><article class="card"><div class="card-body"><div class="kpi-top"><div class="kpi-icon amber">${icon("radio")}</div>${statusBadge(state.socketStatus === "connected" ? "ACTIVE" : "INACTIVE")}</div><div class="kpi-value" style="font-size:28px">Luồng cảnh báo</div><div class="kpi-label">${state.socketStatus === "connected" ? "WebSocket đang kết nối" : canManageSecurity() ? "WebSocket đang khôi phục" : "Vai trò không sử dụng kênh cảnh báo"}</div></div></article></section>
-    <section class="grid grid-2" style="margin-top:18px"><article class="card"><header class="card-header"><div><h2>Điểm truy cập nội bộ</h2><p>Các dịch vụ được Docker Compose công bố</p></div></header><div class="card-body"><div class="info-list">${endpointRow("Giao diện điều hành", location.origin, true)}${endpointRow("OpenAPI / Swagger", `${location.origin}/docs`, true)}${endpointRow("MinIO Console", `${location.protocol}//${location.hostname}:9001`, true)}${endpointRow("Barrier Simulator", `${location.protocol}//${location.hostname}:18080`, true)}${endpointRow("Camera Simulator", `${location.protocol}//${location.hostname}:18081`, true)}</div></div></article><article class="card"><header class="card-header"><div><h2>Nguyên tắc an toàn</h2><p>Các bảo đảm được duy trì xuyên suốt quy trình</p></div></header><div class="card-body"><div class="timeline"><div class="timeline-item"><div class="timeline-dot">${icon("shield")}</div><div class="timeline-copy"><strong>Session HttpOnly + CSRF</strong><span>Giao diện không lưu session token trong localStorage.</span></div></div><div class="timeline-item"><div class="timeline-dot">${icon("gate")}</div><div class="timeline-copy"><strong>Barrier ACK bắt buộc</strong><span>Kết quả AI không thể trực tiếp mở cổng.</span></div></div><div class="timeline-item"><div class="timeline-dot">${icon("qr")}</div><div class="timeline-copy"><strong>QR ký Ed25519</strong><span>Token giả, hết hạn hoặc replay đều bị từ chối.</span></div></div></div></div></article></section>`;
+    <section class="grid grid-2" style="margin-top:18px"><article class="card"><header class="card-header"><div><h2>Điểm truy cập nội bộ</h2><p>Các dịch vụ trong cụm vận hành</p></div></header><div class="card-body"><div class="info-list">${endpointRow("Giao diện điều hành", location.origin, true)}${endpointRow("OpenAPI / Swagger", `${location.origin}/docs`, true)}${endpointRow("MinIO Console", `${location.protocol}//${location.hostname}:9001`, true)}${endpointRow("Barrier Simulator", `${location.protocol}//${location.hostname}:18080`, true)}${endpointRow("Camera Simulator", `${location.protocol}//${location.hostname}:18081`, true)}</div></div></article><article class="card"><header class="card-header"><div><h2>Nguyên tắc an toàn</h2><p>Các bảo đảm được duy trì xuyên suốt quy trình</p></div></header><div class="card-body"><div class="timeline"><div class="timeline-item"><div class="timeline-dot">${icon("shield")}</div><div class="timeline-copy"><strong>Session HttpOnly + CSRF</strong><span>Giao diện không lưu session token trong localStorage.</span></div></div><div class="timeline-item"><div class="timeline-dot">${icon("gate")}</div><div class="timeline-copy"><strong>Barrier ACK bắt buộc</strong><span>Kết quả AI không thể trực tiếp mở cổng.</span></div></div><div class="timeline-item"><div class="timeline-dot">${icon("card")}</div><div class="timeline-copy"><strong>Xác thực ba yếu tố</strong><span>Thẻ RFID, khuôn mặt và biển số xe bảo đảm tính toàn vẹn.</span></div></div></div></div></article></section>`;
 }
 
 function endpointRow(label, url, link) {
@@ -686,6 +809,10 @@ async function restoreSession() {
     const user = await api.get("/api/v1/auth/me", { skipUnauthorizedEvent: true });
     state.user = user;
     api.setCsrfToken(user.csrf_token);
+    state.route = authorizedRoute(state.route);
+    if (location.hash && normalizeRoute(location.hash.slice(1)) !== state.route) {
+      location.hash = state.route;
+    }
     await loadAllData();
     connectWebSocket();
   } catch (error) {
@@ -706,11 +833,14 @@ async function loadAllData({ showLoading = true } = {}) {
     ["drivers", api.get("/api/v1/drivers")],
     ["vehicles", api.get("/api/v1/vehicles")],
     ["authorizations", api.get("/api/v1/driver-vehicle-authorizations")],
-    ["orders", api.get("/api/v1/warehouse/orders")],
-    ["docks", api.get("/api/v1/warehouse/dock-sessions?limit=200")],
     ["gateLogs", api.get("/api/v1/gate-logs?limit=300")],
   ];
-  if (canManageSecurity()) requests.push(["alerts", api.get("/api/v1/security/alerts?after_sequence=0&limit=1000")]);
+  if (state.user?.role === "ADMIN") {
+    requests.push(["employeeCards", api.get("/api/v1/employee-cards")]);
+  }
+  if (canManageSecurity()) {
+    requests.push(["alerts", api.get("/api/v1/security/alerts?after_sequence=0&limit=1000")]);
+  }
   const settled = await Promise.allSettled(requests.map(([, promise]) => promise));
   settled.forEach((result, index) => {
     const key = requests[index][0];
@@ -836,94 +966,6 @@ function openAuthorizationModal() {
   });
 }
 
-function openOrderModal(orderId = null) {
-  const order = orderId ? state.orders.find((item) => item.order_id === orderId) : null;
-  const now = new Date(Date.now() - 5 * 60000);
-  const until = new Date(Date.now() + 8 * 3600000);
-  const cargo = order?.cargo_metadata?.length ? order.cargo_metadata : [{ sku: "", quantity: 1 }];
-  openModal({
-    title: order ? "Cập nhật lệnh xuất kho" : "Tạo lệnh xuất kho",
-    subtitle: "Tài xế và phương tiện phải có ủy quyền hiệu lực tại valid_from",
-    wide: true,
-    body: `<form id="order-form" data-form="order-save" data-id="${escapeHtml(order?.order_id || "")}"><div class="form-section"><div class="form-section-title">${icon("package")} Thông tin lệnh</div><div class="field-row three"><div class="field"><label>Mã lệnh</label><input name="order_id" value="${escapeHtml(order?.order_id || `ORD-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`)}" minlength="3" maxlength="128" ${order ? "disabled" : "required"} /></div><div class="field"><label>Tài xế</label><select name="assigned_driver_id" required>${state.drivers.filter((item) => item.status === "ACTIVE").map((item) => `<option value="${item.id}" ${order?.assigned_driver_id === item.id ? "selected" : ""}>${escapeHtml(item.full_name)}</option>`).join("")}</select></div><div class="field"><label>Phương tiện</label><select name="assigned_vehicle_id" required>${state.vehicles.filter((item) => item.status === "ACTIVE").map((item) => `<option value="${item.id}" ${order?.assigned_vehicle_id === item.id ? "selected" : ""}>${escapeHtml(item.plate_number)}</option>`).join("")}</select></div></div><div class="field-row" style="margin-top:14px"><div class="field"><label>Hiệu lực từ</label><input name="valid_from" type="datetime-local" value="${toLocalInput(order?.valid_from || now)}" required /></div><div class="field"><label>Hiệu lực đến</label><input name="valid_until" type="datetime-local" value="${toLocalInput(order?.valid_until || until)}" required /></div></div></div><div class="form-section"><div class="form-section-title">${icon("package")} Danh sách hàng hóa</div><div class="json-items" data-cargo-items>${cargo.map(renderCargoRow).join("")}</div><button class="btn btn-ghost" type="button" data-action="add-cargo-row" style="margin-top:10px">${icon("plus")} Thêm dòng hàng</button></div></form>`,
-    footer: `<button class="btn btn-secondary" data-action="close-modal">Hủy</button><button class="btn btn-primary" type="submit" form="order-form">${icon("check")} ${order ? "Lưu thay đổi" : "Tạo lệnh"}</button>`,
-  });
-}
-
-function renderCargoRow(item = {}) {
-  return `<div class="json-item-row cargo-row"><input name="cargo_sku" value="${escapeHtml(item.sku || item.name || "")}" placeholder="SKU / Tên hàng" required /><input name="cargo_quantity" type="number" min="0" step="0.01" value="${escapeHtml(item.quantity ?? 1)}" placeholder="Số lượng" required /><button class="btn btn-danger btn-icon" type="button" data-action="remove-cargo-row" aria-label="Xóa dòng">${icon("trash")}</button></div>`;
-}
-
-function openOrderDetail(orderId) {
-  const order = state.orders.find((item) => item.order_id === orderId);
-  if (!order) return;
-  const driver = driverById(order.assigned_driver_id);
-  const vehicle = vehicleById(order.assigned_vehicle_id);
-  const dock = dockById(order.dock_session_id);
-  const actions = [];
-  if (canManageWarehouse() && order.status === "PENDING") {
-    actions.push(`<button class="btn btn-secondary" data-action="edit-order" data-id="${escapeHtml(order.order_id)}">${icon("edit")} Chỉnh sửa</button>`);
-    actions.push(`<button class="btn btn-primary" data-action="start-dock" data-id="${escapeHtml(order.order_id)}">${icon("warehouse")} Bắt đầu kiểm hàng</button>`);
-    actions.push(`<button class="btn btn-danger" data-action="cancel-order" data-id="${escapeHtml(order.order_id)}">Hủy lệnh</button>`);
-  }
-  if (order.status === "LOADING" && dock) actions.push(`<button class="btn btn-primary" data-action="view-dock" data-id="${dock.id}">${icon("warehouse")} Mở phiên dock</button>`);
-  if (canManageWarehouse() && order.status === "READY_FOR_EXIT") actions.push(`<button class="btn btn-accent" data-action="issue-slip" data-id="${escapeHtml(order.order_id)}">${icon("qr")} Phát hành Exit Slip</button>`);
-  if (order.status === "SLIP_ISSUED") {
-    actions.push(`<button class="btn btn-secondary" data-action="preview-slip" data-id="${escapeHtml(order.order_id)}">${icon("qr")} Xem QR</button>`);
-    actions.push(`<button class="btn btn-secondary" data-action="download-slip" data-id="${escapeHtml(order.order_id)}" data-type="pdf">${icon("download")} Tải PDF</button>`);
-    if (canManageWarehouse()) actions.push(`<button class="btn btn-primary" data-action="reissue-slip" data-id="${escapeHtml(order.order_id)}">Cấp lại phiếu</button>`);
-  }
-  openModal({
-    title: order.order_id,
-    subtitle: `Lệnh xuất kho · ${labelFor(order.status)}`,
-    wide: true,
-    body: `<div class="detail-grid"><div class="detail-box"><span>Tài xế</span><strong>${escapeHtml(driver?.full_name || order.assigned_driver_id)}</strong></div><div class="detail-box"><span>Phương tiện</span><strong>${escapeHtml(vehicle?.plate_number || order.assigned_vehicle_id)}</strong></div><div class="detail-box"><span>Hiệu lực</span><strong>${escapeHtml(formatDate(order.valid_from))}</strong></div><div class="detail-box"><span>Hết hạn</span><strong>${escapeHtml(formatDate(order.valid_until))}</strong></div><div class="detail-box"><span>Phiên dock</span><strong>${escapeHtml(order.dock_session_id || "Chưa tạo")}</strong></div><div class="detail-box"><span>Phiên bản phiếu</span><strong>${order.slip_version || 0}</strong></div></div><div class="form-section" style="margin-top:22px"><div class="form-section-title">${icon("package")} Hàng hóa</div>${order.cargo_metadata?.length ? `<div class="table-shell"><table><thead><tr><th>SKU / Tên hàng</th><th>Số lượng</th></tr></thead><tbody>${order.cargo_metadata.map((item) => `<tr><td>${escapeHtml(item.sku || item.name || JSON.stringify(item))}</td><td>${escapeHtml(item.quantity ?? "—")}</td></tr>`).join("")}</tbody></table></div>` : `<p>Không có metadata hàng hóa.</p>`}</div><div class="form-section"><div class="form-section-title">${icon("logs")} Tiến trình</div>${renderOrderProgress(order.status)}</div>`,
-    footer: `<button class="btn btn-ghost" data-action="close-modal">Đóng</button>${actions.join("")}`,
-  });
-}
-
-function renderOrderProgress(status) {
-  const steps = ["PENDING", "LOADING", "READY_FOR_EXIT", "SLIP_ISSUED", "COMPLETED"];
-  const current = steps.indexOf(status);
-  return `<div class="workflow-strip" style="grid-template-columns:repeat(5,1fr)">${steps.map((step, index) => `<div class="workflow-step" style="min-height:86px;padding:13px"><span>0${index + 1}</span><strong style="font-size:13px;color:${index <= current ? "var(--ink-900)" : "rgba(16,44,43,.3)"}">${escapeHtml(labelFor(step))}</strong></div>`).join("")}</div>`;
-}
-
-function openDockDetail(dockId) {
-  const dock = dockById(dockId);
-  if (!dock) return;
-  const order = state.orders.find((item) => item.order_id === dock.order_id);
-  const actions = [];
-  if (canManageWarehouse() && ["ACTIVE", "REVIEW_REQUIRED"].includes(dock.status)) {
-    actions.push(`<button class="btn btn-secondary" data-action="open-dock-capture" data-id="${dock.id}">${icon("camera")} Ghi nhận ảnh hàng</button>`);
-    actions.push(`<button class="btn btn-primary" data-action="open-dock-finalize" data-id="${dock.id}">${icon("check")} Nhân viên kho kết luận</button>`);
-  }
-  openModal({
-    title: `Phiên dock · ${dock.order_id}`,
-    subtitle: `${labelFor(dock.status)} · ${dock.capture_count} lần ghi nhận`,
-    wide: true,
-    body: `<div class="detail-grid"><div class="detail-box"><span>Trạng thái hàng</span><strong>${escapeHtml(labelFor(dock.current_cargo_state))}</strong></div><div class="detail-box"><span>Gate In log</span><strong>${escapeHtml(dock.entry_gate_log_id)}</strong></div><div class="detail-box"><span>Phương tiện</span><strong>${escapeHtml(vehicleById(order?.assigned_vehicle_id)?.plate_number || "—")}</strong></div><div class="detail-box"><span>Ghi chú operator</span><strong>${escapeHtml(dock.operator_note || "Chưa có")}</strong></div></div><div class="form-section" style="margin-top:22px"><div class="form-section-title">${icon("camera")} Timeline ảnh kiểm hàng</div>${dock.captures?.length ? `<div class="evidence-gallery">${dock.captures.map((capture) => `<article class="evidence-card"><img src="/api/v1/warehouse/dock-sessions/${dock.id}/captures/${capture.index}/image" alt="Ảnh kiểm hàng lần ${capture.index + 1}" loading="lazy" /><div class="evidence-label"><strong>Lần ${capture.index + 1} · ${escapeHtml(labelFor(capture.cargo_state))}</strong><br/>${escapeHtml(formatDate(capture.captured_at))} · ${capture.detections.length} detection</div></article>`).join("")}</div>` : emptyState("camera", "Chưa có ảnh kiểm hàng", "Ghi nhận ít nhất một ảnh trước khi operator finalize.")}</div>`,
-    footer: `<button class="btn btn-ghost" data-action="close-modal">Đóng</button>${actions.join("")}`,
-  });
-}
-
-function openDockCapture(dockId) {
-  openModal({
-    title: "Ghi nhận trạng thái hàng",
-    subtitle: "AI lưu detection; cargo_state có thể được operator chỉ định",
-    body: `<form id="dock-capture-form" data-form="dock-capture" data-id="${dockId}">${fileDrop("dock-cargo-image", "image", "Ảnh khoang hàng / pallet", "Chụp toàn cảnh vùng xếp hàng", "environment", false, "cargo")}<div class="field" style="margin-top:16px"><label>Trạng thái quan sát (tùy chọn)</label><select name="cargo_state"><option value="">Để AI suy luận</option>${["EMPTY", "LOADING", "LOADED", "ANOMALY", "UNKNOWN"].map((value) => `<option value="${value}">${labelFor(value)}</option>`).join("")}</select></div></form>`,
-    footer: `<button class="btn btn-secondary" data-action="close-modal">Hủy</button><button class="btn btn-primary" type="submit" form="dock-capture-form">${icon("camera")} Lưu ghi nhận</button>`,
-  });
-}
-
-function openDockFinalize(dockId) {
-  openModal({
-    title: "Nhân viên kho kết luận",
-    subtitle: "Chỉ LOADED mới đưa lệnh sang READY_FOR_EXIT; ANOMALY giữ phiên cần rà soát",
-    body: `<form id="dock-finalize-form" data-form="dock-finalize" data-id="${dockId}"><div class="field"><label>Kết luận hàng hóa</label><select name="final_cargo_state" required><option value="LOADED">Đã xếp đủ · Cho phép chuẩn bị phiếu</option><option value="ANOMALY">Phát hiện bất thường · Cần rà soát</option></select></div><div class="field" style="margin-top:14px"><label>Ghi chú operator</label><textarea name="operator_note" minlength="2" maxlength="1000" placeholder="Mô tả kết quả kiểm tra, số seal hoặc sai lệch..." required></textarea></div></form>`,
-    footer: `<button class="btn btn-secondary" data-action="close-modal">Hủy</button><button class="btn btn-primary" type="submit" form="dock-finalize-form">${icon("check")} Xác nhận kết luận</button>`,
-  });
-}
-
 function openGateLogDetail(logId) {
   const item = state.gateLogs.find((log) => log.id === logId);
   if (!item) return;
@@ -933,17 +975,22 @@ function openGateLogDetail(logId) {
     title: `${labelFor(item.direction)} · ${item.observed_plate || "Không nhận diện"}`,
     subtitle: item.event_id,
     wide: true,
-    body: `<div class="detail-grid"><div class="detail-box"><span>Kết quả</span><strong>${labelFor(item.verification_status)}</strong></div><div class="detail-box"><span>Barrier</span><strong>${labelFor(item.barrier_status)}</strong></div><div class="detail-box"><span>Tài xế</span><strong>${escapeHtml(driver?.full_name || item.driver_id || "Không xác định")}</strong></div><div class="detail-box"><span>Phương tiện</span><strong>${escapeHtml(vehicle?.plate_number || item.vehicle_id || "Không xác định")}</strong></div><div class="detail-box"><span>Face similarity</span><strong>${formatPercent(item.face_similarity)}</strong></div><div class="detail-box"><span>Plate score / kiểu khớp</span><strong>${formatPercent(item.plate_score)} · ${labelFor(item.plate_match_type)}</strong></div><div class="detail-box"><span>Điểm tổng hợp</span><strong>${formatPercent(item.verification_score)}</strong></div><div class="detail-box"><span>Thời gian</span><strong>${escapeHtml(formatDate(item.occurred_at))}</strong></div></div><div class="form-section" style="margin-top:22px"><div class="form-section-title">${icon("info")} Reason codes</div><div class="reason-list" style="justify-content:flex-start">${(item.reason_codes?.length ? item.reason_codes : ["Không có sai lệch"]).map((code) => `<span class="reason-chip">${escapeHtml(code)}</span>`).join("")}</div></div>${item.snapshot_count ? `<div class="form-section"><div class="form-section-title">${icon("camera")} Ảnh bằng chứng</div><div class="evidence-gallery">${Array.from({ length: item.snapshot_count }, (_, index) => `<article class="evidence-card"><img src="/api/v1/gate-logs/${item.id}/snapshots/${index}" alt="Ảnh bằng chứng ${index + 1}" loading="lazy" /><div class="evidence-label">Snapshot ${index + 1}</div></article>`).join("")}</div></div>` : ""}<div class="form-section"><div class="form-section-title">${icon("system")} Model và threshold</div><pre style="white-space:pre-wrap;font-size:11px;background:var(--ink-950);color:var(--mint);padding:14px;border-radius:10px">${escapeHtml(JSON.stringify({ threshold_version: item.threshold_version, model_versions: item.model_versions }, null, 2))}</pre></div>`,
+    body: `<div class="detail-grid">
+      <div class="detail-box"><span>Kết quả</span><strong>${labelFor(item.verification_status)}</strong></div>
+      <div class="detail-box"><span>Barrier</span><strong>${labelFor(item.barrier_status)}</strong></div>
+      <div class="detail-box"><span>Tài xế</span><strong>${escapeHtml(driver?.full_name || item.driver_id || "Không xác định")}</strong></div>
+      <div class="detail-box"><span>Phương tiện</span><strong>${escapeHtml(vehicle?.plate_number || item.vehicle_id || "Không xác định")}</strong></div>
+      <div class="detail-box"><span>Xác minh thẻ</span><strong>${item.card_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
+      <div class="detail-box"><span>Xác minh ủy quyền</span><strong>${item.authorization_verified ? "Hợp lệ" : "Không hợp lệ"}</strong></div>
+      <div class="detail-box"><span>Face similarity</span><strong>${formatPercent(item.face_similarity)}</strong></div>
+      <div class="detail-box"><span>Plate score / kiểu khớp</span><strong>${formatPercent(item.plate_score)} · ${labelFor(item.plate_match_type)}</strong></div>
+      <div class="detail-box"><span>Điểm tổng hợp</span><strong>${formatPercent(item.verification_score)}</strong></div>
+      <div class="detail-box"><span>Thời gian</span><strong>${escapeHtml(formatDate(item.occurred_at))}</strong></div>
+    </div>
+    <div class="form-section" style="margin-top:22px"><div class="form-section-title">${icon("info")} Reason codes</div><div class="reason-list" style="justify-content:flex-start">${(item.reason_codes?.length ? item.reason_codes : ["Không có sai lệch"]).map((code) => `<span class="reason-chip">${escapeHtml(code)}</span>`).join("")}</div></div>
+    ${item.snapshot_count ? `<div class="form-section"><div class="form-section-title">${icon("camera")} Ảnh bằng chứng</div><div class="evidence-gallery">${Array.from({ length: item.snapshot_count }, (_, index) => `<article class="evidence-card"><img src="/api/v1/gate-logs/${item.id}/snapshots/${index}" alt="Ảnh bằng chứng ${index + 1}" loading="lazy" /><div class="evidence-label">Snapshot ${index + 1}</div></article>`).join("")}</div></div>` : ""}
+    <div class="form-section"><div class="form-section-title">${icon("system")} Model và threshold</div><pre style="white-space:pre-wrap;font-size:11px;background:var(--ink-950);color:var(--mint);padding:14px;border-radius:10px">${escapeHtml(JSON.stringify({ threshold_version: item.threshold_version, model_versions: item.model_versions }, null, 2))}</pre></div>`,
     footer: `<button class="btn btn-primary" data-action="close-modal">Đóng</button>`,
-  });
-}
-
-function openSlipPreview(orderId) {
-  openModal({
-    title: `Exit Slip · ${orderId}`,
-    subtitle: "QR chứa compact JWS Ed25519 và chỉ có hiệu lực với phiên bản hiện tại",
-    body: `<div style="display:grid;place-items:center;padding:10px"><img src="/api/v1/warehouse/orders/${encodeURIComponent(orderId)}/exit-slip/qr" alt="QR Exit Slip ${escapeHtml(orderId)}" style="width:min(100%,360px);border:14px solid white;border-radius:16px;box-shadow:var(--shadow-md)" /></div>`,
-    footer: `<button class="btn btn-secondary" data-action="download-slip" data-id="${escapeHtml(orderId)}" data-type="html">${icon("external")} Mở bản HTML</button><button class="btn btn-primary" data-action="download-slip" data-id="${escapeHtml(orderId)}" data-type="pdf">${icon("download")} Tải PDF</button>`,
   });
 }
 
@@ -1000,19 +1047,18 @@ async function loadDemoImage(targetId, demoType) {
   canvas.width = 960;
   canvas.height = 540;
   const context = canvas.getContext("2d");
-  context.fillStyle = demoType === "cargo" ? "#e8e0ce" : "#102c2b";
+  context.fillStyle = "#102c2b";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.strokeStyle = "#f2b84b";
   context.lineWidth = 12;
   context.strokeRect(65, 65, 830, 410);
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillStyle = demoType === "cargo" ? "#102c2b" : "#fffdf8";
+  context.fillStyle = "#fffdf8";
   context.font = "700 42px sans-serif";
   const labels = {
     face: "KHUÔN MẶT MÔ PHỎNG",
     plate: "BIỂN SỐ 30A-12345",
-    cargo: "HÀNG HÓA MÔ PHỎNG",
   };
   context.fillText(labels[demoType] || "DỮ LIỆU MÔ PHỎNG", 480, 270);
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
@@ -1072,9 +1118,9 @@ async function handleSubmit(event) {
     if (type === "driver-save") await submitDriver(form);
     if (type === "vehicle-save") await submitVehicle(form);
     if (type === "authorization-save") await submitAuthorization(form);
-    if (type === "order-save") await submitOrder(form);
-    if (type === "dock-capture") await submitDockCapture(form);
-    if (type === "dock-finalize") await submitDockFinalize(form);
+    if (type === "issue-card") await submitEmployeeCard(form);
+    if (type === "replace-card") await replaceEmployeeCard(form.dataset.cardId, form);
+    if (type === "card-status") await changeEmployeeCardStatus(form.dataset.cardId, form.dataset.status, new FormData(form).get("status_reason"));
     if (type === "gate-entry" || type === "gate-exit") await submitGateVerification(form, type === "gate-entry" ? "entry" : "exit");
   } catch (error) {
     showError(error);
@@ -1088,6 +1134,10 @@ async function submitLogin(form) {
   const result = await api.post("/api/v1/auth/login", values, { skipUnauthorizedEvent: true });
   state.user = { id: result.user_id, username: result.username, role: result.role, csrf_token: result.csrf_token };
   api.setCsrfToken(result.csrf_token);
+  state.route = authorizedRoute(state.route);
+  if (location.hash && normalizeRoute(location.hash.slice(1)) !== state.route) {
+    location.hash = state.route;
+  }
   await loadAllData();
   connectWebSocket();
   showToast(`Đăng nhập thành công với vai trò ${roleLabels[result.role] || result.role}.`);
@@ -1129,52 +1179,11 @@ async function submitAuthorization(form) {
   showToast("Quan hệ tài xế – phương tiện đã được cấp hiệu lực.");
 }
 
-async function submitOrder(form) {
-  const existingId = form.dataset.id;
-  const values = Object.fromEntries(new FormData(form));
-  const cargo = [...form.querySelectorAll(".cargo-row")].map((row) => ({
-    sku: row.querySelector("[name='cargo_sku']").value.trim(),
-    quantity: Number(row.querySelector("[name='cargo_quantity']").value),
-  }));
-  const payload = {
-    assigned_driver_id: values.assigned_driver_id,
-    assigned_vehicle_id: values.assigned_vehicle_id,
-    cargo_metadata: cargo,
-    valid_from: fromLocalInput(values.valid_from),
-    valid_until: fromLocalInput(values.valid_until),
-  };
-  if (!existingId) payload.order_id = values.order_id;
-  await (existingId ? api.patch(`/api/v1/warehouse/orders/${encodeURIComponent(existingId)}`, payload) : api.post("/api/v1/warehouse/orders", payload));
-  closeModal();
-  state.orders = await api.get("/api/v1/warehouse/orders");
-  renderShell();
-  showToast(existingId ? "Lệnh xuất kho đã được cập nhật." : "Lệnh xuất kho đã được tạo.");
-}
-
-async function submitDockCapture(form) {
-  const dockId = form.dataset.id;
-  await api.post(`/api/v1/warehouse/dock-sessions/${dockId}/captures`, cleanFormData(form));
-  closeModal();
-  await refreshWarehouseData();
-  openDockDetail(dockId);
-  showToast("Ảnh và kết quả nhận diện hàng hóa đã được lưu.");
-}
-
-async function submitDockFinalize(form) {
-  const dockId = form.dataset.id;
-  const values = Object.fromEntries(new FormData(form));
-  await api.post(`/api/v1/warehouse/dock-sessions/${dockId}/finalize`, values);
-  closeModal();
-  await refreshWarehouseData();
-  openDockDetail(dockId);
-  showToast(values.final_cargo_state === "LOADED" ? "Phiên dock đã được duyệt; lệnh sẵn sàng cấp phiếu." : "Phiên dock được giữ ở trạng thái cần rà soát.", values.final_cargo_state === "LOADED" ? "success" : "warning");
-}
-
 async function submitGateVerification(form, direction) {
   const endpoint = direction === "entry" ? "/api/v1/gates/entry/verifications" : "/api/v1/gates/exit/verifications";
   const result = await api.post(endpoint, cleanFormData(form));
   state.verificationResults[direction] = result;
-  await Promise.all([reloadGateLogsWithoutRender(), canManageSecurity() ? reloadAlertsWithoutRender() : Promise.resolve(), direction === "exit" ? refreshOrdersWithoutRender() : Promise.resolve()]);
+  await Promise.all([reloadGateLogsWithoutRender(), canManageSecurity() ? reloadAlertsWithoutRender() : Promise.resolve()]);
   renderShell();
   showToast(result.permit_granted ? "Barrier đã xác nhận mở cổng." : result.verification_status === "PASSED" ? "Xác minh đạt nhưng barrier chưa mở." : "Xác minh không đạt; cổng được giữ đóng.", result.permit_granted ? "success" : "warning", result.permit_granted ? "Cho phép qua cổng" : "Cổng giữ đóng");
 }
@@ -1185,17 +1194,6 @@ async function reloadGateLogsWithoutRender() {
 
 async function reloadAlertsWithoutRender() {
   state.alerts = await api.get("/api/v1/security/alerts?after_sequence=0&limit=1000");
-}
-
-async function refreshOrdersWithoutRender() {
-  state.orders = await api.get("/api/v1/warehouse/orders");
-}
-
-async function refreshWarehouseData() {
-  const [orders, docks] = await Promise.all([api.get("/api/v1/warehouse/orders"), api.get("/api/v1/warehouse/dock-sessions?limit=200")]);
-  state.orders = orders;
-  state.docks = docks;
-  renderShell();
 }
 
 async function handleAction(button) {
@@ -1214,6 +1212,10 @@ async function handleAction(button) {
   }
   if (action === "refresh-all") return loadAllData();
   if (action === "logout") return logout();
+  if (action === "open-card-modal") return openEmployeeCardModal(button.dataset.driver || null);
+  if (action === "replace-card") return openReplaceEmployeeCardModal(button.dataset.id);
+  if (action === "block-card") return openEmployeeCardStatusModal(button.dataset.id, "BLOCKED");
+  if (action === "lost-card") return openEmployeeCardStatusModal(button.dataset.id, "LOST");
   if (action === "open-driver") return openDriverModal();
   if (action === "edit-driver") return openDriverModal(button.dataset.id);
   if (action === "view-driver") return openDriverModal(button.dataset.id, true);
@@ -1231,40 +1233,6 @@ async function handleAction(button) {
     renderShell();
     return;
   }
-  if (action === "warehouse-tab") {
-    state.warehouseTab = button.dataset.tab;
-    renderShell();
-    return;
-  }
-  if (action === "toggle-order-view") {
-    state.orderView = state.orderView === "board" ? "table" : "board";
-    renderShell();
-    return;
-  }
-  if (action === "open-order") return openOrderModal();
-  if (action === "edit-order") return openOrderModal(button.dataset.id);
-  if (action === "view-order") return openOrderDetail(button.dataset.id);
-  if (action === "cancel-order") return confirmAction({ title: "Hủy lệnh xuất kho", message: `Lệnh ${button.dataset.id} sẽ chuyển sang trạng thái terminal CANCELLED.`, action: "confirm-cancel-order", id: button.dataset.id, confirmLabel: "Hủy lệnh" });
-  if (action === "confirm-cancel-order") return cancelOrder(button.dataset.id);
-  if (action === "start-dock") return startDock(button.dataset.id);
-  if (action === "view-dock") return openDockDetail(button.dataset.id);
-  if (action === "open-dock-capture") return openDockCapture(button.dataset.id);
-  if (action === "open-dock-finalize") return openDockFinalize(button.dataset.id);
-  if (action === "issue-slip") return issueSlip(button.dataset.id, false);
-  if (action === "reissue-slip") return confirmAction({ title: "Cấp lại Exit Slip", message: "Phiên bản phiếu sẽ tăng và QR cũ bị vô hiệu ngay lập tức.", action: "confirm-reissue-slip", id: button.dataset.id, confirmLabel: "Cấp lại phiếu", danger: false });
-  if (action === "confirm-reissue-slip") return issueSlip(button.dataset.id, true);
-  if (action === "preview-slip") return openSlipPreview(button.dataset.id);
-  if (action === "download-slip") return downloadSlip(button.dataset.id, button.dataset.type);
-  if (action === "add-cargo-row") {
-    modalRoot.querySelector("[data-cargo-items]")?.insertAdjacentHTML("beforeend", renderCargoRow());
-    return;
-  }
-  if (action === "remove-cargo-row") {
-    const rows = modalRoot.querySelectorAll(".cargo-row");
-    if (rows.length > 1) button.closest(".cargo-row")?.remove();
-    else showToast("Lệnh cần ít nhất một dòng hàng hóa.", "warning");
-    return;
-  }
   if (action === "gate-tab") {
     state.gateTab = button.dataset.tab;
     renderShell();
@@ -1273,7 +1241,6 @@ async function handleAction(button) {
   if (action === "open-camera") return openCamera(button.dataset.target, button.dataset.facing);
   if (action === "capture-camera") return captureCamera(button.dataset.target);
   if (action === "load-demo-image") return loadDemoImage(button.dataset.target, button.dataset.demoType);
-  if (action === "load-order-qr") return loadOrderQr();
   if (action === "view-gate-log") return openGateLogDetail(button.dataset.id);
   if (action === "reload-gate-logs") return reloadGateLogs();
   if (action === "reload-alerts") return reloadAlerts();
@@ -1297,8 +1264,7 @@ function clearSession() {
   state.drivers = [];
   state.vehicles = [];
   state.authorizations = [];
-  state.orders = [];
-  state.docks = [];
+  state.employeeCards = [];
   state.gateLogs = [];
   state.alerts = [];
   api.setCsrfToken(null);
@@ -1335,70 +1301,6 @@ async function revokeAuthorization(driverId, vehicleId) {
     state.authorizations = await api.get("/api/v1/driver-vehicle-authorizations");
     renderShell();
     showToast("Ủy quyền đã được thu hồi.");
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function cancelOrder(orderId) {
-  try {
-    await api.delete(`/api/v1/warehouse/orders/${encodeURIComponent(orderId)}`);
-    closeModal();
-    state.orders = await api.get("/api/v1/warehouse/orders");
-    renderShell();
-    showToast("Lệnh xuất kho đã được hủy.", "warning");
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function startDock(orderId) {
-  try {
-    const dock = await api.post(`/api/v1/warehouse/orders/${encodeURIComponent(orderId)}/dock-sessions`, {});
-    closeModal();
-    await refreshWarehouseData();
-    openDockDetail(dock.id);
-    showToast("Phiên kiểm hàng đã bắt đầu.");
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function issueSlip(orderId, reissue) {
-  try {
-    const suffix = reissue ? "/reissue" : "";
-    await api.post(`/api/v1/warehouse/orders/${encodeURIComponent(orderId)}/exit-slip${suffix}`, {});
-    closeModal();
-    state.orders = await api.get("/api/v1/warehouse/orders");
-    renderShell();
-    openSlipPreview(orderId);
-    showToast(reissue ? "Exit Slip mới đã được cấp; QR cũ không còn hiệu lực." : "Exit Slip đã được ký và lưu an toàn.");
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function downloadSlip(orderId, type) {
-  try {
-    const blob = await api.blob(`/api/v1/warehouse/orders/${encodeURIComponent(orderId)}/exit-slip/${type}`);
-    if (type === "html") openBlob(blob);
-    else downloadBlob(blob, `${orderId}-exit-slip.${type === "qr" ? "png" : type}`);
-  } catch (error) {
-    showError(error);
-  }
-}
-
-async function loadOrderQr() {
-  const select = document.querySelector("#gate-slip-order");
-  const input = document.querySelector("#gate-exit-slip");
-  if (!select?.value || !input) {
-    showToast("Hãy chọn một lệnh đã cấp phiếu.", "warning");
-    return;
-  }
-  try {
-    const blob = await api.blob(`/api/v1/warehouse/orders/${encodeURIComponent(select.value)}/exit-slip/qr`);
-    setFileInput(input, new File([blob], `${select.value}-qr.png`, { type: "image/png" }));
-    showToast("QR của lệnh đã được nạp vào biểu mẫu Gate Out.");
   } catch (error) {
     showError(error);
   }
@@ -1458,10 +1360,10 @@ toastRoot.addEventListener("click", (event) => {
 });
 
 window.addEventListener("hashchange", () => {
-  const nextRoute = normalizeRoute(location.hash.slice(1));
-  const definition = navigation.find((item) => item.route === nextRoute);
-  if (definition?.roles && !definition.roles.includes(state.user?.role)) {
-    location.hash = "/dashboard";
+  const rawRoute = normalizeRoute(location.hash.slice(1));
+  const nextRoute = authorizedRoute(rawRoute);
+  if (nextRoute !== rawRoute) {
+    location.hash = nextRoute;
     return;
   }
   state.route = nextRoute;

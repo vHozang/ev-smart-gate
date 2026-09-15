@@ -1,7 +1,6 @@
 const iconPaths = {
   dashboard: '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="4" rx="2"/><rect x="14" y="11" width="7" height="10" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/>',
   gate: '<path d="M5 21V5h14v16M3 21h18M9 21V10h6v11"/><path d="M17 8h4M19 6v4"/>',
-  warehouse: '<path d="m3 10 9-6 9 6v10H3Z"/><path d="M7 20v-6h10v6M7 10h.01M12 10h.01M17 10h.01"/>',
   driver: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0M18 5l2 2 3-3"/>',
   vehicle: '<path d="m5 17-2-2 2-6h14l2 6-2 2M5 17h14v3H5zM7 13h.01M17 13h.01M6 9l2-4h8l2 4"/>',
   authorization: '<circle cx="8" cy="8" r="4"/><path d="M2 21a6 6 0 0 1 12 0M16 11l2 2 4-5"/>',
@@ -32,6 +31,7 @@ const iconPaths = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
   external: '<path d="M14 3h7v7M10 14 21 3M21 14v7H3V3h7"/>',
   filter: '<path d="M4 5h16M7 12h10M10 19h4"/>',
+  card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h2"/>',
 };
 
 export function icon(name, className = "") {
@@ -91,8 +91,6 @@ const statusLabels = {
   FAILED: "Không đạt",
   PENDING: "Chờ xử lý",
   LOADING: "Đang xếp hàng",
-  READY_FOR_EXIT: "Sẵn sàng xuất",
-  SLIP_ISSUED: "Đã cấp phiếu",
   COMPLETED: "Hoàn tất",
   CANCELLED: "Đã hủy",
   REVIEW_REQUIRED: "Cần rà soát",
