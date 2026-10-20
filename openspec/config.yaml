@@ -1,33 +1,75 @@
 schema: intent-driven
 
 context: |
-  Domain: hệ thống Smart Gate và xác minh xuất kho tự động.
+  Nghiệp vụ:
+  - EV Smart Gate quản lý nhân viên đi bộ và người điều khiển xe máy, ô tô, xe tải ra/vào.
+  - Mục tiêu xác minh khuôn mặt 1:1 với chủ thẻ ở mọi luồng; xe dùng RFID + mặt + biển số và driver-vehicle authorization. Người đi bộ có registry/grant riêng, không dùng dữ liệu xe giả.
+  - Employee/Driver là danh tính ra/vào; User là tài khoản vận hành. Physical access grants độc lập với RBAC ứng dụng và ủy quyền tài xế-xe.
+  - Kho/orders/dock/slip và nhận diện hành động từ video là phần mở rộng. Gate Out core không yêu cầu phiếu/order kho hoặc tự hoàn tất order; liên thông cần change nghiệp vụ riêng.
 
-  Tech stack:
-  - Python 3.11, FastAPI async, Pydantic v2
-  - Beanie 2.2 trên PyMongo Async và MongoDB replica set
-  - MinIO private bucket, mã hóa AES-GCM ở tầng ứng dụng
-  - FastALPR/PaddleOCR, YuNet/SFace, YOLOX/OpenCV
-  - Compact JWS Ed25519, QR, HTML và PDF
-  - FastAPI WebSocket và REST resync
+  Cơ sở và trạng thái:
+  - Đọc AGENTS.md, docs/frontend-architecture.md và artifacts/contextFiles của change đang xử lý; đối chiếu source, runtime OpenAPI và trạng thái CLI trước khi kết luận.
+  - Hiện trạng được khảo sát là FastAPI phục vụ HTML/CSS/JavaScript thuần, auth session cookie + CSRF và enum roles ADMIN/WAREHOUSE/SECURITY.
+  - React/JWT/permission RBAC, registry đi bộ, Dashboard aggregate và Assistant dưới đây là kiến trúc mục tiêu; chỉ coi đã triển khai khi có source và kết quả kiểm chứng.
+  - Specs trong change chưa archive không tự trở thành baseline openspec/specs. Khi tài liệu cũ khác router/policy đang chạy, ghi rõ khác biệt và kế hoạch migration.
 
-  Architecture: Clean Architecture. Dependency hướng vào trong:
-  Presentation -> Application -> Domain <- Infrastructure.
+  Backend và hạ tầng nền:
+  - Python >=3.11,<3.14, FastAPI async, Pydantic v2; versions/dependencies thực tế theo pyproject.toml và lockfile.
+  - Beanie/PyMongo Async, MongoDB replica set; MinIO private bucket, AES-GCM ở tầng ứng dụng.
+  - Vision adapters FastALPR/PaddleOCR, YuNet/SFace, YOLOX/OpenCV; JWS Ed25519 và QR/HTML/PDF cho phiếu kho.
+  - WebSocket cảnh báo kết hợp REST sequence resync; device credentials/scopes độc lập với operator auth.
+  - Clean Architecture: Presentation -> Application -> Domain <- Infrastructure. Domain/application dùng Protocol ports; infrastructure cung cấp adapters, bootstrap inject dependencies.
 
-  Quy ước:
+  Chuẩn frontend khi change có UI:
+  - React + TypeScript strict + Vite SPA trong frontend/, tách package demo gốc; xác minh stable versions/peer dependencies và tạo lockfile lúc triển khai.
+  - Redux Toolkit giữ client state serializable; TanStack Query là cache server state duy nhất; Axios là HTTP transport chung. Không thêm Zustand/RTK Query trùng vai trò.
+  - Composition theo page -> widget -> feature -> shared; hooks gom theo chức năng, DTO sinh từ OpenAPI kết hợp runtime schemas và screen interfaces qua mapper tường minh.
+  - AppShell/nested layouts/sidebar rail-drawer dùng chung; một route registry, named exports và index.ts mỗi component/layout/page; lazy-import trực tiếp từng page entry.
+  - Shared CSS/tokens/variants quản lý thiết kế chung; Tailwind chỉ tùy chỉnh bố cục riêng trên cùng tokens. Một ModalHost với typed render props và một ToastHost, có focus/dirty/pending/dedupe policies.
+  - Responsive mọi page/state, keyboard/A11Y/reduced motion; loading/error/empty/forbidden phản ánh dữ liệu thật. Áp dụng docs/frontend-architecture.md và design-taste-frontend-v1; yêu cầu CSS chung của người dùng ưu tiên hơn default của skill.
+
+  Hợp đồng và bảo mật:
+  - Contract-first; backend quyết định quyền trên API, evidence/file, WS, analytics và report. Runtime UI tích hợp API thật, không mock mode hoặc fake success/progress; fixtures chỉ ở tests cô lập.
+  - Chốt method/path/DTO/enums/nullability/query/pagination/coverage/errors/multipart/bytes và permissions trước client. Không tự invent endpoint/field hoặc cast để bỏ runtime validation.
+  - Auth mục tiêu dùng access JWT trong RAM và refresh cookie HttpOnly/Secure có CSRF/Origin protection, rotation/reuse detection, durable revoke/version trên mọi worker; permissions UI chỉ hỗ trợ UX.
+  - RBAC mục tiêu có một role/user, system/custom roles và backend-owned permission catalog; deny-by-default, protected ADMIN/last-admin, expected_version, forced-password restricted principal và audit đã redact.
+  - AI chỉ tạo observation; application policy quyết định permit. Verification, permit, device ACK và actual crossing là các bằng chứng khác nhau; AI/frontend không gọi barrier trực tiếp.
+  - Mọi lỗi AI/camera/storage/device hoặc không xác minh được policy phải fail-closed. Capture cần trusted source/encounter/freshness/association; retry giữ event identity, timeout reconcile thay vì phát lệnh mù.
+  - Không persist token/evidence/biometrics/query cache nhạy cảm trong browser; không ghi secrets/raw prompt vào logs/audit. Output là untrusted, render text/schema/allowlist; cleanup requests/streams/media/Blob và chặn stale responses.
+
+  Analytics và Assistant khi thuộc phạm vi:
+  - Backend tính aggregate trên toàn tập có quyền, có metric definitions/source/coverage và zero/null/partial rõ; list limit không phải tổng, PASS không là AI accuracy, ACK không là crossing/occupancy/chấm công.
+  - Assistant ưu tiên model nội bộ/self-hosted qua ModelGateway, không tự fallback cloud. Chỉ đọc aggregates có quyền; code tính số trước model, snapshot/citations/numeric/schema validation trước công bố.
+  - Reports có owner/domain authorization, durable jobs/worker/events/cancel/expiry/retention; browser abort không phải server đã hủy. Không raw biometric/PII mặc định, arbitrary DB/URL/action tools hoặc barrier commands.
+  - Video action observations cần pipeline/tracking/temporal evidence/review riêng; không suy hành động từ ảnh đơn hoặc coi LLM báo cáo là action detector.
+
+  Quy ước và kiểm chứng:
   - Tài liệu, comment và docstring viết bằng tiếng Việt.
   - Identifier và schema field dùng tiếng Anh kỹ thuật.
-  - AI chỉ tạo observation, không được gọi barrier trực tiếp.
-  - Mọi lỗi AI, camera, storage hoặc device phải fail-closed.
-  - Mỗi use case mới phải có unit test.
+  - Mỗi use case mới có unit test; integration/E2E dùng backend/database/storage test thật, cô lập production và không chứa sinh trắc học thật trong repo/traces.
+  - Chạy checks phù hợp pyproject.toml và package.json của phần thay đổi; chỉ ghi đạt khi đã chạy. Tài liệu/checkbox hoàn thành không chứng minh implementation đã đạt.
+  - Theo workflow/skill trong AGENTS.md; không tự commit/branch/merge hoặc chuyển lifecycle. Proposal phải được commit và có trên main trước apply; archive trên main sau implementation đã merge.
 
 rules:
   proposal:
-    - Nêu rõ mục tiêu, phạm vi và rủi ro an ninh.
+    - Nêu mục tiêu, phạm vi/non-goals, tác động và rủi ro; phân biệt hiện trạng với thiết kế mục tiêu, API giữ nguyên/sửa/mới và đánh dấu BREAKING khi đổi contract.
+    - Đối chiếu baseline openspec/specs trước phân loại new/modified capabilities; mỗi capability cần spec tương ứng, không sửa change khác hoặc coi tài liệu chưa archive là baseline.
+    - Với migration React, ưu tiên contract và JWT/RBAC backend trước UI foundation/tích hợp API thật; giữ core ra/vào độc lập kho/video extension.
   specs:
-    - Dùng requirement cùng scenario Given/When/Then.
+    - Dùng đúng delta headers và '### Requirement:' với SHALL/MUST; mỗi requirement nêu hành vi kiểm thử được, đưa chi tiết/edge cases vào scenarios thay vì đoạn mô tả quá dài.
+    - Mỗi requirement có ít nhất một '#### Scenario:' với GIVEN/WHEN/THEN; thêm ca thành công, từ chối quyền, input sai, concurrency và lỗi hạ tầng khi liên quan.
+    - MODIFIED phải chứa đầy đủ requirement/scenarios đã cập nhật từ baseline; không dùng delta partial hoặc invent field/status/API để lấp capability gap.
+    - Khi có UI/AI, đặc tả loading/error/forbidden/outcome_unknown, privacy/safe rendering/revoke/cleanup; phân biệt abort browser, server cancel và side effect thiết bị.
   design:
     - Ghi rõ layer, Protocol port và adapter hạ tầng liên quan.
+    - Giải thích quyết định/alternatives có thật, ownership dữ liệu/state/permissions và trust boundaries; các chi tiết chưa rõ ghi Unknown cùng gate/chủ sở hữu trước task phụ thuộc.
+    - Khi đổi contract/auth/data, mô tả schema version, migration/backfill/coverage, compatibility cutoff và rollback không khôi phục quyền/credentials đã revoke.
+    - Khi có frontend, xác định reusable composition/hooks/types/layout/CSS/feedback/routes, responsive/A11Y và API thật; khi có analytics/report, xác định provenance/grounding/worker/lifecycle/quyền xuyên suốt.
+  adr:
+    - Dùng skill architectural-decision-records và style madr-minimal đã cấu hình; chỉ tạo ADR cho quyết định có ý nghĩa kiến trúc, mỗi file một quyết định với alternatives và hệ quả tốt/xấu.
+    - Đánh số theo schema, tham chiếu design/proposal; không bịa dữ kiện hoặc coi Proposed là Accepted. Nếu không có quyết định đủ ý nghĩa, ghi rõ và không tạo ADR cho đủ số lượng.
   tasks:
-    - Sắp xếp domain -> application -> infrastructure -> presentation -> bootstrap -> test.
-    - Mỗi task phải đủ nhỏ để review độc lập.
+    - Dùng nhóm đánh số và checkbox '- [ ] X.Y'; task mới luôn unchecked, đủ nhỏ để review/kiểm chứng độc lập và tham chiếu requirements liên quan.
+    - Sắp theo dependency; trong mỗi milestone backend đi Domain -> Application -> Infrastructure -> Presentation -> Bootstrap -> Tests. Nêu dependency xuyên nhóm/layer và API readiness gates trước UI integration.
+    - Với migration React, contract/JWT/RBAC backend trước UI foundation, core API integration trước Dashboard/Assistant; extension không trở thành điều kiện phát hành core ngoài phạm vi đã duyệt.
+    - Mỗi use case mới có unit-test task; bổ sung contract/integration/negative/security/responsive/E2E và rollout/rollback evidence phù hợp. Chỉ đánh dấu hoàn thành sau khi thực hiện và kiểm chứng, không tự triển khai trong propose.

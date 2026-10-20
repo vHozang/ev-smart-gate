@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "66899a1d-c82a-4eb1-80e7-c545e8728bac",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.json",
+  "output": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.html",
+  "specification": {
+    "sha256": "1fb87ca3400476040b9ce08749c2c95183cf6834be4f7b2d0c813a0a1863dceb",
+    "bytes": 5526
+  },
+  "artifact": {
+    "sha256": "a6bf2deefd3b1b152e63552c59b527dcc0828e682051923b8dca379b20c22b5e",
+    "bytes": 843683
+  }
+}

@@ -1,4 +1,12 @@
-# Sơ đồ Mermaid
+# Sơ đồ Kiến trúc & Luồng nghiệp vụ EV Smart Gate
+
+> Các sơ đồ tương tác chất lượng cao (HTML standalone, hỗ trợ zoom, trace flow, inspector) được tạo bằng **Archify**:
+> - 🏛️ **Kiến trúc Tổng thể Hệ thống & React Migration**: [ev-smart-gate-architecture.html](file:///e:/ev-smart-gate/docs/diagrams/ev-smart-gate-architecture.html) (Specification: [ev-smart-gate-architecture.json](file:///e:/ev-smart-gate/docs/diagrams/ev-smart-gate-architecture.json))
+> - 🔄 **Trình tự Xác minh 3 Yếu tố & Vòng đời Auth**: [ev-smart-gate-verification-auth.html](file:///e:/ev-smart-gate/docs/diagrams/ev-smart-gate-verification-auth.html) (Specification: [ev-smart-gate-verification-auth.json](file:///e:/ev-smart-gate/docs/diagrams/ev-smart-gate-verification-auth.json))
+
+---
+
+## Sơ đồ Mermaid gốc
 
 ## Trình tự Gate In
 
