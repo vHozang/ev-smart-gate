@@ -1,26 +1,34 @@
+## Điều chỉnh phạm vi ngày 21/10/2026 — Frontend triển khai trước
+
+Theo yêu cầu mới của người dùng, team backend khác sở hữu toàn bộ triển khai API. Lượt apply hiện tại chỉ thay đổi Frontend và tài liệu phối hợp; không tiếp tục code/test backend. Các thay đổi backend đang có trong working tree được giữ nguyên để team xem xét, không tự xóa hoặc coi đã nghiệm thu.
+
+M2 được triển khai ngay. M1/MG1 là trách nhiệm bàn giao backend, không chặn xây layout, màn hình, hooks và trạng thái loading/empty/error/unavailable. Tích hợp từng API ngay khi contract và endpoint đó sẵn sàng; không chờ cả milestone backend. Endpoint chưa tồn tại ghi vào `docs/contracts/frontend-api-gaps.md`, không gọi thử tùy tiện, không mock runtime, không báo thành công giả. JWT/RBAC vẫn là mục tiêu; adapter session v1 chỉ phục vụ API hiện tại, cấu hình tường minh, không fallback tự động khi JWT lỗi. Mỗi chức năng chỉ được đánh dấu hoàn thành sau khi tích hợp API thật và kiểm tra phù hợp. MG1 đầy đủ vẫn cần backend nghiệm thu trước rollout JWT/RBAC toàn hệ thống.
+
 ## 1. M0 - Contract và bàn giao backend trước client
 
-- [ ] 1.1 Đối chiếu runtime routers/Pydantic/OpenAPI với 44 HTTP + 1 WS trong báo cáo; lập inventory API giữ/sửa/mới và compatibility/version matrix. (API-01)
-- [ ] 1.2 Chốt G1 auth contract: login/me/refresh/logout/change-password, errors, claims/lifetime/idle/absolute expiry, cookie/Origin/CSRF và deprecation client session cũ. (JWT-01/02/05/08)
-- [ ] 1.3 Chốt rotation/retry/mất response/multi-tab policy và WS ticket/expiry/revoke contract; có examples concurrency không lộ tokens. (JWT-03/06/07)
-- [ ] 1.4 Chốt DTO/API admin users/roles/catalog/sessions/audit theo mục 10.7 và G2 permission matrix/target guards/expected_version; tách quyền mới khỏi baseline migration. (RBAC-01..08)
-- [ ] 1.5 Chốt employee/enrollment mapping, access points/grants, pedestrian/log/evidence và vehicle-types contracts theo mục 10.9; không plate/User/HR data giả. (PED-01..07, CAM-01)
-- [ ] 1.6 Chốt G3 ingest/verify versioned CaptureBundle, source/binding/ROI/freshness/max-skew, idempotency namespace/fingerprint/retention và lookup/reconciliation paths/schema. (API-04, CAM-03..07)
-- [ ] 1.7 Chốt hai analytics và sáu report API theo mục 10.8: typed filters/metric metadata, jobs/events/cancel/download/expiry và owner-domain permission rules. (ANA-01..06, AI-01..08)
-- [ ] 1.8 Công bố list pagination/filter/search/cursor/coverage, unsupported behavior, errors/X-Request-ID, multipart/upload limits, bytes/Content-Type và realtime sequences/resync retention. (API-02/03/05)
-- [ ] 1.9 Chuẩn bị test environment FastAPI/DB/storage thật, test accounts theo role, dữ liệu tổng hợp cô lập, migration/rollback deliverables và contract check commands; ghi chủ sở hữu/đầu ra G1–G7. (API-06)
-- [ ] 1.10 Nghiệm thu Milestone Gate MG0 — Contract: Đối chiếu và phê duyệt OpenAPI runtime của các endpoint hiện hữu; phê duyệt đặc tả versioned, payload, policy và contract tests cho các endpoint mới (đối chiếu runtime của API mới sẽ thực hiện khi triển khai xong trước khi UI tích hợp); chuẩn bị môi trường test thật; mở khóa Backend M1 và song song các task Frontend độc lập (5.1, 5.2, 6.1–6.6, 6.8–6.10). (API-01..06)
+- [x] 1.1 Đối chiếu runtime routers/Pydantic/OpenAPI với 44 HTTP + 1 WS trong báo cáo; lập inventory API giữ/sửa/mới và compatibility/version matrix. (API-01)
+- [x] 1.2 Chốt G1 auth contract: login/me/refresh/logout/change-password, errors, claims/lifetime/idle/absolute expiry, cookie/Origin/CSRF và deprecation client session cũ. (JWT-01/02/05/08)
+- [x] 1.3 Chốt rotation/retry/mất response/multi-tab policy và WS ticket/expiry/revoke contract; có examples concurrency không lộ tokens. (JWT-03/06/07)
+- [x] 1.4 Chốt DTO/API admin users/roles/catalog/sessions/audit theo mục 10.7 và G2 permission matrix/target guards/expected_version; tách quyền mới khỏi baseline migration. (RBAC-01..08)
+- [x] 1.5 Chốt employee/enrollment mapping, access points/grants, pedestrian/log/evidence và vehicle-types contracts theo mục 10.9; không plate/User/HR data giả. (PED-01..07, CAM-01)
+- [x] 1.6 Chốt G3 ingest/verify versioned CaptureBundle, source/binding/ROI/freshness/max-skew, idempotency namespace/fingerprint/retention và lookup/reconciliation paths/schema. (API-04, CAM-03..07)
+- [x] 1.7 Chốt hai analytics và sáu report API theo mục 10.8: typed filters/metric metadata, jobs/events/cancel/download/expiry và owner-domain permission rules. (ANA-01..06, AI-01..08)
+- [x] 1.8 Công bố list pagination/filter/search/cursor/coverage, unsupported behavior, errors/X-Request-ID, multipart/upload limits, bytes/Content-Type và realtime sequences/resync retention. (API-02/03/05)
+- [x] 1.9 Chuẩn bị test environment FastAPI/DB/storage thật, test accounts theo role, dữ liệu tổng hợp cô lập, migration/rollback deliverables và contract check commands; ghi chủ sở hữu/đầu ra G1–G7. (API-06)
+- [x] 1.10 Nghiệm thu Milestone Gate MG0 — Contract: Đối chiếu và phê duyệt OpenAPI runtime của các endpoint hiện hữu; phê duyệt đặc tả versioned, payload, policy và contract tests cho các endpoint mới (đối chiếu runtime của API mới sẽ thực hiện khi triển khai xong trước khi UI tích hợp); chuẩn bị môi trường test thật; mở khóa Backend M1 và song song các task Frontend độc lập (5.1, 5.2, 6.1–6.6, 6.8–6.10). (API-01..06)
+
+MG0 được người dùng phê duyệt ngày 20/10/2026 trong hội thoại. Contract mục tiêu đã chốt để triển khai, không có nghĩa API mới đã chạy. Bằng chứng: docs/contracts/m0-evidence.json, JUnit 22 contract/integration và 97 unit/contract đạt. Calibration G3, metric coverage G4, benchmark model G5, operational retention G6 và visual acceptance G7 vẫn có gate riêng. Áp dụng trên TienThanh/FE theo ngoại lệ checkpoint main đã được người dùng cho phép.
 
 ## 2. M1 - JWT backend theo Domain -> Application -> Infrastructure -> Presentation -> Bootstrap -> Tests
 
-Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4.1 trước các application tasks phụ thuộc; phối hợp adapters theo Protocol đã chốt. Các unit tests chạy theo use case; integration tests JWT/RBAC/WS ở 2.12, 3.13 và 4.7–4.8 chỉ nghiệm thu sau khi bootstrap cả nhóm 2–4 sẵn sàng. UI foundation độc lập (5.1, 5.2, 6.1–6.6, 6.8–6.10) có thể làm song song từ MG0; tích hợp auth/admin thật (7.2–7.6) chỉ bắt đầu sau gate 4.9 (MG1).
+Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4.1 trước các application tasks phụ thuộc; phối hợp adapters theo Protocol đã chốt. Các unit tests chạy theo use case; integration tests JWT/RBAC/WS ở 2.12, 3.13 và 4.7–4.8 chỉ nghiệm thu sau khi bootstrap cả nhóm 2–4 sẵn sàng. UI foundation độc lập (5.1, 5.2, 6.1–6.6, 6.8–6.10) có thể làm song song từ MG0; tích hợp auth/admin thật (7.2–7.6) theo từng endpoint được team backend bàn giao và kiểm chứng, không chờ hoàn tất toàn bộ M1/MG1; MG1 vẫn nghiệm thu rollout JWT/RBAC toàn hệ thống.
 
-- [ ] 2.1 Domain: mô hình auth session/token family, version/expiry/revoke và restricted principal; khai báo Protocol ports cho credential/session/clock/token service, tách keys/claims phiếu kho. (JWT-01/02/04/05)
-- [ ] 2.2 Application: login/access principal use case kiểm tài khoản và permission version, không tin client claims. (JWT-01)
-- [ ] 2.3 Application: refresh rotation/reuse use case atomic theo concurrency/retry policy đã chốt ở 1.3. (JWT-02/03)
+- [x] 2.1 Domain: mô hình auth session/token family, version/expiry/revoke và restricted principal; khai báo Protocol ports cho credential/session/clock/token service, tách keys/claims phiếu kho. (JWT-01/02/04/05)
+- [x] 2.2 Application: login/access principal use case kiểm tài khoản và permission version, không tin client claims. (JWT-01)
+- [x] 2.3 Application: refresh rotation/reuse use case atomic theo concurrency/retry policy đã chốt ở 1.3. (JWT-02/03)
 - [ ] 2.4 Application: logout/revoke-session use cases cập nhật durable state và invalidation contracts. (JWT-04)
-- [ ] 2.5 Application: change-password và forced-password restricted scope, xử lý phiên tạm/phiên mới theo contract. (JWT-05)
-- [ ] 2.6 Infrastructure: Mongo session/family repositories, unique indexes/CAS/transaction cho rotate/revoke, chỉ lưu hash credential. (JWT-02/03/04)
+- [x] 2.5 Application: change-password và forced-password restricted scope, xử lý phiên tạm/phiên mới theo contract. (JWT-05)
+- [x] 2.6 Infrastructure: Mongo session/family repositories, unique indexes/CAS/transaction cho rotate/revoke, chỉ lưu hash credential. (JWT-02/03/04)
 - [ ] 2.7 Infrastructure: JWT sign/verify adapter và auth key config, algorithm/issuer/audience/expiry checks; clock/skew có kiểm soát. (JWT-01)
 - [ ] 2.8 Infrastructure: durable authz/session-version resolver cùng notifier/outbox/invalidation xuyên worker; storage là nguồn xác nhận khi cache không tin cậy. (JWT-04)
 - [ ] 2.9 Presentation: versioned auth DTO/routes/dependencies và cookie/Origin/CSRF errors đúng 1.2, bao gồm auth/me limited principal. (JWT-01/02/05/08)
@@ -30,14 +38,14 @@ Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4
 
 ## 3. M1 - Users và RBAC backend theo layer
 
-- [ ] 3.1 Domain: Role/Permission catalog, một role_id/user, grantable/target policy và protected ADMIN/last-admin invariants; khai báo repository/authorization/audit/UoW Protocol ports. (RBAC-01/02/04/05)
+- [x] 3.1 Domain: Role/Permission catalog, một role_id/user, grantable/target policy và protected ADMIN/last-admin invariants; khai báo repository/authorization/audit/UoW Protocol ports. (RBAC-01/02/04/05)
 - [ ] 3.2 Application: list/detail/create user với normalized unique username, role assignment guards ngay khi tạo và read DTO không secret. (RBAC-03/04)
 - [ ] 3.3 Application: update profile/status/role use cases riêng, payload allowlist/reason/expected_version, last-admin concurrency. (RBAC-03..05)
 - [ ] 3.4 Application: password reset và session metadata/revoke-all use cases, target ADMIN policy và must-change/revocation; không giả email delivery. (RBAC-07)
 - [ ] 3.5 Application: role create/update/archive và replace permission set với catalog dependencies/protected/system/assigned-role guards. (RBAC-01/05/06)
 - [ ] 3.6 Application: append-only audit và query filters/cursor, success audit atomic với sensitive mutation, actor/time từ server và diff redact. (RBAC-08)
 - [ ] 3.7 Infrastructure: user/role/catalog/audit repositories, indexes, UoW/CAS/transaction và version propagation đến mọi user của role. (RBAC-03..08)
-- [ ] 3.8 Infrastructure: viết migration enum -> stable role_id, seed baseline ADMIN/WAREHOUSE/SECURITY, đối chiếu tập quyền trước/sau và rollback additive. (RBAC-01)
+- [x] 3.8 Infrastructure: viết migration enum -> stable role_id, seed baseline ADMIN/WAREHOUSE/SECURITY, đối chiếu tập quyền trước/sau và rollback additive. (RBAC-01)
 - [ ] 3.9 Presentation: admin user/profile/status/role/reset/sessions routes và DTO/error/permissions theo 1.4, không mass-assignment fields. (RBAC-03/04/07)
 - [ ] 3.10 Presentation: roles/catalog/audit routes và versioned me effective permissions/authz_version/must_change_password. (RBAC-06/08)
 - [ ] 3.11 Bootstrap: inject policies/adapters/seed catalog; không tự tạo lại hoặc khôi phục ADMIN đã quản trị thay đổi trái policy. (RBAC-01/05)
@@ -46,8 +54,8 @@ Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4
 
 ## 4. M1 - Authorization toàn bộ entry points và WS backend
 
-- [ ] 4.1 Domain: xác định mapping permission/action/resource và device scopes độc lập cho mọi HTTP/evidence/file/WS, không suy physical grants từ RBAC. (RBAC-02)
-- [ ] 4.2 Application: ticket issuance/one-time consumption và connection authorization lifecycle, scope/channel/expiry/revalidation. (JWT-06)
+- [x] 4.1 Domain: xác định mapping permission/action/resource và device scopes độc lập cho mọi HTTP/evidence/file/WS, không suy physical grants từ RBAC. (RBAC-02)
+- [x] 4.2 Application: ticket issuance/one-time consumption và connection authorization lifecycle, scope/channel/expiry/revalidation. (JWT-06)
 - [ ] 4.3 Infrastructure: WS ticket store/atomic consume và revoke fan-out cho live connections, không giữ quyền cũ đến hết JWT TTL. (JWT-04/06)
 - [ ] 4.4 Presentation: thay hardcoded enum guards của API hiện có bằng equivalent permission policy, giữ state machine/device scope; bao gồm ảnh/slip và không mở thêm quyền cũ. (RBAC-02)
 - [ ] 4.5 Presentation: ticket API/WS handshake, auth close/error codes và alerts REST sequence contract; redact ticket/credentials khỏi logs. (API-05, JWT-06)
@@ -58,16 +66,16 @@ Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4
 
 ## 5. M2 - Frontend package, types, transport và state foundation
 
-*Phụ thuộc*: 5.1 và 5.2 có thể bắt đầu ngay sau MG0 song song với M1. Tasks 5.3, 5.4, 5.6, 5.7 thuộc nền tảng foundation độc lập. Tasks 5.5 và phần tích hợp endpoint auth thật của 5.8 phụ thuộc Backend Auth sẵn sàng (sau MG1), không dùng để chặn nghiệm thu Foundation MG2.
+*Phụ thuộc*: 5.1 và 5.2 có thể bắt đầu ngay sau MG0 song song với M1. Tasks 5.3, 5.4, 5.6, 5.7 thuộc nền tảng foundation độc lập. Tasks 5.5 và phần tích hợp endpoint auth thật của 5.8 phụ thuộc endpoint Backend Auth tương ứng sẵn sàng, không dùng để chặn nghiệm thu Foundation MG2.
 
-- [ ] 5.1 Tạo frontend/ React + TypeScript strict + Vite package riêng; xác minh stable/peer dependencies React Router/Redux Toolkit/Query/Axios/RHF/Zod/Tailwind/UI/test tooling và tạo lockfile, không đổi package demo gốc. Có thể làm sau MG0 song song với M1. (FE-01)
-- [ ] 5.2 Khai báo dependency boundaries app/layouts/pages/widgets/features/shared; alias/lint/test config thống nhất và commands typecheck/lint/build/test. Có thể làm sau MG0 song song với M1. (FE-02/04)
+- [x] 5.1 Tạo frontend/ React + TypeScript strict + Vite package riêng; xác minh stable/peer dependencies React Router/Redux Toolkit/Query/Axios/RHF/Zod/Tailwind/UI/test tooling và tạo lockfile, không đổi package demo gốc. Có thể làm sau MG0 song song với M1. (FE-01)
+- [x] 5.2 Khai báo dependency boundaries app/layouts/pages/widgets/features/shared; alias/lint/test config thống nhất và commands typecheck/lint/build/test. Có thể làm sau MG0 song song với M1. (FE-02/04)
 - [ ] 5.3 Sinh DTO từ OpenAPI đã đối chiếu M0/M1; thêm runtime schemas, mapper lỗi/X-Request-ID và nullable/enum/binary type handling, kiểm contract drift. Bắt đầu sau MG0 và cập nhật khi backend M1 hoàn thành. (API-01/02, FE-08)
-- [ ] 5.4 Tạo Axios transport với timeout/AbortSignal/JSON/FormData/blob, không tự đặt multipart boundary, không toast tại transport. (API-02, FE-01/07)
-- [ ] 5.5 Tạo auth service RAM và lifecycle generation guards/bootstrap; interceptor single-flight/đa tab theo contract, tối đa một safe replay, không refresh 403 hoặc loop auth endpoints. Chuẩn bị logic nền tảng ở M2, tích hợp endpoint auth thật sau MG1. (JWT-07, INT-02)
+- [x] 5.4 Tạo Axios transport với timeout/AbortSignal/JSON/FormData/blob, không tự đặt multipart boundary, không toast tại transport. (API-02, FE-01/07)
+- [ ] 5.5 Tạo auth service RAM và lifecycle generation guards/bootstrap; interceptor single-flight/đa tab theo contract, tối đa một safe replay, không refresh 403 hoặc loop auth endpoints. Chuẩn bị logic nền tảng ở M2, tích hợp endpoint auth thật khi team backend bàn giao từng contract/runtime đã kiểm chứng. (JWT-07, INT-02)
 - [ ] 5.6 Thiết lập QueryClient/query-key conventions/invalidation và identity/authz-version scoping; không persist cache nhạy cảm hay copy lists/me sang Redux. (FE-01, ANA-06)
 - [ ] 5.7 Thiết lập Redux store/typed hooks cho preferences/workspace/auth lifecycle serializable; URL/local/form ownership, không callbacks/Blob/tokens/controllers trong store. (FE-01)
-- [ ] 5.8 Tạo root providers và logout/revoke cleanup orchestration cho query/auth/realtime/feedback/media, chặn late response sau đổi identity. Cấu trúc providers hoàn thành ở M2, hoàn thiện tích hợp luồng auth thật sau MG1. (JWT-07, INT-08)
+- [ ] 5.8 Tạo root providers và logout/revoke cleanup orchestration cho query/auth/realtime/feedback/media, chặn late response sau đổi identity. Cấu trúc providers hoàn thành ở M2, hoàn thiện tích hợp luồng auth thật theo từng endpoint backend đã sẵn sàng. (JWT-07, INT-08)
 - [ ] 5.9 Tests: unit/contract Axios DTO/schema/errors/FormData/bytes, malformed payload và auth concurrency/stale-response; fixtures chỉ trong tests cô lập. (API-02, FE-08)
 
 ## 6. M2 - CSS, composition, layout, routes và feedback dùng chung
@@ -75,31 +83,41 @@ Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4
 *Phụ thuộc*: Tasks 6.1–6.6, 6.8–6.10 có thể thực hiện ngay sau MG0 song song với M1 để hoàn thiện Design System, layout và primitives.
 
 - [ ] 6.1 Chốt G7 semantic tokens/palette/font tiếng Việt/breakpoints/motion và baseline screenshots theo design skill, shared CSS ưu tiên yêu cầu người dùng. Có thể làm sau MG0 song song với M1. (FE-03)
-- [ ] 6.2 Tạo một stylesheet entry và layers tokens/base/components/layouts/motion; ánh xạ Tailwind vào cùng variables, không page theme/hex overrides tùy ý. Có thể làm sau MG0 song song với M1. (FE-03)
-- [ ] 6.3 Tạo primitives Button/Field/Input/Select/Badge/EmptyState/ErrorState/Skeleton với typed variants, focus/disabled/loading/error CSS chung. Có thể làm sau MG0 song song với M1. (FE-02/03)
-- [ ] 6.4 Tạo shared DataTable/filter/pagination/evidence viewer wrappers với internal scroll, dài/nullable content và resource cleanup. Có thể làm sau MG0 song song với M1. (FE-03/05)
-- [ ] 6.5 Tạo AuthLayout/AppShell/ListPageLayout/DetailPageLayout/WorkspaceLayout bằng slots/children/outlet, shell không remount khi chuyển trang. Có thể làm sau MG0 song song với M1. (FE-02/05)
-- [ ] 6.6 Tạo sidebar expanded/rail/mobile drawer cùng topbar/breadcrumb, active state/aria/tooltip/Escape/focus restore, preferences không nhạy cảm. Có thể làm sau MG0 song song với M1. (FE-05)
-- [ ] 6.7 Tạo route registry/helpers/guards và named lazy page entry index.ts, không eager barrel mọi pages; kiểm alias/circular/deep imports. (FE-04)
-- [ ] 6.8 Tạo FeedbackProvider/ModalHost/ModalShell với renderContent/renderFooter typed lifecycle, portal/focus/scroll/size, một blocking modal. Có thể làm sau MG0 song song với M1. (FE-06)
-- [ ] 6.9 Tạo Notice/Confirm/Form/Detail/Evidence modal compositions với dirty/pending/double-submit guards, giữ form khi lỗi và không auto-open từ refetch. Có thể làm sau MG0 song song với M1. (FE-06)
-- [ ] 6.10 Tạo ToastHost/useFeedback variants/queue/dedupe/pause/dismiss/live region, feature sở hữu feedback kết quả và lỗi bền tại vùng liên quan. Có thể làm sau MG0 song song với M1. (FE-07)
+- [x] 6.2 Tạo một stylesheet entry và layers tokens/base/components/layouts/motion; ánh xạ Tailwind vào cùng variables, không page theme/hex overrides tùy ý. Có thể làm sau MG0 song song với M1. (FE-03)
+- [x] 6.3 Tạo primitives Button/Field/Input/Select/Badge/EmptyState/ErrorState/Skeleton với typed variants, focus/disabled/loading/error CSS chung. Có thể làm sau MG0 song song với M1. (FE-02/03)
+- [x] 6.4 Tạo shared DataTable/filter/pagination/evidence viewer wrappers với internal scroll, dài/nullable content và resource cleanup. Có thể làm sau MG0 song song với M1. (FE-03/05)
+- [x] 6.5 Tạo AuthLayout/AppShell/ListPageLayout/DetailPageLayout/WorkspaceLayout bằng slots/children/outlet, shell không remount khi chuyển trang. Có thể làm sau MG0 song song với M1. (FE-02/05)
+- [x] 6.6 Tạo sidebar expanded/rail/mobile drawer cùng topbar/breadcrumb, active state/aria/tooltip/Escape/focus restore, preferences không nhạy cảm. Có thể làm sau MG0 song song với M1. (FE-05)
+- [x] 6.7 Tạo route registry/helpers/guards và named lazy page entry index.ts, không eager barrel mọi pages; kiểm alias/circular/deep imports. (FE-04)
+- [x] 6.8 Tạo FeedbackProvider/ModalHost/ModalShell với renderContent/renderFooter typed lifecycle, portal/focus/scroll/size, một blocking modal. Có thể làm sau MG0 song song với M1. (FE-06)
+- [x] 6.9 Tạo Notice/Confirm/Form/Detail/Evidence modal compositions với dirty/pending/double-submit guards, giữ form khi lỗi và không auto-open từ refetch. Có thể làm sau MG0 song song với M1. (FE-06)
+- [x] 6.10 Tạo ToastHost/useFeedback variants/queue/dedupe/pause/dismiss/live region, feature sở hữu feedback kết quả và lỗi bền tại vùng liên quan. Có thể làm sau MG0 song song với M1. (FE-07)
 - [ ] 6.11 Tạo common async/render boundaries và loading/empty/error/forbidden/outcome_unknown components, không expose raw exception hoặc progress giả. (INT-07)
-- [ ] 6.12 Tạo public index.ts/named exports/export type cho mỗi component/layout/page; custom hook screen contracts data/state/actions và shared hook boundaries. (FE-02/04/08)
-- [ ] 6.13 Tests: component keyboard/focus/dirty/pending/toast-dedupe và layout/route/lazy-chunk/circular checks; kiểm reduced motion/theme không đổi theo page-load order. (FE-03..07)
+- [x] 6.12 Tạo public index.ts/named exports/export type cho mỗi component/layout/page; custom hook screen contracts data/state/actions và shared hook boundaries. (FE-02/04/08)
+- [x] 6.13 Tests: component keyboard/focus/dirty/pending/toast-dedupe và layout/route/lazy-chunk/circular checks; kiểm reduced motion/theme không đổi theo page-load order. (FE-03..07)
 - [ ] 6.14 Tests: responsive foundation tại 320/360/768/1024/1440/1920, zoom 200%, keyboard/nội dung dài/landscape; lưu baseline cho every-page QA sau. (FE-05)
-- [ ] 6.15 Nghiệm thu Milestone Gate MG2 — FE Foundation: Xác nhận nền tảng frontend độc lập đạt chuẩn: React package, TypeScript strict, Vite build, AppShell, design tokens, feedback hosts (modal/toast), responsive layout và component tests đạt chuẩn (các tác vụ tích hợp auth thật 5.5 và 5.8 sẽ kiểm thử sau MG1); mở khóa tích hợp giao diện nghiệp vụ. (FE-01..09)
+- [ ] 6.15 Nghiệm thu Milestone Gate MG2 — FE Foundation: Xác nhận nền tảng frontend độc lập đạt chuẩn: React package, TypeScript strict, Vite build, AppShell, design tokens, feedback hosts (modal/toast), responsive layout và component tests đạt chuẩn (các tác vụ tích hợp auth thật 5.5 và 5.8 kiểm thử khi từng endpoint được bàn giao); mở khóa tích hợp giao diện nghiệp vụ. (FE-01..09)
+
+
+### Bằng chứng Frontend 21/10/2026
+
+- Hoàn tất 14 task foundation được đánh dấu trong nhóm 5–6 (đã bổ sung 6.4 DataTable/pagination/filter/evidence và 6.9 modal compositions); source và hướng dẫn chạy tại `frontend/README.md`, báo cáo tại `docs/frontend-progress.md`.
+- `typecheck`, `lint` (118 source files + boundaries/circular/export checks), `api:check`, `format:check`, production `build` đạt; 75 unit/component tests đạt 100%. Browser tests không intercept/mock API.
+- Baseline screenshot: `.tmp/frontend-qa/screenshots/`, JUnit browser: `.tmp/frontend-qa/junit.xml`. Ba trang công khai kiểm 320/360/768/1024/1440/1920, thêm landscape và viewport hiệu dụng zoom 200%; đây chưa phải toàn ma trận mọi trang/state hoặc xác nhận zoom browser thực.
+- Auth v1, vehicle CRUD, danh sách driver/order và health đã có API modules/schema/hooks/UI. Backend tại 127.0.0.1:8000 chưa chạy trong browser QA nên chưa nghiệm thu login/CRUD E2E thật; task tích hợp nghiệp vụ vẫn pending.
+- 5.3 còn mở rộng runtime schemas/drift theo các API bàn giao; 5.5–5.9 còn JWT rotation/multi-tab/authz version và cleanup realtime/media. 6.1 còn review G7; 6.4/6.9 còn pagination/evidence và modal compositions; 6.11/6.14/6.15 còn coverage/visual acceptance đầy đủ. Không coi MG2 hoặc backend M1 đã đạt.
+- Danh mục API thiếu cập nhật theo màn hình tại `docs/contracts/frontend-api-gaps.md`. Team backend sở hữu triển khai; không tiếp tục code backend trong đợt Frontend này.
 
 ## 7. M3 - Tích hợp auth, quản trị và dữ liệu core bằng API thật
 
-*Phụ thuộc*: Tasks 7.2–7.6 chỉ bắt đầu sau khi đạt MG1 (Backend Auth/RBAC sẵn sàng) và nền tảng giao diện từ MG2. Tasks 7.7–7.10 sử dụng các API core hiện có.
+*Phụ thuộc*: Tasks 7.2–7.6 được dựng UI sau foundation và tích hợp lần lượt khi endpoint Auth/RBAC tương ứng được bàn giao, không chờ toàn bộ M1/MG1. MG1 vẫn là gate bảo mật cho rollout JWT/RBAC toàn hệ thống. Tasks 7.7–7.10 sử dụng các API core hiện có.
 
 - [ ] 7.1 Tạo feature API/query/runtime mapper modules cho các API auth/admin/dữ liệu hiện có đã sẵn sàng sau M1; không component gọi URL tùy tiện hoặc runtime mock mode. API mới nhóm8–10 được tích hợp sau backend tương ứng. (INT-01, FE-08)
-- [ ] 7.2 Tích hợp Login/bootstrap/forced change-password/logout UI với auth service thật, protected routes và useAuthorization từ me permissions. Bắt đầu sau MG1 và MG2. (INT-02, JWT-05/07)
-- [ ] 7.3 Tích hợp Users list/detail/profile/status CRUD qua hooks/forms/modals chung, filter/cursor/version/conflict, không request secrets. Bắt đầu sau MG1 và MG2. (INT-03, RBAC-03)
-- [ ] 7.4 Tích hợp gán role/reset password/session list/revoke-all với target/reason/confirmation và principal/query invalidation sau response. Bắt đầu sau MG1 và MG2. (INT-03, RBAC-04/07)
-- [ ] 7.5 Tích hợp Roles permission editor/system guards/catalog read-only, selection diff/expected_version/409, không cấp quyền optimistic. Bắt đầu sau MG1 và MG2. (RBAC-05/06, FE-06)
-- [ ] 7.6 Tích hợp Audit list/detail filters/cursor/redacted diffs, không chức năng sửa/xóa audit. Bắt đầu sau MG1 và MG2. (RBAC-08)
+- [ ] 7.2 Tích hợp Login/bootstrap/forced change-password/logout UI với auth service thật, protected routes và useAuthorization từ me permissions. Dựng UI trên foundation; tích hợp từng endpoint đã được team backend bàn giao và kiểm chứng. (INT-02, JWT-05/07)
+- [ ] 7.3 Tích hợp Users list/detail/profile/status CRUD qua hooks/forms/modals chung, filter/cursor/version/conflict, không request secrets. Dựng UI trên foundation; tích hợp từng endpoint đã được team backend bàn giao và kiểm chứng. (INT-03, RBAC-03)
+- [ ] 7.4 Tích hợp gán role/reset password/session list/revoke-all với target/reason/confirmation và principal/query invalidation sau response. Dựng UI trên foundation; tích hợp từng endpoint đã được team backend bàn giao và kiểm chứng. (INT-03, RBAC-04/07)
+- [ ] 7.5 Tích hợp Roles permission editor/system guards/catalog read-only, selection diff/expected_version/409, không cấp quyền optimistic. Dựng UI trên foundation; tích hợp từng endpoint đã được team backend bàn giao và kiểm chứng. (RBAC-05/06, FE-06)
+- [ ] 7.6 Tích hợp Audit list/detail filters/cursor/redacted diffs, không chức năng sửa/xóa audit. Dựng UI trên foundation; tích hợp từng endpoint đã được team backend bàn giao và kiểm chứng. (RBAC-08)
 - [ ] 7.7 Tích hợp Driver enrollment/list/detail/forms theo API hiện có, giữ Driver/User khác nghĩa và không giả registry/HR; Employee API/mapping mới tích hợp tại 8.15 sau 8.11–8.14. (PED-01/02, INT-03)
 - [ ] 7.8 Tích hợp Vehicle CRUD và driver–vehicle authorizations theo API đã sẵn, lookups theo quyền; catalog legacy/unknown mới tích hợp tại 8.15 sau backend 8.11–8.14. (CAM-01, INT-03)
 - [ ] 7.9 Tích hợp employee cards issue/block/report-lost/replace, UID mask/reason/confirmation và invalidation đúng identity/card. (INT-03)
@@ -189,3 +207,18 @@ Nhóm 2–4 cùng thuộc milestone M1. Hoàn thành domain/ports 2.1, 3.1 và 4
 - [ ] 11.10 Kiểm runtime không mock/fixtures/secrets/biometric/prompt/output nhạy cảm trong bundle/storage/logs/traces; provider/device keys chỉ server. (API-06, INT-09, AI-07)
 - [ ] 11.11 Tổng hợp bàn giao backend BE-01–BE-07, contract/version/test evidence và hạn chế vận hành; xác nhận kho/action không là điều kiện core, lập change E1/E2 riêng nếu tiếp tục. (API-06)
 - [ ] 11.12 Nghiệm thu Milestone Gate MG6 — Release: Xác nhận toàn bộ DoD, negative security tests, all-page responsive/A11Y, kiểm nghiệm hiện trường 4 mode, diễn tập rollback và traceability matrix đầy đủ; xác nhận hoàn thành verification của implementation, sẵn sàng tạo PR merge implementation vào main và tiến hành archive từ main theo Git Discipline. (API-06, INT-09, DOD-FE-AI-01..08, FE-NEG-01..08)
+
+
+## 12. Frontend - Cấu hình thiết bị và nhận diện
+
+Phạm vi bổ sung theo yêu cầu người dùng: team hiện tại làm Frontend; team backend cung cấp API quản trị cấu hình. Route thông tin khi API chưa sẵn sàng không đọc dữ liệu thiết bị; chỉ ADMIN session v1 được chuẩn bị bản nháp cục bộ, không suy ra quyền ghi API. Quyền settings thật phải lấy từ permission catalog/principal backend khi tích hợp.
+
+- [ ] 12.1 Bổ sung thiết kế/specs INT-10..13: sáu nhóm Camera/Model/Barrier/Reader/Cổng-làn/History; tách draft/saved/applied, dữ liệu thật, secrets và ranh giới không điều khiển barrier. (INT-10..13)
+- [ ] 12.2 Đăng ký route/sidebar Cấu hình thiết bị, sáu tabs URL có keyboard/aria và named lazy entry/index.ts, dùng AppShell/ListPageLayout hiện tại. (FE-04/05, INT-10)
+- [ ] 12.3 Tạo panels cấu hình/nguồn dữ liệu/field descriptions và trạng thái chưa có API, không thiết bị/model/giá trị cấu hình giả hoặc gọi endpoint dự kiến. (INT-10/11)
+- [ ] 12.4 Tạo interfaces, schemas, hook data/state/actions và form bản nháp theo từng loại qua modal render props; validation/dirty/local review, không persist hoặc báo lưu/apply thành công; draft ADMIN chỉ là quyền chuẩn bị cục bộ. (FE-06/08, INT-11/12)
+- [ ] 12.5 Tích hợp catalog/list/detail/config snapshots thật khi backend bàn giao: runtime DTO/schema, permission guards/401/403, loading/error/coverage và cấu hình hiện hành không secrets. (INT-10/12)
+- [ ] 12.6 Tích hợp save/validate/connectivity-test/apply/reconcile với expected_version/reason, active-vs-desired version/restart_required, durable operation/idempotency/outcome_unknown; không tự mở barrier hoặc restart thiết bị. (INT-11/12)
+- [ ] 12.7 Tích hợp lịch sử/audit cấu hình thật, filters/cursor, version diff đã redact; không sửa/xóa audit hoặc phục hồi credentials đã revoke. (INT-13)
+- [ ] 12.8 Kiểm thử schema/conditional fields, quyền bản nháp, modal validation/dirty/no persistence/no API giả và responsive/keyboard/reduced-motion cho màn hình mới. (FE-03..08, INT-10..13)
+- [ ] 12.9 Sau triển khai UI, cập nhật FE-G08 trong API gaps: proposed endpoints/DTO/actions/permissions/errors/operations, phân biệt phần FE đã có và phần chờ team backend. (API-01/06, INT-10..13)

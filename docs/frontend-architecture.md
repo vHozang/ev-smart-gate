@@ -1,10 +1,17 @@
 # Báo cáo khám phá và thiết kế Frontend React - EV Smart Gate
 
+## Điều chỉnh phạm vi ngày 21/10/2026 — Frontend triển khai trước
+
+Theo yêu cầu mới của người dùng, team backend khác sở hữu toàn bộ triển khai API. Lượt apply hiện tại chỉ thay đổi Frontend và tài liệu phối hợp; không tiếp tục code/test backend. Các thay đổi backend đang có trong working tree được giữ nguyên để team xem xét, không tự xóa hoặc coi đã nghiệm thu.
+
+M2 được triển khai ngay. M1/MG1 là trách nhiệm bàn giao backend, không chặn xây layout, màn hình, hooks và trạng thái loading/empty/error/unavailable. Tích hợp từng API ngay khi contract và endpoint đó sẵn sàng; không chờ cả milestone backend. Endpoint chưa tồn tại ghi vào `docs/contracts/frontend-api-gaps.md`, không gọi thử tùy tiện, không mock runtime, không báo thành công giả. JWT/RBAC vẫn là mục tiêu; adapter session v1 chỉ phục vụ API hiện tại, cấu hình tường minh, không fallback tự động khi JWT lỗi. Mỗi chức năng chỉ được đánh dấu hoàn thành sau khi tích hợp API thật và kiểm tra phù hợp. MG1 đầy đủ vẫn cần backend nghiệm thu trước rollout JWT/RBAC toàn hệ thống.
+
+
 | Thuộc tính | Giá trị |
 | --- | --- |
 | Mã tài liệu | EVSG-FE-EXP-2026-01 |
-| Phiên bản | 1.3 - hoàn thiện phạm vi nhân viên/đa phương tiện, RBAC, Dashboard, Assistant nội bộ và bàn giao backend |
-| Ngày cập nhật | 20/10/2026, Asia/Bangkok |
+| Phiên bản | 1.4 - Frontend triển khai trước, team riêng sở hữu API; hoàn thiện phạm vi nhân viên/đa phương tiện, RBAC, Dashboard, Assistant nội bộ và bàn giao backend |
+| Ngày cập nhật | 21/10/2026, Asia/Bangkok |
 | Workflow | `/opsx-explore` |
 | Phạm vi | Nhân viên đi bộ và xe máy/ô tô/xe tải ra/vào, face verification mọi luồng, Users/RBAC, Dashboard và Assistant self-hosted; kho/hành động là mở rộng |
 | Cơ sở mã nguồn | Working tree khảo sát, HEAD `7797c01` |

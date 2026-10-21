@@ -231,11 +231,16 @@ class ExitSlipArtifacts:
 @dataclass(slots=True)
 class User:
     username: str
-    password_hash: str
+    password_hash: str = field(repr=False)
     role: UserRole
     id: UUID = field(default_factory=uuid4)
     is_active: bool = True
     created_at: datetime | None = None
+    role_id: UUID | None = None
+    session_version: int = 1
+    authz_version: int = 1
+    must_change_password: bool = False
+    permissions: frozenset[str] | None = field(default=None, repr=False)
 
 
 @dataclass(slots=True)
@@ -246,6 +251,7 @@ class AuthSession:
     expires_at: datetime
     id: UUID = field(default_factory=uuid4)
     created_at: datetime | None = None
+    session_version: int = 1
 
 
 @dataclass(slots=True)

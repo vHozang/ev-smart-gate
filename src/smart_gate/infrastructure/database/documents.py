@@ -293,6 +293,10 @@ class UserDocument(Document):
     role: UserRole
     is_active: bool = True
     created_at: datetime = Field(default_factory=utc_now)
+    role_id: UUID | None = None
+    session_version: int = 1
+    authz_version: int = 1
+    must_change_password: bool = False
 
     class Settings:
         name = "users"
@@ -306,6 +310,7 @@ class AuthSessionDocument(Document):
     csrf_hash: str
     expires_at: datetime
     created_at: datetime = Field(default_factory=utc_now)
+    session_version: int = 1
 
     class Settings:
         name = "auth_sessions"

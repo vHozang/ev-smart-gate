@@ -1,3 +1,9 @@
+## Điều chỉnh phạm vi ngày 21/10/2026 — Frontend triển khai trước
+
+Theo yêu cầu mới của người dùng, team backend khác sở hữu toàn bộ triển khai API. Lượt apply hiện tại chỉ thay đổi Frontend và tài liệu phối hợp; không tiếp tục code/test backend. Các thay đổi backend đang có trong working tree được giữ nguyên để team xem xét, không tự xóa hoặc coi đã nghiệm thu.
+
+M2 được triển khai ngay. M1/MG1 là trách nhiệm bàn giao backend, không chặn xây layout, màn hình, hooks và trạng thái loading/empty/error/unavailable. Tích hợp từng API ngay khi contract và endpoint đó sẵn sàng; không chờ cả milestone backend. Endpoint chưa tồn tại ghi vào `docs/contracts/frontend-api-gaps.md`, không gọi thử tùy tiện, không mock runtime, không báo thành công giả. JWT/RBAC vẫn là mục tiêu; adapter session v1 chỉ phục vụ API hiện tại, cấu hình tường minh, không fallback tự động khi JWT lỗi. Mỗi chức năng chỉ được đánh dấu hoàn thành sau khi tích hợp API thật và kiểm tra phù hợp. MG1 đầy đủ vẫn cần backend nghiệm thu trước rollout JWT/RBAC toàn hệ thống.
+
 ## Context
 
 Nguồn thiết kế là [báo cáo v1.3](../../../docs/frontend-architecture.md) và [proposal](proposal.md). Console hiện tại là static HTML/CSS/JS do FastAPI phục vụ; auth là session cookie/CSRF với ADMIN/WAREHOUSE/SECURITY. Chưa có JWT/refresh, users/roles CRUD, registry/pedestrian API, aggregate chuyên dụng hoặc report/model worker. Mục 10 của báo cáo phân biệt 44 HTTP + 1 WS hiện có với các API đề xuất; không dùng bảng đề xuất làm bằng chứng triển khai.
@@ -211,3 +217,14 @@ Các gate dưới chưa đủ dữ liệu hiện trường; chủ sở hữu ph�
 | G5 Model/runtime | Backend + hạ tầng: benchmark tiếng Việt, model/license/version/hardware/limits/provider deadline (khởi động từ task 10.1) | Triển khai ModelGateway và worker (10.2 trở đi); Dashboard không phụ thuộc |
 | G6 Report lifecycle | Backend + vận hành: expiry/retention/purge, artifact text/JSON/PDF, concurrency/SLO (khởi động từ task 10.1) | Triển khai storage/worker và release Assistant (10.2 trở đi) |
 | G7 Design baseline | Frontend + người dùng: theme/sidebar defaults, screenshots, page/state matrix | UI visual acceptance, không thay contract bảo mật |
+
+
+### D11. Giao diện quản lý cấu hình thiết bị — bổ sung 21/10/2026
+
+Route `/console/settings?section=cameras|models|barriers|readers|bindings|history` thuộc nhóm Quản trị, tách `/console/system` chỉ health. Feature `device-settings` sở hữu metadata nhóm, interfaces/schema bản nháp và hook màn hình; page chỉ ghép panels/layout. Form qua FeedbackProvider/render props hiện có, CSS dùng chung và Tailwind trên cùng tokens. Đây là mở rộng cùng kiến trúc/state/feedback đã chọn; không tạo ADR mới chỉ cho một màn hình.
+
+Trước API, route chỉ công bố cấu trúc/thông tin chưa khả dụng, không dữ liệu thiết bị thật. ADMIN session v1 có thể chuẩn bị/xem lại bản nháp trong RAM; quyền này không cấp settings API và không thêm vào baseline permissions. Không persist draft/credentials hoặc tạo runtime fixtures; không có toast saved/tested/applied. Khi backend sẵn sàng, route/action phải chuyển sang effective permissions, DTO sinh từ runtime OpenAPI và query scope identity/authz version.
+
+Camera dùng connection profile/reference, purpose, access point/lane/direction; ROI/calibration cần preview và phiên bản server thật. Model chọn catalog/version/task và threshold theo units/ranges từ backend, không tự nhận model/path/env do browser nhập. Barrier/reader có binding/connection profile/timeouts/debounce theo capabilities. Gate/lane map mode và face/plate/reader/actuator refs; pedestrian không mang plate ref. Mọi ref/giới hạn nhập lúc draft chỉ là kiểm tra hình thức, không xác nhận thiết bị/model tồn tại.
+
+Desired/saved khác active/applied, restart_required/pending/failed/unknown phải hiển thị theo backend. Save/test/apply không có trong runtime hiện tại; kiểm tra kết nối không mở barrier hoặc phát lệnh vật lý. API missing và proposed contracts ghi FE-G08; team backend quản lý network allowlist/credentials/audit/versioning/operations. History chưa có nguồn không được render data mẫu. Các task 12.5–12.7 còn pending cho tới tích hợp thật.

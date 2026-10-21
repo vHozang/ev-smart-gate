@@ -1,0 +1,3 @@
+# Build Go tải release công khai; không cần gửi file dự án vào context.
+**
+!Dockerfile.contract-minio

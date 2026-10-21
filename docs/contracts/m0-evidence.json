@@ -1,0 +1,47 @@
+{
+  "executed_on": "2026-10-20",
+  "branch": "TienThanh/FE",
+  "base_commit": "467f2d389b3a1f4119c048e68158af46551cfabb",
+  "implementation_uncommitted": true,
+  "gate_status": "MG0-approved",
+  "suites": {
+    "contract_integration": {
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.199
+    },
+    "unit_contract": {
+      "tests": 97,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.495
+    }
+  },
+  "sha256": {
+    "docs/openapi.json": "8f0caa165302b8b7e45daabfc05bc094d014d3e3201873327a007d0a05c1c1f9",
+    "docs/contracts/runtime-inventory.json": "98682ba2a55d8cb2832ceeda95ebf8aa4a18169db7d576cadaae7f2a788987b2",
+    "docs/contracts/migration.openapi.json": "646d53b7644c57635d31a5647cf4d737f884a461fe632f8ca5ba822329fa0554",
+    "docs/contracts/permission-seed.json": "551626df2ac59b5708cb7e2f35bf2e041d8d4147d342260303b5d243f4539e01",
+    "docs/contracts/migration-v1.md": "9932d47030a14b3f6280fbae34a674213731a64ba48b1441a546c9eef0d99261",
+    "scripts/export_openapi.py": "3f9facfbd813f5e4730e3a55eb3da66d549bb57308c7212b44edda73c96b09ca",
+    "scripts/export_api_inventory.py": "cfa7cdbb4950173359e1096c74cd97c791f222a9e6922dd23e93404867a0483d",
+    "scripts/export_migration_contracts.py": "f7e3d5615a9cdf78f1f590f8d2d9bd0b4d7e9e700fb2bdc38ef812c4b1e25bc2",
+    "scripts/export_permission_seed.py": "00103d78aa1be4108fd388dc578937c533d7eddcbe252f516c1b41c6ba48ca11",
+    "src/smart_gate/presentation/contracts/migration.py": "4cb7d7fede1898573174185e41580f39722c121e45167aad5ce029869e09b921",
+    "tests/contract/test_migration_contracts.py": "03d38d0a1813d6516ce2a15d1f6e4ea2c359669ebe4441c20b84f83e3477165c",
+    "tests/contract/test_permission_seed.py": "d4284a2d4eb058293ce144191ceaabf68c67335df2ca8108315ca7cfa9e4791e",
+    "tests/contract/test_runtime_inventory.py": "c8419d55eea2b93b0a4ced0a8c44df4e752af6998401ea4dfdd193940ad52628",
+    "tests/integration/test_operator_role_baseline.py": "271167b26a8376d5617a1b6984d86927429e2879c726dd99b87b1a7bf7824bbc",
+    "Dockerfile.contract-test": "5e4422ba83f959f536813aec45c85d1956807e01bedba7f89e05193c8dc8e940",
+    "Dockerfile.contract-minio": "1f14086ff9dcc319dff6bd8eefdecb83ed6df786ea0813a5a23d78f2ecd67f4a",
+    "docker-compose.contract-test.yml": "e91c2cc037ea99667bcf08dc83126f994963b90245abb280004372c5062562ad"
+  },
+  "approval": {
+    "date": "2026-10-20",
+    "source": "Người dùng đồng ý gói MG0 trong hội thoại",
+    "scope": "Contract/policy/seed và test environment; không nghiệm thu M1–M6"
+  }
+}

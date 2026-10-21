@@ -15,9 +15,9 @@ def build_lifespan(settings: Settings | None = None):
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         container = Container(settings or get_settings())
-        await container.start()
-        app.state.container = container
         try:
+            await container.start()
+            app.state.container = container
             yield
         finally:
             await container.close()

@@ -170,3 +170,61 @@ Console MUST coi text/notes/AI output là untrusted, mặc định render escape
 - **GIVEN** luồng có token, raw evidence, biometrics, prompt/output hoặc Query cache nhạy cảm cùng artifacts ảnh/PDF/QR
 - **WHEN** kiểm tra browser storage/logs/test traces và camera acceptance
 - **THEN** dữ liệu nhạy cảm không bị persist/ghi lộ, artifacts giữ quyền/content type; kiểm tra đi bộ/xe máy/ô tô/xe tải thực tế, không suy coverage từ một nhóm hoặc simulator.
+
+
+### Requirement: INT-10 - Không gian cấu hình thiết bị và nhận diện
+
+Console SHALL có màn hình Cấu hình thiết bị riêng với sáu nhóm camera, model nhận diện, barrier, đầu đọc thẻ, liên kết cổng/làn và lịch sử cấu hình; dùng shell/routes/layout/feedback/tokens chung. Trạng thái hệ thống SHALL giữ nhiệm vụ health, không dùng health làm cấu hình hiện hành. Khi API chưa bàn giao, màn hình MUST ghi rõ chưa có nguồn dữ liệu, không tạo thiết bị/model/threshold hoặc gọi endpoint dự kiến.
+
+#### Scenario: Chọn nhóm cấu hình khi chưa có API
+- **GIVEN** API cấu hình chưa được team backend bàn giao
+- **WHEN** người dùng chọn tab bằng bàn phím hoặc mở URL nhóm cấu hình
+- **THEN** đúng panel/heading/aria được hiển thị, trạng thái dữ liệu là chưa khả dụng, không có request cấu hình hoặc số lượng/giá trị thiết bị giả.
+
+### Requirement: INT-11 - Bản nháp và áp dụng có semantics riêng
+
+Frontend SHALL có form bản nháp typed theo loại thiết bị, validation cục bộ và xem lại qua modal render props, dirty guard và không persist browser. Bản nháp MUST không mang nghĩa đã lưu/đã kiểm tra kết nối/đã áp dụng. Save/test/apply SHALL chỉ bật sau contract/API và quyền tương ứng được xác nhận; saved/desired/active version, failed/pending/restart_required/outcome_unknown MUST theo backend. Browser MUST không mở barrier, tự restart thiết bị hoặc tự dùng URL kết nối để truy cập thiết bị.
+
+#### Scenario: Kiểm tra bản nháp hợp lệ
+- **GIVEN** ADMIN session v1 chuẩn bị bản nháp cục bộ trong lúc API chưa sẵn sàng
+- **WHEN** submit form hợp lệ
+- **THEN** UI hiển thị dữ liệu người dùng vừa nhập để xem lại với nhãn chưa lưu, không phát request/toast thành công, không thay danh sách cấu hình hiện hành hoặc persist bản nháp.
+
+#### Scenario: Liên kết cổng đi bộ và phương tiện
+- **GIVEN** bản nháp liên kết có mode và tham chiếu camera/reader/actuator
+- **WHEN** chuyển giữa pedestrian và vehicle modes rồi kiểm tra form
+- **THEN** mặt và đầu đọc vẫn được yêu cầu; phương tiện cần camera biển số, đi bộ không giữ tham chiếu biển số ẩn hoặc giá trị biển số giả; backend vẫn xác nhận binding/calibration cuối cùng.
+
+#### Scenario: Apply chưa rõ kết quả
+- **GIVEN** API apply đã sẵn sàng và request bị mất phản hồi
+- **WHEN** người dùng xem trạng thái thao tác
+- **THEN** UI giữ operation identity và outcome_unknown, tra cứu trước retry; đã lưu không được chuyển thành đã áp dụng hoặc barrier đã mở.
+
+### Requirement: INT-12 - Quyền và bảo mật cấu hình
+
+Quyền thao tác cấu hình thật SHALL do backend công bố và kiểm tra; frontend SHALL dùng effective permissions khi tích hợp. ADMIN session v1 chỉ được chuẩn bị bản nháp cục bộ, MUST không suy ra quyền ghi API. Read DTO MUST không chứa secrets. Model/catalog/threshold metadata SHALL do backend xác nhận; browser MUST không gửi commands hoặc đường dẫn thực thi tùy ý.
+
+#### Scenario: Người không có quyền chuẩn bị bản nháp
+- **GIVEN** chưa đăng nhập hoặc session v1 không phải ADMIN
+- **WHEN** mở màn hình thông tin cấu hình trước tích hợp
+- **THEN** chỉ xem cấu trúc nhóm/field descriptions không có cấu hình thật; action chuẩn bị bản nháp bị chặn kể cả gọi handler trực tiếp, không mở form do tự gán permission mới trong baseline.
+
+#### Scenario: Backend từ chối thao tác quản trị
+- **GIVEN** API cấu hình đã được tích hợp và actor thiếu quyền hoặc version thay đổi
+- **WHEN** backend trả 403 hoặc 409
+- **THEN** UI giữ bản nháp, hiển thị lỗi phù hợp và không áp optimistic cấu hình; secrets không xuất hiện trong render/cache/storage/logs.
+
+### Requirement: INT-13 - Lịch sử cấu hình có nguồn
+
+Lịch sử SHALL lấy từ backend với actor/time/version/reason/target/redacted diff và apply outcome. Trong lúc chưa có API, UI MUST nêu chưa có nguồn lịch sử, không dựng rows hoặc biến thiếu dữ liệu thành lịch sử trống. History/audit SHALL read-only và có quyền riêng.
+
+#### Scenario: Chưa có nguồn audit cấu hình
+- **GIVEN** endpoint history chưa được bàn giao
+- **WHEN** chọn tab Lịch sử cấu hình
+- **THEN** UI hiển thị unavailable cùng phạm vi thông tin dự kiến, không có bản ghi mẫu, nút sửa/xóa audit hoặc nhãn đã đồng bộ.
+
+
+#### Scenario: Chưa có metadata hoặc thông tin xác thực
+- **GIVEN** danh mục model/threshold units/ranges hoặc credential profile chưa được backend bàn giao
+- **WHEN** người dùng chuẩn bị cấu hình
+- **THEN** UI chỉ cho nhập tham chiếu bản nháp và nêu phần chưa xác nhận, không tự đặt ngưỡng hoặc cho nhập arbitrary model path/script/env; password/token/credential URL không nằm trong read DTO, Query cache hoặc browser storage.

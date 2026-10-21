@@ -888,6 +888,10 @@ class BeanieUserRepository:
             role=document.role,
             is_active=document.is_active,
             created_at=document.created_at,
+            role_id=document.role_id,
+            session_version=document.session_version,
+            authz_version=document.authz_version,
+            must_change_password=document.must_change_password,
         )
 
 
@@ -911,6 +915,7 @@ class BeanieAuthSessionRepository:
             csrf_hash=document.csrf_hash,
             expires_at=document.expires_at,
             created_at=document.created_at,
+            session_version=document.session_version,
         )
 
     async def delete_by_token_hash(self, token_hash: str) -> bool:

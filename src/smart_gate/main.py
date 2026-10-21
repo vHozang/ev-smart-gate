@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from pathlib import Path
 
@@ -20,6 +21,8 @@ from smart_gate.presentation.routers import (
     gates,
     health,
     master_data,
+    operator_admin,
+    operator_auth,
     security,
     warehouse,
 )
@@ -46,8 +49,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=resolved.cors_origin_list,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-CSRF-Token", "X-Device-Key", "X-Request-ID"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-CSRF-Token",
+            "X-Device-Key",
+            "X-Request-ID",
+            "Idempotency-Key",
+            "Last-Event-ID",
+        ],
+        expose_headers=["X-Request-ID"],
     )
 
     static_root = Path(__file__).resolve().parent / "presentation" / "static"
@@ -64,8 +76,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def request_id_middleware(request: Request, call_next):
-        request_id = request.headers.get("X-Request-ID") or secrets.token_hex(12)
+        supplied_id = request.headers.get("X-Request-ID", "")
+        request_id = (
+            supplied_id
+            if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", supplied_id)
+            else secrets.token_hex(12)
+        )
+        request.state.request_id = request_id
         response = await call_next(request)
+        if request.url.path.startswith(("/api/v2/auth/", "/api/v1/admin/")):
+            response.headers["Cache-Control"] = "no-store"
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -76,6 +96,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(app)
     app.include_router(health.router)
     app.include_router(auth.router)
+    if resolved.operator_auth_enabled:
+        app.include_router(operator_auth.router)
+        app.include_router(operator_admin.router)
     app.include_router(master_data.router)
     app.include_router(employee_cards.router)
     app.include_router(warehouse.router)
@@ -83,6 +106,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(gate_logs.router)
     app.include_router(security.router)
     app.include_router(security.ws_router)
+    if resolved.operator_auth_enabled:
+        # FastAPI mặc định mô tả nhiều Security dependencies thành OR; policy refresh là AND.
+        schema = app.openapi()
+        schema["paths"]["/api/v2/auth/refresh"]["post"]["security"] = [
+            {"RefreshCookie": [], "AuthCsrf": []}
+        ]
+        schema["paths"]["/api/v2/auth/logout"]["post"]["security"] = [
+            {"RefreshCookie": [], "AuthCsrf": []},
+            {"OperatorJWT": []},
+        ]
     return app
 
 

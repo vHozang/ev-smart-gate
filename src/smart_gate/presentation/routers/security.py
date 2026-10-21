@@ -46,32 +46,66 @@ async def update_alert(
 @ws_router.websocket("/ws/v1/security/alerts")
 async def alerts_websocket(websocket: WebSocket) -> None:
     container: Container = websocket.app.state.container
-    try:
-        user = await container.auth.authenticate_session(
-            websocket.cookies.get(container.settings.session_cookie_name)
-        )
-        if user.role not in {UserRole.ADMIN, UserRole.SECURITY}:
+    cookie = websocket.cookies.get(container.settings.session_cookie_name)
+
+    async def check_access() -> None:
+        user = await container.auth.authenticate_session(cookie)
+        if user.must_change_password:
+            raise AuthorizationError("PASSWORD_CHANGE_REQUIRED", "Cần đổi mật khẩu")
+        if user.permissions is not None:
+            if "alerts:read" not in user.permissions:
+                raise AuthorizationError("PERMISSION_DENIED", "Không có quyền xem cảnh báo")
+        elif user.role not in {UserRole.ADMIN, UserRole.SECURITY}:
             raise AuthorizationError("ROLE_DENIED", "Vai trò không được xem cảnh báo")
+
+    origin = websocket.headers.get("Origin")
+    if origin is not None and origin != container.settings.app_public_origin.rstrip("/"):
+        await websocket.close(code=4403)
+        return
+    try:
+        await check_access()
     except (AuthenticationError, AuthorizationError):
         await websocket.close(code=4401)
         return
-
     await websocket.accept()
     try:
         async with container.realtime.subscription() as queue:
-            while True:
-                receive_task = asyncio.create_task(websocket.receive_text())
-                event_task = asyncio.create_task(queue.get())
-                done, pending = await asyncio.wait(
-                    {receive_task, event_task}, return_when=asyncio.FIRST_COMPLETED
-                )
-                for task in pending:
+            receive_task = asyncio.create_task(websocket.receive_text())
+            event_task = asyncio.create_task(queue.get())
+            try:
+                while True:
+                    done, _ = await asyncio.wait(
+                        {receive_task, event_task}, timeout=1, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    # Durable read trước mỗi send và tối đa một giây khi idle, trên mọi worker.
+                    await check_access()
+                    if event_task in done:
+                        await websocket.send_json(event_task.result())
+                        event_task = asyncio.create_task(queue.get())
+                    if receive_task in done:
+                        raw = receive_task.result()
+                        if len(raw) > 65536:
+                            await websocket.close(code=1009)
+                            return
+                        message = json.loads(raw)
+                        if not isinstance(message, dict):
+                            await websocket.close(code=1003)
+                            return
+                        if message.get("type") == "ping":
+                            await websocket.send_json({"type": "pong"})
+                        receive_task = asyncio.create_task(websocket.receive_text())
+            finally:
+                for task in (receive_task, event_task):
                     task.cancel()
-                if event_task in done:
-                    await websocket.send_json(event_task.result())
-                if receive_task in done:
-                    message = json.loads(receive_task.result())
-                    if message.get("type") == "ping":
-                        await websocket.send_json({"type": "pong"})
-    except (WebSocketDisconnect, json.JSONDecodeError):
+                await asyncio.gather(receive_task, event_task, return_exceptions=True)
+    except WebSocketDisconnect:
         return
+    except AuthenticationError:
+        await websocket.close(code=4401)
+    except AuthorizationError:
+        await websocket.close(code=4403)
+    except json.JSONDecodeError:
+        await websocket.close(code=1003)
+    except Exception:
+        # Lỗi storage/policy không được tiếp tục phát dữ liệu; không log cookie hoặc payload.
+        await websocket.close(code=1011)

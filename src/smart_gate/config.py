@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,29 @@ class Settings(BaseSettings):
     session_cookie_name: str = Field("smart_gate_session", alias="SESSION_COOKIE_NAME")
     csrf_cookie_name: str = Field("smart_gate_csrf", alias="CSRF_COOKIE_NAME")
     device_api_key: str = Field("change-this-device-key", alias="DEVICE_API_KEY")
+
+    operator_auth_enabled: bool = Field(False, alias="OPERATOR_AUTH_ENABLED")
+    auth_legacy_enabled: bool = Field(True, alias="AUTH_LEGACY_ENABLED")
+    auth_legacy_cutoff: AwareDatetime | None = Field(None, alias="AUTH_LEGACY_CUTOFF")
+    auth_issuer: str = Field("", alias="AUTH_ISSUER")
+    auth_audience: str = Field("ev-smart-gate-console", alias="AUTH_AUDIENCE")
+    auth_key_id: str = Field("operator-ed25519-v1", alias="AUTH_KEY_ID")
+    auth_private_key: SecretStr = Field(default=SecretStr(""), alias="AUTH_PRIVATE_KEY")
+    auth_public_key: str = Field("", alias="AUTH_PUBLIC_KEY")
+    auth_previous_public_keys: dict[str, str] = Field(
+        default_factory=dict, alias="AUTH_PREVIOUS_PUBLIC_KEYS"
+    )
+    auth_pepper: SecretStr = Field(default=SecretStr(""), alias="AUTH_PEPPER")
+    auth_access_seconds: int = Field(300, alias="AUTH_ACCESS_SECONDS", ge=60, le=900)
+    auth_idle_seconds: int = Field(86400, alias="AUTH_IDLE_SECONDS", ge=300)
+    auth_absolute_seconds: int = Field(604800, alias="AUTH_ABSOLUTE_SECONDS", ge=3600)
+    auth_rotation_grace_seconds: int = Field(5, alias="AUTH_ROTATION_GRACE_SECONDS", ge=0, le=5)
+    auth_clock_skew_seconds: int = Field(30, alias="AUTH_CLOCK_SKEW_SECONDS", ge=0, le=30)
+    auth_ticket_seconds: int = Field(30, alias="AUTH_TICKET_SECONDS", ge=1, le=30)
+    auth_login_client_limit: int = Field(30, alias="AUTH_LOGIN_CLIENT_LIMIT", ge=1)
+    auth_login_account_limit: int = Field(10, alias="AUTH_LOGIN_ACCOUNT_LIMIT", ge=1)
+    auth_refresh_client_limit: int = Field(120, alias="AUTH_REFRESH_CLIENT_LIMIT", ge=1)
+    auth_ticket_limit: int = Field(60, alias="AUTH_TICKET_LIMIT", ge=1)
 
     embedding_encryption_key: str = Field("", alias="EMBEDDING_ENCRYPTION_KEY")
     evidence_encryption_key: str = Field("", alias="EVIDENCE_ENCRYPTION_KEY")

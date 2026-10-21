@@ -13,6 +13,11 @@ context: |
   - React/JWT/permission RBAC, registry đi bộ, Dashboard aggregate và Assistant dưới đây là kiến trúc mục tiêu; chỉ coi đã triển khai khi có source và kết quả kiểm chứng.
   - Specs trong change chưa archive không tự trở thành baseline openspec/specs. Khi tài liệu cũ khác router/policy đang chạy, ghi rõ khác biệt và kế hoạch migration.
 
+  Phân công triển khai cập nhật 21/10/2026:
+  - Team backend riêng triển khai API; lượt apply Frontend không tiếp tục sửa hoặc kiểm thử code backend. Giữ nguyên các thay đổi backend dở dang để team xem xét.
+  - Frontend bắt đầu nền tảng và màn hình ngay; tích hợp từng endpoint đã sẵn sàng, không chờ toàn bộ M1. MG1 vẫn là nghiệm thu backend cho rollout JWT/RBAC, không chặn dựng UI độc lập.
+  - API thiếu được ghi theo màn hình tại docs/contracts/frontend-api-gaps.md với method/path, DTO, quyền và điều kiện nghiệm thu; không tự bù runtime mocks. Có thể dùng adapter session v1 tường minh cho API hiện tại trong lúc chờ JWT v2, không fallback tự động khi auth lỗi.
+
   Backend và hạ tầng nền:
   - Python >=3.11,<3.14, FastAPI async, Pydantic v2; versions/dependencies thực tế theo pyproject.toml và lockfile.
   - Beanie/PyMongo Async, MongoDB replica set; MinIO private bucket, AES-GCM ở tầng ứng dụng.

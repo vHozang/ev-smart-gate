@@ -5,12 +5,23 @@ from smart_gate.application.auth import AuthService
 from smart_gate.application.barrier import BarrierService
 from smart_gate.application.cards import EmployeeCardService
 from smart_gate.application.gate_logs import GateLogQueryService
+from smart_gate.application.operator_admin import OperatorAdminService
+from smart_gate.application.operator_auth import OperatorAuthService
 from smart_gate.application.parking_gate import VerifyParkingGateUseCase
 from smart_gate.application.registration import RegistrationService
 from smart_gate.application.warehouse import WarehouseService
+from smart_gate.bootstrap.operator_identity import (
+    build_operator_admin,
+    build_operator_identity,
+    validate_operator_settings,
+)
 from smart_gate.config import Settings
 from smart_gate.domain.services import FaceMatchingService, OrderStateService, PlateMatchingService
 from smart_gate.infrastructure.database.client import MongoDatabase
+from smart_gate.infrastructure.database.operator_store import (
+    MongoOperatorRoles,
+    OperatorCollections,
+)
 from smart_gate.infrastructure.database.repositories import (
     BeanieAlertRepository,
     BeanieAuthorizationRepository,
@@ -49,7 +60,11 @@ class Container:
 
     def __init__(self, settings: Settings) -> None:
         settings.validate_runtime_secrets()
+        if settings.operator_auth_enabled:
+            validate_operator_settings(settings)
         self.settings = settings
+        self.operator_auth: OperatorAuthService | None = None
+        self.operator_admin: OperatorAdminService | None = None
         self.database = MongoDatabase(settings)
         self.unit_of_work = MongoUnitOfWork(self.database)
         self.executor = BoundedExecutor(settings.vision_max_concurrency)
@@ -137,8 +152,22 @@ class Container:
 
     async def start(self) -> None:
         await self.database.connect()
+        collections = OperatorCollections(self.database)
+        self.auth.operator_roles = MongoOperatorRoles(collections)
+        marker = await collections.collection("operator_identity_migrations").find_one(
+            {"_id": "operator-rbac-v1:baseline"}
+        )
+        self.auth.allow_default_seeding = marker is None
         await self.evidence.initialize()
-        await self.auth.seed_defaults()
+        if self.settings.operator_auth_enabled:
+            self.operator_auth = await build_operator_identity(
+                self.settings, self.database, self.password_hasher
+            )
+            self.operator_admin = build_operator_admin(
+                self.settings, self.operator_auth, self.password_hasher
+            )
+        else:
+            await self.auth.seed_defaults()
 
     async def close(self) -> None:
         close = getattr(self.barrier_gateway, "close", None)

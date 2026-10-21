@@ -1,3 +1,7 @@
+## Cập nhật phân công 21/10/2026
+
+Theo quyết định mới của người dùng, team khác triển khai backend/API; apply hiện tại tập trung Frontend. M2 và các màn hình không bị chặn bởi toàn bộ M1/MG1. Tích hợp và nghiệm thu theo từng endpoint đã sẵn sàng, ghi API thiếu tại `docs/contracts/frontend-api-gaps.md`. JWT/RBAC, capture và dữ liệu thống kê vẫn phải đạt contract/kiểm tra bảo mật trước bật chức năng phụ thuộc. Các thay đổi backend đang có chưa được nghiệm thu, được giữ để bàn giao. Điều chỉnh này thay thế thứ tự chặn Frontend bởi toàn milestone backend trong các đoạn kế hoạch cũ bên dưới; không tự đánh dấu backend đã hoàn tất.
+
 ## Why
 
 Console hiện dùng HTML/JavaScript thuần, session cookie và enum role; chưa đáp ứng giao diện React đồng nhất, JWT/RBAC, luồng nhân viên đi bộ, Dashboard và Assistant nội bộ. Cần chuyển báo cáo kiến trúc [frontend-architecture.md v1.3](../../../docs/frontend-architecture.md) (phiên bản 1.3 cập nhật 20/10/2026, đã được đưa vào Git history trên branch `TienThanh/FE` tại commit `14df58b`) thành hợp đồng và kế hoạch triển khai có thể kiểm thử, tránh tình trạng tham chiếu đến các bản phác thảo cũ hoặc gây contract drift giữa tài liệu và mã nguồn.
@@ -76,3 +80,8 @@ Cần phân biệt rõ hai cơ chế kiểm soát:
 - **Frontend mới**: Đặt tại `frontend/`, tách hoàn toàn khỏi package demo gốc; FastAPI/reverse proxy phục vụ assets `/console`, UI cũ phục vụ rollback có thời hạn. Không thay `/api`, `/ws`, `/health` bằng SPA fallback.
 - **API & Bàn giao**: Dựa trên mục 10.7–10.9 và bàn giao BE-01–BE-07 tại mục 19 của báo cáo kiến trúc. Mọi endpoint/schema phải chốt ở MG0 trước khi client tích hợp.
 - **Rủi ro chính**: Nâng quyền ngoài ý muốn, token/biometric egress, stale permissions trên workers/WS/reports, ghép sai evidence, tràn VRAM/RAM khi chạy model AI cục bộ và số liệu/AI output sai. Kiểm soát bằng deny-by-default, transactional invariants, revoke bền vững, capture trust, grounded aggregates, lightweight model config và negative tests.
+
+
+## Bổ sung cấu hình thiết bị 21/10/2026
+
+Người dùng yêu cầu thêm và triển khai Frontend cho Camera/Model/Barrier/Reader/Cổng-làn/History. Bổ sung trong capability `operational-console-integration` (INT-10..13), nhóm task 12. API quản trị cấu hình do team backend triển khai riêng; Frontend làm route/panels/forms bản nháp và unavailable semantics trước, không fake config/save/apply. Phần tích hợp thật theo từng endpoint vẫn pending và theo dõi FE-G08. Không mở rộng sang API điều khiển barrier hoặc thay secrets/env từ browser.

@@ -1,0 +1,16 @@
+.git
+.env*
+.venv
+.tmp
+**/__pycache__
+node_modules
+frontend/node_modules
+tests/fixtures/private
+models
+openspec
+dist
+test-results
+playwright-report
+.pytest_cache
+.mypy_cache
+.ruff_cache

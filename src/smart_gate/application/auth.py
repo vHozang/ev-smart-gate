@@ -8,6 +8,7 @@ from smart_gate.config import Settings
 from smart_gate.domain.entities import AuthSession, DeviceCredential, User
 from smart_gate.domain.enums import UserRole
 from smart_gate.domain.exceptions import AuthenticationError, AuthorizationError
+from smart_gate.domain.operator_ports import OperatorRoles
 from smart_gate.domain.ports import (
     AuthSessionRepository,
     DeviceCredentialRepository,
@@ -30,6 +31,8 @@ class AuthService:
         secret_hasher: SecretHashGateway,
     ) -> None:
         self.settings = settings
+        self.operator_roles: OperatorRoles | None = None
+        self.allow_default_seeding = True
         self.users = users
         self.sessions = sessions
         self.devices = devices
@@ -37,6 +40,8 @@ class AuthService:
         self.secret_hasher = secret_hasher
 
     async def seed_defaults(self) -> None:
+        if not self.allow_default_seeding:
+            return
         username = self.settings.admin_username.strip().lower()
         if await self.users.get_by_username(username) is None:
             await self.users.add(
@@ -58,6 +63,7 @@ class AuthService:
         )
 
     async def login(self, payload: LoginInput) -> AuthTokens:
+        self._legacy_available()
         user = await self.users.get_by_username(payload.username.strip().lower())
         if (
             user is None
@@ -67,6 +73,7 @@ class AuthService:
             raise AuthenticationError(
                 "INVALID_CREDENTIALS", "Tên đăng nhập hoặc mật khẩu không đúng"
             )
+        user = await self._operator_policy(user)
         session_token = secrets.token_urlsafe(32)
         csrf_token = secrets.token_urlsafe(32)
         expires_at = datetime.now(UTC) + timedelta(seconds=self.settings.session_ttl_seconds)
@@ -77,6 +84,7 @@ class AuthService:
                 csrf_hash=self.secret_hasher.hash(csrf_token),
                 expires_at=expires_at,
                 created_at=datetime.now(UTC),
+                session_version=user.session_version,
             )
         )
         return AuthTokens(
@@ -86,6 +94,7 @@ class AuthService:
         )
 
     async def authenticate_session(self, session_token: str | None) -> User:
+        self._legacy_available()
         if not session_token:
             raise AuthenticationError("SESSION_REQUIRED", "Phiên đăng nhập là bắt buộc")
         session = await self.sessions.get_by_token_hash(
@@ -98,6 +107,33 @@ class AuthService:
         user = await self.users.get(session.user_id)
         if user is None or not user.is_active:
             raise AuthenticationError("USER_INACTIVE", "Tài khoản không còn hoạt động")
+        if session.session_version != user.session_version:
+            raise AuthenticationError("SESSION_REVOKED", "Phiên đã bị thu hồi")
+        return await self._operator_policy(user)
+
+    def _legacy_available(self) -> None:
+        if not self.settings.auth_legacy_enabled or (
+            self.settings.auth_legacy_cutoff is not None
+            and datetime.now(UTC) >= self.settings.auth_legacy_cutoff
+        ):
+            raise AuthenticationError(
+                "LEGACY_AUTH_DISABLED", "Auth session cũ đã hết thời gian tương thích"
+            )
+
+    async def _operator_policy(self, user: User) -> User:
+        if user.role_id is None:
+            return user
+        if self.operator_roles is None:
+            raise AuthenticationError(
+                "ROLE_POLICY_UNAVAILABLE", "Không xác minh được quyền hiện hành"
+            )
+        role = await self.operator_roles.get(user.role_id)
+        if role is None or not role.is_active:
+            raise AuthenticationError("ROLE_INACTIVE", "Role không còn hoạt động")
+        if not role.is_system or role.code not in {"ADMIN", "WAREHOUSE", "SECURITY"}:
+            raise AuthenticationError("LEGACY_ROLE_UNSUPPORTED", "Custom role cần client JWT v2")
+        user.role = UserRole(role.code)
+        user.permissions = frozenset() if user.must_change_password else role.permissions
         return user
 
     async def validate_csrf(self, session_token: str | None, csrf_token: str | None) -> None:
