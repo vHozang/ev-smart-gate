@@ -16,5 +16,6 @@ export interface VehiclesScreen {
     create: () => void;
     edit: (vehicle: Vehicle) => void;
     deactivate: (vehicle: Vehicle) => boolean;
+    remove?: (vehicle: Vehicle) => boolean;
   };
 }

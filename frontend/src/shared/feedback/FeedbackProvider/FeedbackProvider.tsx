@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircleIcon, InfoIcon, WarningCircleIcon, XIcon } from '@phosphor-icons/react';
 import type { PropsWithChildren } from 'react';
 import { Button } from '@/shared/ui/Button';
-import { FeedbackContext } from '../context';
+import { FeedbackContext, registerFeedbackResetHandler } from '../context';
 import type { FeedbackController, ModalContext, ModalDescriptor, ToastInput } from '../types';
 
 function Toast({ toast, dismiss }: { toast: ToastInput; dismiss: (id: string) => void }) {
@@ -58,6 +58,7 @@ function Toast({ toast, dismiss }: { toast: ToastInput; dismiss: (id: string) =>
 }
 export function FeedbackProvider({ children }: PropsWithChildren) {
   const [modal, setModal] = useState<ModalDescriptor | null>(null);
+  const [alertModal, setAlertModal] = useState<ModalDescriptor | null>(null);
   const activeEpoch = useRef(0);
   const opener = useRef<HTMLElement | null>(null);
   const modalRef = useRef<ModalDescriptor | null>(null);
@@ -72,12 +73,30 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (discard) cancelDiscard.current?.focus();
   }, [discard]);
+  useEffect(() => {
+    if (!alertModal) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAlertModal(null);
+      }
+    };
+    const handleInput = () => {
+      setAlertModal(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('input', handleInput, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('input', handleInput, true);
+    };
+  }, [alertModal]);
   const close = useCallback(() => {
     if (pendingRef.current) return;
     activeEpoch.current += 1;
     modalRef.current = null;
     dirty.current = false;
     setModal(null);
+    setAlertModal(null);
     setDiscard(false);
     setCloseHint('');
   }, []);
@@ -121,6 +140,10 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
         setModal(descriptor);
         return true;
       },
+      openAlertModal(descriptor) {
+        setAlertModal(descriptor);
+        return true;
+      },
       notify(toast) {
         setToasts((items) =>
           items.some((item) => item.id === toast.id) ? items : [...items, toast].slice(-20),
@@ -135,12 +158,17 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
         setPendingState(false);
         setSubmitBlocked(false);
         setModal(null);
+        setAlertModal(null);
         setToasts([]);
         setDiscard(false);
       },
     }),
     [dismiss],
   );
+  useEffect(() => {
+    registerFeedbackResetHandler(() => controller.reset());
+    return () => registerFeedbackResetHandler(null);
+  }, [controller]);
   const modalEpoch = activeEpoch.current;
   const scopedActions = useMemo(() => {
     const valid = () => modalEpoch === activeEpoch.current;
@@ -169,6 +197,20 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
     submitBlocked,
   };
 
+  const alertContext: ModalContext = useMemo(
+    () => ({
+      formId: `modal-form-${alertModal?.id || 'alert'}`,
+      pending: false,
+      submitBlocked: false,
+      setSubmitBlocked: () => undefined,
+      close: () => setAlertModal(null),
+      requestClose: () => setAlertModal(null),
+      setPending: () => undefined,
+      setDirty: () => undefined,
+    }),
+    [alertModal?.id],
+  );
+
   return (
     <FeedbackContext.Provider value={controller}>
       {children}
@@ -186,7 +228,8 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
               aria-describedby={modal.description ? `modal-description-${modal.id}` : undefined}
               onEscapeKeyDown={(event) => {
                 event.preventDefault();
-                if (discard) setDiscard(false);
+                if (alertModal) setAlertModal(null);
+                else if (discard) setDiscard(false);
                 else requestClose();
               }}
               onCloseAutoFocus={(event) => {
@@ -195,6 +238,7 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
               }}
               onPointerDownOutside={(event) => {
                 event.preventDefault();
+                if (alertModal) return;
                 if (event.target instanceof Node && opener.current?.contains(event.target)) return;
                 requestClose();
               }}
@@ -242,6 +286,62 @@ export function FeedbackProvider({ children }: PropsWithChildren) {
           </Dialog.Portal>
         )}
       </Dialog.Root>
+      {alertModal && (
+        <section
+          aria-label={alertModal.title}
+          data-testid="validation-notice-modal"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            backgroundColor: 'rgba(15, 23, 42, 0.45)',
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            className={`modal modal--${alertModal.size || 'sm'}`}
+            style={{
+              position: 'relative',
+              inset: 'auto',
+              transform: 'none',
+              maxHeight: '85vh',
+              width: 'min(480px, 100%)',
+              pointerEvents: 'auto',
+              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.35)',
+              border: '1px solid var(--border-warning, #f59e0b)',
+            }}
+          >
+            <header className="modal__header">
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700 }}>
+                  {alertModal.title}
+                </h2>
+                {alertModal.description && (
+                  <p className="muted" style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>
+                    {alertModal.description}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Đóng thông báo kiểm tra"
+                onClick={() => setAlertModal(null)}
+              >
+                <XIcon size={20} />
+              </button>
+            </header>
+            <div className="modal__body">{alertModal.renderContent(alertContext)}</div>
+            {alertModal.renderFooter && (
+              <footer className="modal__footer">{alertModal.renderFooter(alertContext)}</footer>
+            )}
+          </div>
+        </section>
+      )}
       <div
         className="toast-host"
         role="status"

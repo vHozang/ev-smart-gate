@@ -19,6 +19,7 @@ class UserFilters:
     search: str | None = None
     role_id: UUID | None = None
     is_active: bool | None = None
+    role: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

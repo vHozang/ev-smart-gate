@@ -7,6 +7,7 @@ from smart_gate.application.dto import (
     ChangeEmployeeCardStatusInput,
     IssueEmployeeCardInput,
     ReplaceEmployeeCardInput,
+    UpdateEmployeeCardInput,
 )
 from smart_gate.domain.entities import Driver, EmployeeCard
 from smart_gate.domain.enums import CardStatus, RecordStatus
@@ -99,6 +100,33 @@ class EmployeeCardService:
         indexed = list(enumerate(cards))
         indexed.sort(key=lambda item: (item[1].issued_at or _EPOCH, item[0]), reverse=True)
         return [card for _, card in indexed]
+
+    async def update_card(
+        self, card_id: UUID, payload: UpdateEmployeeCardInput
+    ) -> EmployeeCard:
+        card = await self.get(card_id)
+        changes = payload.model_dump(exclude_unset=True)
+        if "status" in changes and changes["status"] is not None:
+            new_status: CardStatus = changes["status"]
+            if new_status == CardStatus.ACTIVE and card.status != CardStatus.ACTIVE:
+                active = await self.cards.get_active_by_driver(card.driver_id)
+                if active is not None and active.id != card.id:
+                    raise ConflictError(
+                        "ACTIVE_CARD_ALREADY_EXISTS",
+                        "Tài xế đã có một thẻ khác đang ở trạng thái ACTIVE",
+                    )
+            card.status = new_status
+        if "status_reason" in changes:
+            reason_val = changes["status_reason"]
+            card.status_reason = reason_val.strip() if reason_val and reason_val.strip() else None
+        if "metadata" in changes and changes["metadata"] is not None:
+            card.metadata = changes["metadata"]
+        card.updated_at = datetime.now(UTC)
+        return await self.cards.update(card)
+
+    async def delete_card(self, card_id: UUID) -> None:
+        if not await self.cards.delete(card_id):
+            raise NotFoundError("CARD_NOT_FOUND", "Không tìm thấy thẻ nhân viên")
 
     async def _change_status(
         self,

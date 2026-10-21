@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const target = env.DEV_API_TARGET || 'http://127.0.0.1:8000';
   return {
-    base: '/console/',
+    base: '/',
     plugins: [react(), tailwind()],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {

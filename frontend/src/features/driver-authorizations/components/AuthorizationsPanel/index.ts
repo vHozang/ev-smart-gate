@@ -1,0 +1,1 @@
+export { AuthorizationsPanel } from './AuthorizationsPanel';

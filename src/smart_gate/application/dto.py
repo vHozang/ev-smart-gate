@@ -14,6 +14,7 @@ from smart_gate.domain.enums import (
     DockStatus,
     OrderStatus,
     PlateMatchType,
+    RecordStatus,
     UserRole,
     VerificationStatus,
 )
@@ -42,6 +43,7 @@ class UpdateDriverInput(StrictModel):
     full_name: str | None = Field(None, min_length=2, max_length=200)
     employee_code: str | None = Field(None, max_length=64)
     phone: str | None = Field(None, max_length=32)
+    status: RecordStatus | None = None
 
 
 class UpdateVehicleInput(StrictModel):
@@ -50,6 +52,21 @@ class UpdateVehicleInput(StrictModel):
     make: str | None = Field(None, max_length=100)
     model: str | None = Field(None, max_length=100)
     color: str | None = Field(None, max_length=64)
+    metadata: dict[str, Any] | None = None
+    status: RecordStatus | None = None
+
+
+class UpdateAuthorizationInput(StrictModel):
+    driver_id: UUID | None = None
+    vehicle_id: UUID | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    status: RecordStatus | None = None
+
+
+class UpdateEmployeeCardInput(StrictModel):
+    status: CardStatus | None = None
+    status_reason: str | None = Field(None, max_length=500)
     metadata: dict[str, Any] | None = None
 
 

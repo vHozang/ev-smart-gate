@@ -18,9 +18,7 @@ function ModalHarness({
   onAction: (feedback: ReturnType<typeof useFeedback>) => void;
 }) {
   const feedback = useFeedback();
-  return (
-    <button onClick={() => onAction(feedback)}>Kích hoạt modal</button>
-  );
+  return <button onClick={() => onAction(feedback)}>Kích hoạt modal</button>;
 }
 
 function mount(onAction: (feedback: ReturnType<typeof useFeedback>) => void) {
@@ -88,7 +86,9 @@ describe('Modal Compositions (Task 6.9)', () => {
 
   it('ConfirmModal: khi onConfirm ném lỗi, không đóng modal và hiển thị lỗi để thử lại', async () => {
     const user = userEvent.setup();
-    const handleConfirm = vi.fn().mockRejectedValue(new Error('Máy chủ từ chối thao tác do vi phạm ràng buộc'));
+    const handleConfirm = vi
+      .fn()
+      .mockRejectedValue(new Error('Máy chủ từ chối thao tác do vi phạm ràng buộc'));
 
     mount((feedback) => {
       openConfirmModal(feedback, {
@@ -124,11 +124,7 @@ describe('Modal Compositions (Task 6.9)', () => {
           }}
         >
           <label htmlFor="driver-name">Tên tài xế</label>
-          <input
-            id="driver-name"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-          />
+          <input id="driver-name" value={val} onChange={(e) => setVal(e.target.value)} />
         </form>
       );
     }
@@ -140,9 +136,7 @@ describe('Modal Compositions (Task 6.9)', () => {
         id: 'test-form',
         title: 'Thêm tài xế mới',
         submitText: 'Lưu tài xế',
-        renderForm: (context) => (
-          <SampleForm formId={context.formId} onSave={handleSave} />
-        ),
+        renderForm: (context) => <SampleForm formId={context.formId} onSave={handleSave} />,
       });
     });
 
@@ -172,9 +166,7 @@ describe('Modal Compositions (Task 6.9)', () => {
             <p>Thời gian: 09:30:15</p>
           </div>
         ),
-        extraActions: () => (
-          <button onClick={handlePrint}>In phiếu</button>
-        ),
+        extraActions: () => <button onClick={handlePrint}>In phiếu</button>,
       });
     });
 

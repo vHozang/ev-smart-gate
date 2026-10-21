@@ -13,13 +13,20 @@ from smart_gate.domain.identity_queries import AuditFilters, UserFilters
 from smart_gate.domain.operator_identity import OperatorPrincipal, OperatorRole, OperatorUser
 from smart_gate.presentation.contracts import migration as c
 from smart_gate.presentation.dependencies import get_container
-from smart_gate.presentation.routers.operator_auth import operator_principal
+from smart_gate.presentation.routers.operator_auth import operator_or_session_principal
 
 router = APIRouter(
     prefix="/api/v1/admin",
     tags=["Users và RBAC"],
     responses={
-        code: {"model": c.ErrorEnvelope} for code in (400, 401, 403, 404, 409, 422, 429, 500, 503)
+        code: {
+            "model": c.ErrorEnvelope,
+            "headers": {
+                "X-Request-ID": {"schema": {"type": "string"}},
+                "Cache-Control": {"schema": {"type": "string", "const": "no-store"}},
+            },
+        }
+        for code in (400, 401, 403, 404, 409, 422, 429, 500, 503)
     },
 )
 
@@ -32,6 +39,7 @@ class PageParams(c.ContractModel):
 class UserParams(PageParams):
     search: str | None = Field(None, min_length=1, max_length=128)
     role_id: UUID | None = None
+    role: str | None = Field(None, min_length=1, max_length=64)
     is_active: bool | None = None
 
 
@@ -52,7 +60,10 @@ def get_admin(container: Container = Depends(get_container)) -> OperatorAdminSer
 
 
 def _policy(*permissions: str) -> dict:
-    return {"x-required-permissions-all": list(permissions)}
+    return {
+        "security": [{"OperatorJWT": []}],
+        "x-required-permissions-all": list(permissions),
+    }
 
 
 async def _users(
@@ -103,12 +114,12 @@ async def _roles(
 )
 async def list_users(
     params: Annotated[UserParams, Query()],
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.CursorPage[c.AdminUserView]:
     page = await admin.list_users(
         actor,
-        UserFilters(params.search, params.role_id, params.is_active),
+        UserFilters(params.search, params.role_id, params.is_active, params.role),
         params.cursor,
         params.limit,
     )
@@ -131,7 +142,7 @@ async def list_users(
 async def create_user(
     payload: c.UserCreate,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     result = await admin.create_user(
@@ -153,7 +164,7 @@ async def create_user(
 )
 async def read_user(
     user_id: UUID,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     return (await _users(admin, [await admin.read_user(actor, user_id)]))[0]
@@ -165,11 +176,16 @@ async def read_user(
     operation_id="updateUserProfile",
     openapi_extra=_policy("users:update"),
 )
+@router.patch(
+    "/users/{user_id}/profile",
+    response_model=c.AdminUserView,
+    include_in_schema=False,
+)
 async def update_profile(
     user_id: UUID,
     payload: c.UserProfilePatch,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     result = await admin.update_profile(
@@ -194,7 +210,7 @@ async def set_status(
     user_id: UUID,
     payload: c.UserStatusChange,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     result = await admin.set_status(
@@ -218,7 +234,7 @@ async def assign_role(
     user_id: UUID,
     payload: c.UserRoleChange,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     result = await admin.assign_role(
@@ -242,7 +258,7 @@ async def reset_password(
     user_id: UUID,
     payload: c.PasswordReset,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.AdminUserView:
     result = await admin.reset_password(
@@ -265,7 +281,7 @@ async def reset_password(
 async def sessions(
     user_id: UUID,
     params: Annotated[PageParams, Query()],
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.CursorPage[c.SessionView]:
     page = await admin.read_sessions(actor, user_id, params.cursor, params.limit)
@@ -298,7 +314,7 @@ async def revoke_sessions(
     user_id: UUID,
     payload: c.VersionedReason,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.Message:
     await admin.revoke_sessions(
@@ -315,7 +331,7 @@ async def revoke_sessions(
 )
 async def list_roles(
     params: Annotated[PageParams, Query()],
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.CursorPage[c.RoleView]:
     page = await admin.list_roles(actor, params.cursor, params.limit)
@@ -338,7 +354,7 @@ async def list_roles(
 async def create_role(
     payload: c.RoleCreate,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.RoleView:
     role = await admin.create_role(
@@ -355,7 +371,7 @@ async def create_role(
 )
 async def read_role(
     role_id: UUID,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.RoleView:
     return (await _roles(admin, [await admin.read_role(actor, role_id)]))[0]
@@ -371,7 +387,7 @@ async def update_role(
     role_id: UUID,
     payload: c.RolePatch,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.RoleView:
     role = await admin.update_role(
@@ -398,7 +414,7 @@ async def archive_role(
     role_id: UUID,
     payload: c.VersionedReason,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.Message:
     await admin.update_role(
@@ -426,7 +442,7 @@ async def replace_permissions(
     role_id: UUID,
     payload: c.PermissionReplace,
     request: Request,
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.RoleView:
     role = await admin.replace_permissions(
@@ -448,7 +464,7 @@ async def replace_permissions(
 )
 async def list_permissions(
     params: Annotated[PageParams, Query()],
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.CursorPage[c.PermissionView]:
     page = await admin.list_permissions(actor, params.cursor, params.limit)
@@ -469,7 +485,7 @@ async def list_permissions(
 )
 async def list_audit(
     params: Annotated[AuditParams, Query()],
-    actor: OperatorPrincipal = Depends(operator_principal),
+    actor: OperatorPrincipal = Depends(operator_or_session_principal),
     admin: OperatorAdminService = Depends(get_admin),
 ) -> c.CursorPage[c.AuditView]:
     page = await admin.list_audit(

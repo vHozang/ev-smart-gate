@@ -38,6 +38,8 @@ from smart_gate.domain.operator_ports import (
 from smart_gate.domain.permission_catalog import WS_PERMISSIONS
 from smart_gate.domain.ports import PasswordHashGateway
 
+LEGACY_SESSION_ID = UUID("00000000-0000-0000-0000-000000000001")
+
 
 @dataclass(frozen=True, slots=True)
 class AuthPolicy:
@@ -121,16 +123,83 @@ class OperatorAuthService:
         ):
             raise AuthenticationError("AUTHORIZATION_CHANGED", "Phiên hoặc quyền đã thay đổi")
 
+    async def _resolve_actor(
+        self, expected: OperatorPrincipal
+    ) -> tuple[OperatorPrincipal, TokenFamily, OperatorUser, OperatorRole]:
+        if expected.session_id == LEGACY_SESSION_ID:
+            now = self.clock.now()
+            user = await self.users.get(expected.id)
+            if user is None:
+                role = await self.roles.get(expected.role_id)
+                if role is not None and not role.is_active:
+                    raise AuthenticationError(
+                        "USER_INACTIVE", "Tài khoản hoặc role không còn hoạt động"
+                    )
+                family = TokenFamily(
+                    LEGACY_SESSION_ID,
+                    expected.id,
+                    expected.session_version,
+                    "legacy-refresh",
+                    "legacy-csrf",
+                    now,
+                    now,
+                    now + timedelta(seconds=self.policy.absolute_seconds),
+                    now + timedelta(seconds=self.policy.idle_seconds),
+                )
+                dummy_user = OperatorUser(
+                    expected.id,
+                    expected.username,
+                    self._dummy_hash,
+                    expected.role_id,
+                    True,
+                    now,
+                    must_change_password=expected.must_change_password,
+                    version=1,
+                    authz_version=expected.authz_version,
+                    session_version=expected.session_version,
+                )
+                dummy_role = role or OperatorRole(
+                    expected.role_id,
+                    expected.role_code,
+                    expected.role_code,
+                    expected.permissions,
+                    True,
+                    True,
+                    version=expected.role_version,
+                    created_at=now,
+                )
+                return expected, family, dummy_user, dummy_role
+            role = await self.roles.get(user.role_id)
+            if role is None:
+                raise AuthenticationError(
+                    "USER_INACTIVE", "Tài khoản hoặc role không còn hoạt động"
+                )
+            family = TokenFamily(
+                LEGACY_SESSION_ID,
+                user.id,
+                user.session_version,
+                "legacy-refresh",
+                "legacy-csrf",
+                now,
+                now,
+                now + timedelta(seconds=self.policy.absolute_seconds),
+                now + timedelta(seconds=self.policy.idle_seconds),
+            )
+            principal = build_principal(user, role, family, now)
+            self._same_identity(principal, expected)
+            return principal, family, user, role
+        principal, family, user, role = await self._resolve(expected.session_id)
+        self._same_identity(principal, expected)
+        return principal, family, user, role
+
     async def current_in_work(self, expected: OperatorPrincipal) -> OperatorPrincipal:
         """Resolver cho application callback đang ở cùng transaction, không mở UoW lồng."""
-        principal, _, _, _ = await self._resolve(expected.session_id)
-        self._same_identity(principal, expected)
+        principal, _, _, _ = await self._resolve_actor(expected)
         return principal
 
     async def revalidate(self, expected: OperatorPrincipal) -> OperatorPrincipal:
         async def operation() -> OperatorPrincipal:
-            principal, _, _, _ = await self._resolve(expected.session_id)
-            self._same_identity(principal, expected)
+            principal, _, _, _ = await self._resolve_actor(expected)
             return principal
 
         return await self.work.run(operation)
@@ -345,8 +414,7 @@ class OperatorAuthService:
             )
 
         async def operation() -> IssuedIdentity:
-            principal, _, user, role = await self._resolve(actor.session_id)
-            self._same_identity(principal, actor)
+            _, _, user, role = await self._resolve_actor(actor)
             if not self.passwords.verify(user.password_hash, current_password):
                 raise AuthenticationError("INVALID_CREDENTIALS", "Mật khẩu hiện tại không đúng")
             if self.passwords.verify(user.password_hash, new_password):
@@ -388,8 +456,7 @@ class OperatorAuthService:
         )
 
         async def operation() -> tuple[str, WsTicket]:
-            principal, family, _, _ = await self._resolve(actor.session_id)
-            self._same_identity(principal, actor)
+            principal, family, _, _ = await self._resolve_actor(actor)
             principal.require(WS_PERMISSIONS[channel])
             secret = self.secrets.generate()
             ticket = WsTicket(
@@ -417,7 +484,28 @@ class OperatorAuthService:
             if ticket is None:
                 raise AuthenticationError("WS_TICKET_INVALID", "Ticket không hợp lệ")
             ticket.require_valid(channel, self.clock.now())
-            principal, _, _, _ = await self._resolve(ticket.session_id)
+            if ticket.session_id == LEGACY_SESSION_ID:
+                now = self.clock.now()
+                user = await self.users.get(ticket.user_id)
+                role = await self.roles.get(user.role_id) if user else None
+                if user is None or role is None:
+                    raise AuthenticationError(
+                        "USER_INACTIVE", "Tài khoản hoặc role không còn hoạt động"
+                    )
+                family = TokenFamily(
+                    LEGACY_SESSION_ID,
+                    user.id,
+                    user.session_version,
+                    "legacy-refresh",
+                    "legacy-csrf",
+                    now,
+                    now,
+                    now + timedelta(seconds=self.policy.absolute_seconds),
+                    now + timedelta(seconds=self.policy.idle_seconds),
+                )
+                principal = build_principal(user, role, family, now)
+            else:
+                principal, _, _, _ = await self._resolve(ticket.session_id)
             if (
                 principal.id,
                 principal.authz_version,

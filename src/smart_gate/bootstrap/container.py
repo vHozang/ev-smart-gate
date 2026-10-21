@@ -5,6 +5,12 @@ from smart_gate.application.auth import AuthService
 from smart_gate.application.barrier import BarrierService
 from smart_gate.application.cards import EmployeeCardService
 from smart_gate.application.gate_logs import GateLogQueryService
+from smart_gate.application.migration_services import (
+    AnalyticsService,
+    AssistantReportService,
+    CoreAccessService,
+    DeviceSettingsService,
+)
 from smart_gate.application.operator_admin import OperatorAdminService
 from smart_gate.application.operator_auth import OperatorAuthService
 from smart_gate.application.parking_gate import VerifyParkingGateUseCase
@@ -18,6 +24,7 @@ from smart_gate.bootstrap.operator_identity import (
 from smart_gate.config import Settings
 from smart_gate.domain.services import FaceMatchingService, OrderStateService, PlateMatchingService
 from smart_gate.infrastructure.database.client import MongoDatabase
+from smart_gate.infrastructure.database.migration_store import HybridMigrationStore
 from smart_gate.infrastructure.database.operator_store import (
     MongoOperatorRoles,
     OperatorCollections,
@@ -149,6 +156,31 @@ class Container:
             alert_service,
             barrier_service,
         )
+        self.migration_store = HybridMigrationStore(self.database)
+        self.core_access: CoreAccessService | None = CoreAccessService(
+            self.migration_store,
+            self.secret_hasher,
+            self.barrier_gateway,
+            self.drivers,
+            self.vehicles,
+            self.authorizations,
+            self.employee_cards,
+            self.face,
+            face_matcher,
+        )
+        self.analytics: AnalyticsService | None = AnalyticsService(
+            self.migration_store,
+            self.gate_logs,
+            self.alerts_repository,
+            self.orders,
+        )
+        self.assistant: AssistantReportService | None = AssistantReportService(
+            self.migration_store,
+            self.analytics,
+        )
+        self.device_settings: DeviceSettingsService | None = DeviceSettingsService(
+            self.migration_store,
+        )
 
     async def start(self) -> None:
         await self.database.connect()
@@ -166,6 +198,7 @@ class Container:
             self.operator_admin = build_operator_admin(
                 self.settings, self.operator_auth, self.password_hasher
             )
+            await self.migration_store.initialize()
         else:
             await self.auth.seed_defaults()
 

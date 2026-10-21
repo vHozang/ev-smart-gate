@@ -15,7 +15,10 @@ export interface EvidenceModalOptions {
   size?: 'md' | 'lg';
 }
 
-export function openEvidenceModal(feedback: FeedbackController, options: EvidenceModalOptions): boolean {
+export function openEvidenceModal(
+  feedback: FeedbackController,
+  options: EvidenceModalOptions,
+): boolean {
   const {
     id,
     title,
@@ -34,15 +37,8 @@ export function openEvidenceModal(feedback: FeedbackController, options: Evidenc
     description,
     size,
     renderContent: () => (
-      <EvidenceViewer
-        source={source}
-        alt={alt}
-        metadata={metadata}
-        aspectRatio={aspectRatio}
-      />
+      <EvidenceViewer source={source} alt={alt} metadata={metadata} aspectRatio={aspectRatio} />
     ),
-    renderFooter: (context: ModalContext) => (
-      <Button onClick={context.close}>{closeText}</Button>
-    ),
+    renderFooter: (context: ModalContext) => <Button onClick={context.close}>{closeText}</Button>,
   });
 }

@@ -12,7 +12,10 @@ export interface DetailModalOptions {
   extraActions?: (context: ModalContext) => ReactNode;
 }
 
-export function openDetailModal(feedback: FeedbackController, options: DetailModalOptions): boolean {
+export function openDetailModal(
+  feedback: FeedbackController,
+  options: DetailModalOptions,
+): boolean {
   const {
     id,
     title,

@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, Request, Response, Security
 from fastapi.security import APIKeyCookie, APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
-from smart_gate.application.operator_auth import IssuedIdentity, OperatorAuthService
+from smart_gate.application.operator_auth import (
+    LEGACY_SESSION_ID,
+    IssuedIdentity,
+    OperatorAuthService,
+)
 from smart_gate.bootstrap.container import Container
 from smart_gate.domain.exceptions import (
     AuthenticationError,
@@ -11,6 +15,11 @@ from smart_gate.domain.exceptions import (
     InfrastructureError,
 )
 from smart_gate.domain.operator_identity import OperatorPrincipal
+from smart_gate.domain.permission_catalog import (
+    APPROVED_NEW_PERMISSIONS,
+    BASELINE_ROLE_PERMISSIONS,
+    system_role_id,
+)
 from smart_gate.presentation.contracts.migration import (
     AccessTokenResponse,
     ChangePasswordRequest,
@@ -18,6 +27,8 @@ from smart_gate.presentation.contracts.migration import (
     ErrorEnvelope,
     LoginRequest,
     Message,
+    TicketRequest,
+    TicketResponse,
 )
 from smart_gate.presentation.dependencies import get_container
 
@@ -51,7 +62,13 @@ def require_origin(
     origin: str = Header(alias="Origin"),
     container: Container = Depends(get_container),
 ) -> None:
-    if origin != container.settings.app_public_origin.rstrip("/"):
+    expected = container.settings.app_public_origin.rstrip("/")
+    if container.settings.app_env == "local":
+        allowed = {expected, *(item.rstrip("/") for item in container.settings.cors_origin_list)}
+        if origin.rstrip("/") not in allowed:
+            raise AuthorizationError("ORIGIN_DENIED", "Origin không được phép")
+        return
+    if origin != expected:
         raise AuthorizationError("ORIGIN_DENIED", "Origin không được phép")
 
 
@@ -62,6 +79,63 @@ async def operator_principal(
     if credentials is None:
         raise AuthenticationError("ACCESS_TOKEN_REQUIRED", "Cần Bearer access token")
     return await service.authenticate(credentials.credentials)
+
+
+async def operator_or_session_principal(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer),
+    container: Container = Depends(get_container),
+) -> OperatorPrincipal:
+    """Hỗ trợ Bearer JWT v2 và tương thích ngược session cookie v1 trên các API vận hành/quản trị."""
+
+    if credentials is not None:
+        if container.operator_auth is None:
+            raise InfrastructureError("AUTH_NOT_READY", "Operator auth chưa sẵn sàng")
+        return await container.operator_auth.authenticate(credentials.credentials)
+    cookie = request.cookies.get(container.settings.session_cookie_name)
+    if cookie and container.settings.auth_legacy_enabled:
+        user = await container.auth.authenticate_session(cookie)
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            await container.auth.validate_csrf(cookie, request.headers.get("X-CSRF-Token"))
+        if container.operator_auth is not None:
+            op_user = await container.operator_auth.users.get(user.id)
+            if op_user is not None:
+                if not op_user.is_active:
+                    raise AuthenticationError("USER_INACTIVE", "Tài khoản không còn hoạt động")
+                op_role = await container.operator_auth.roles.get(op_user.role_id)
+                if op_role is not None and op_role.is_active:
+                    perms = frozenset() if op_user.must_change_password else op_role.permissions
+                    return OperatorPrincipal(
+                        id=op_user.id,
+                        username=op_user.username,
+                        role_id=op_role.id,
+                        role_code=op_role.code,
+                        permissions=perms,
+                        authz_version=op_user.authz_version,
+                        must_change_password=op_user.must_change_password,
+                        session_id=LEGACY_SESSION_ID,
+                        session_version=op_user.session_version,
+                        role_version=op_role.version,
+                    )
+        code = user.role.value
+        role_id = user.role_id or system_role_id(code)
+        base_perms = BASELINE_ROLE_PERMISSIONS.get(code, frozenset()) | APPROVED_NEW_PERMISSIONS.get(
+            code, frozenset()
+        )
+        perms = frozenset() if user.must_change_password else (user.permissions or base_perms)
+        return OperatorPrincipal(
+            id=user.id,
+            username=user.username,
+            role_id=role_id,
+            role_code=code,
+            permissions=perms,
+            authz_version=user.authz_version,
+            must_change_password=user.must_change_password,
+            session_id=LEGACY_SESSION_ID,
+            session_version=user.session_version,
+            role_version=1,
+        )
+    raise AuthenticationError("ACCESS_TOKEN_REQUIRED", "Cần Bearer access token")
 
 
 def principal_response(principal: OperatorPrincipal) -> EffectivePrincipal:
@@ -102,6 +176,7 @@ def _issued_response(
         path="/",
         max_age=max_age,
     )
+    response.headers["X-CSRF-Token"] = issued.csrf_token
     return AccessTokenResponse(
         access_token=issued.access_token,
         token_type="Bearer",
@@ -221,3 +296,30 @@ async def change_password(
         request.state.request_id,
     )
     return _issued_response(issued, response, container)
+
+
+@router.post(
+    "/ws-tickets",
+    response_model=TicketResponse,
+    status_code=201,
+    operation_id="createWsTicket",
+    dependencies=[Depends(require_origin)],
+    openapi_extra={
+        "security": [{"OperatorJWT": []}],
+        "x-required-permissions-all": ["alerts:read"],
+    },
+)
+async def create_ws_ticket(
+    payload: TicketRequest,
+    request: Request,
+    response: Response,
+    principal: OperatorPrincipal = Depends(operator_or_session_principal),
+    service: OperatorAuthService = Depends(get_operator_auth),
+) -> TicketResponse:
+    response.headers["Cache-Control"] = "no-store"
+    raw, ticket = await service.issue_ticket(principal, payload.channel)
+    return TicketResponse(
+        ticket=raw,
+        expires_at=ticket.expires_at,
+        websocket_path="/ws/v2/security/alerts",
+    )

@@ -35,7 +35,7 @@ export const router = createBrowserRouter(
             description: route.description,
           },
           element:
-            route.public || route.unavailable ? (
+            route.public || route.unavailable || Boolean(route.gap) ? (
               <Outlet />
             ) : (
               <Guard permission={route.permission}>
@@ -49,5 +49,5 @@ export const router = createBrowserRouter(
       ],
     },
   ],
-  { basename: '/console' },
+  { basename: '/' },
 );

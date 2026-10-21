@@ -110,4 +110,8 @@ def test_openapi_v2_auth_matches_security_policy_and_feature_default_off():
     assert schema["paths"]["/api/v2/auth/me"]["get"]["security"] == [{"OperatorJWT": []}]
     response = schema["paths"]["/api/v2/auth/login"]["post"]["responses"]["422"]
     assert response["content"]["application/json"]["schema"]["$ref"].endswith("ErrorEnvelope")
-    assert "/api/v2/auth/ws-tickets" not in schema["paths"]
+    default_paths = create_app(Settings(_env_file=None, APP_ENV="test")).openapi()["paths"]
+    assert "/api/v2/auth/ws-tickets" not in default_paths
+    assert "/api/v2/security/alerts" not in default_paths
+    assert "/api/v2/auth/ws-tickets" in schema["paths"]
+    assert "/api/v2/security/alerts" in schema["paths"]

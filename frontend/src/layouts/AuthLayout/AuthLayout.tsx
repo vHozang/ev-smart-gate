@@ -2,9 +2,11 @@ import { paths } from '@/shared/config';
 import type { ReactNode } from 'react';
 import { ArrowUpRightIcon, ScanIcon, ShieldCheckIcon } from '@phosphor-icons/react';
 import { Link } from 'react-router';
+
 export interface AuthLayoutProps {
   children: ReactNode;
 }
+
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <main className="auth-layout">
@@ -25,10 +27,15 @@ export function AuthLayout({ children }: AuthLayoutProps) {
             Mọi lượt ra vào.
           </h1>
           <p>Quản lý nhân viên, phương tiện và hoạt động kho trong cùng một quy trình vận hành.</p>
+          <div className="overview-telemetry mt-5" aria-hidden="true">
+            <span className="overview-telemetry__chip">FAIL-CLOSED VERIFICATION</span>
+            <span className="overview-telemetry__chip">3-STAGE GATE AUDIT</span>
+            <span className="overview-telemetry__chip">SELF-HOSTED AI</span>
+          </div>
           <div className="gate-art" aria-hidden="true">
             <div className="gate-art__lane" />
             <div className="gate-art__scanner">
-              <ScanIcon size={56} />
+              <ScanIcon size={54} />
             </div>
             <span className="gate-art__line" />
             <span className="gate-art__post" />

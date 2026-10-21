@@ -137,7 +137,7 @@ async def build_operator_identity(
                     "is_active": True,
                     "password_hash": passwords.hash(settings.admin_password),
                     "created_at": datetime.now(UTC),
-                    "must_change_password": True,
+                    "must_change_password": settings.app_env != "local",
                 },
                 session=_session(),
             )

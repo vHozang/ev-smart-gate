@@ -27,6 +27,7 @@ from smart_gate.presentation.dependencies import (
 from smart_gate.presentation.schemas import (
     CreateOrderRequest,
     FinalizeDockRequest,
+    MessageResponse,
     UpdateOrderRequest,
 )
 from smart_gate.presentation.upload import read_upload
@@ -84,6 +85,20 @@ async def cancel_order(
     container: Container = Depends(get_container),
 ) -> OrderOutput:
     return await container.warehouse.cancel_order(order_id)
+
+
+@router.delete(
+    "/orders/{order_id}/permanent",
+    response_model=MessageResponse,
+    include_in_schema=False,
+)
+async def delete_order_permanent(
+    order_id: str,
+    user: User = Depends(require_roles(UserRole.ADMIN, UserRole.WAREHOUSE, csrf=True)),
+    container: Container = Depends(get_container),
+) -> MessageResponse:
+    await container.warehouse.delete_order(order_id)
+    return MessageResponse(message="Đã xóa vĩnh viễn lệnh xuất kho")
 
 
 @router.post(

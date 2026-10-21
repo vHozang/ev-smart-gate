@@ -54,10 +54,13 @@ class MemoryIdentity:
                 for name, value in {
                     "actor_id": filters.actor_id,
                     "action": filters.action,
-                    "target_type": filters.target_type,
                     "target_id": filters.target_id,
                     "outcome": filters.outcome,
                 }.items()
+            )
+            and (
+                filters.target_type is None
+                or event.target_type.lower() == filters.target_type.strip().lower()
             )
             and (filters.from_ is None or event.occurred_at >= filters.from_)
             and (filters.to is None or event.occurred_at < filters.to)

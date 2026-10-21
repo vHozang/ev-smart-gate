@@ -279,3 +279,361 @@ describe('Không gian cấu hình và quyền chuẩn bị bản nháp', () => {
     expect(screen.queryByRole('heading', { name: 'Xem lại bản nháp' })).not.toBeInTheDocument();
   });
 });
+
+describe('Tích hợp API thật cấu hình thiết bị M12 (Tasks 12.5, 12.6, 12.7)', () => {
+  const adminWithApi: SessionPrincipal = {
+    id: '00000000-0000-4000-8000-000000000009',
+    username: 'jwt-admin',
+    role: 'ADMIN',
+    permissions: ['users:read', 'users:manage-admin', 'audit-logs:read'],
+    source: 'jwt',
+  };
+
+  it('Task 12.5: đọc danh sách cấu hình thiết bị từ GET /api/v1/admin/device-settings/{group}, tách rõ desired_version, applied_version, apply_status, restart_required và ẩn secrets', async () => {
+    const configId = '11111111-2222-4333-8444-555555555555';
+    http.defaults.adapter = async (config) => {
+      if (config.method === 'get' && config.url === '/api/v1/admin/device-settings/cameras') {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: { 'x-request-id': 'req-12-5' },
+          config,
+          data: {
+            items: [
+              {
+                id: configId,
+                group: 'cameras',
+                name: 'Camera Làn Vào 01',
+                access_point_ref: 'GATE-VEH-01',
+                lane_ref: 'LANE-01',
+                direction: 'ENTRY',
+                saved_version: 3,
+                applied_version: 2,
+                status: 'DRIFTED',
+                restart_required: true,
+                settings: {
+                  purpose: 'PLATE',
+                  connection_profile_ref: 'prof-cam-01',
+                  rtsp_password: 'raw-secret-password-do-not-expose',
+                  api_token: 'secret-token-xyz',
+                },
+                updated_at: '2026-10-21T08:00:00Z',
+              },
+            ],
+            next_cursor: null,
+            has_more: false,
+            limit: 50,
+          },
+        };
+      }
+      throw new Error(`Unexpected request: ${config.method} ${config.url}`);
+    };
+
+    mount(adminWithApi, '/settings?section=cameras');
+
+    const card = await screen.findByTestId(`device-config-card-${configId}`);
+    expect(card).toHaveTextContent('Camera Làn Vào 01');
+    expect(card).toHaveTextContent('desired_version: v3');
+    expect(card).toHaveTextContent('applied_version: v2');
+    expect(card).toHaveTextContent('DRIFTED');
+    expect(card).toHaveTextContent('Cần khởi động lại');
+
+    const settingsNode = screen.getByTestId(`device-config-settings-${configId}`);
+    expect(settingsNode).toHaveTextContent('[REDACTED]');
+    expect(settingsNode).not.toHaveTextContent('raw-secret-password-do-not-expose');
+    expect(settingsNode).not.toHaveTextContent('secret-token-xyz');
+  });
+
+  it('Task 12.6: thực hiện PATCH cập nhật cấu hình (expected_version, reason, Idempotency-Key), validate, connectivity-test, apply và đối soát GET /api/v1/admin/device-settings/operations/{operation_id} khi OUTCOME_UNKNOWN', async () => {
+    const configId = '22222222-3333-4444-8555-666666666666';
+    const opConnId = '33333333-4444-4555-8666-777777777771';
+    const opApplyId = '33333333-4444-4555-8666-777777777772';
+    let patchBody: Record<string, unknown> | null = null;
+    let patchIdempotencyKey: string | undefined;
+    let applyBody: Record<string, unknown> | null = null;
+
+    http.defaults.adapter = async (config) => {
+      if (config.method === 'get' && config.url === '/api/v1/admin/device-settings/cameras') {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            items: [
+              {
+                id: configId,
+                group: 'cameras',
+                name: 'Camera Cổng Chính',
+                access_point_ref: 'GATE-01',
+                lane_ref: 'LANE-01',
+                direction: 'ENTRY',
+                saved_version: 1,
+                applied_version: null,
+                status: 'SAVED',
+                restart_required: true,
+                settings: { purpose: 'FACE' },
+                updated_at: '2026-10-21T08:00:00Z',
+              },
+            ],
+            next_cursor: null,
+            has_more: false,
+            limit: 50,
+          },
+        };
+      }
+      if (
+        config.method === 'patch' &&
+        config.url === `/api/v1/admin/device-settings/cameras/${configId}`
+      ) {
+        patchBody = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+        patchIdempotencyKey = String(
+          (config.headers as Record<string, unknown>)?.['Idempotency-Key'] ?? '',
+        );
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            id: configId,
+            group: 'cameras',
+            name: String(patchBody?.name ?? 'Camera Cổng Chính v2'),
+            access_point_ref: 'GATE-01',
+            lane_ref: 'LANE-01',
+            direction: 'ENTRY',
+            saved_version: 2,
+            applied_version: null,
+            status: 'SAVED',
+            restart_required: true,
+            settings: { purpose: 'FACE' },
+            updated_at: '2026-10-21T08:05:00Z',
+          },
+        };
+      }
+      if (
+        config.method === 'post' &&
+        config.url === `/api/v1/admin/device-settings/cameras/${configId}/validate`
+      ) {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            config_id: configId,
+            group: 'cameras',
+            valid: true,
+            saved_version: 2,
+            warnings: [],
+            checked_at: '2026-10-21T08:06:00Z',
+          },
+        };
+      }
+      if (
+        config.method === 'post' &&
+        config.url === `/api/v1/admin/device-settings/cameras/${configId}/connectivity-test`
+      ) {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            operation_id: opConnId,
+            config_id: configId,
+            group: 'cameras',
+            kind: 'CONNECTIVITY_TEST',
+            status: 'SUCCEEDED',
+            saved_version: 2,
+            applied_version: null,
+            restart_required: true,
+            message: 'Kiểm tra kết nối chỉ đọc thành công.',
+            created_at: '2026-10-21T08:07:00Z',
+            completed_at: '2026-10-21T08:07:01Z',
+          },
+        };
+      }
+      if (
+        config.method === 'post' &&
+        config.url === `/api/v1/admin/device-settings/cameras/${configId}/apply`
+      ) {
+        applyBody = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            operation_id: opApplyId,
+            config_id: configId,
+            group: 'cameras',
+            kind: 'APPLY_CONFIG',
+            status: 'OUTCOME_UNKNOWN',
+            saved_version: 2,
+            applied_version: null,
+            restart_required: true,
+            message: 'Thiết bị chưa phản hồi ACK đúng hạn; cần đối soát trạng thái tác vụ.',
+            created_at: '2026-10-21T08:08:00Z',
+            completed_at: null,
+          },
+        };
+      }
+      if (
+        config.method === 'get' &&
+        config.url === `/api/v1/admin/device-settings/operations/${opApplyId}`
+      ) {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            operation_id: opApplyId,
+            config_id: configId,
+            group: 'cameras',
+            kind: 'APPLY_CONFIG',
+            status: 'SUCCEEDED',
+            saved_version: 2,
+            applied_version: 2,
+            restart_required: true,
+            message: 'Đối soát hoàn tất: đã áp dụng cấu hình phiên bản 2 xuống thiết bị.',
+            created_at: '2026-10-21T08:08:00Z',
+            completed_at: '2026-10-21T08:08:05Z',
+          },
+        };
+      }
+      throw new Error(`Unexpected request: ${config.method} ${config.url}`);
+    };
+
+    const user = userEvent.setup();
+    mount(adminWithApi, '/settings?section=cameras');
+
+    await screen.findByTestId(`device-config-card-${configId}`);
+
+    const nameInput = screen.getByLabelText('Tên bản ghi cấu hình');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Camera Cổng Chính v2');
+
+    const reasonInput = screen.getByLabelText('Lý do cập nhật / áp dụng (reason)');
+    await user.clear(reasonInput);
+    await user.type(reasonInput, 'Chuẩn hóa cấu hình camera ca sáng');
+
+    await user.click(screen.getByRole('button', { name: 'Lưu cấu hình' }));
+
+    await waitFor(() => {
+      expect(patchBody).toMatchObject({
+        expected_version: 1,
+        reason: 'Chuẩn hóa cấu hình camera ca sáng',
+        name: 'Camera Cổng Chính v2',
+      });
+    });
+    expect(patchIdempotencyKey).toBeTruthy();
+    expect(screen.getByTestId(`device-config-card-${configId}`)).toHaveTextContent(
+      'desired_version: v2',
+    );
+
+    await user.click(screen.getByTestId('btn-validate-config'));
+    expect(await screen.findByTestId('device-validation-status')).toHaveTextContent(
+      'Xác thực máy chủ v2: Hợp lệ (VALID)',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra kết nối' }));
+    const opBox = await screen.findByTestId('device-operation-status');
+    expect(opBox).toHaveTextContent('CONNECTIVITY_TEST');
+    expect(opBox).toHaveTextContent('SUCCEEDED');
+
+    await user.click(screen.getByRole('button', { name: 'Áp dụng' }));
+    await waitFor(() => {
+      expect(applyBody).toEqual({
+        expected_version: 2,
+        reason: 'Chuẩn hóa cấu hình camera ca sáng',
+      });
+    });
+    expect(screen.getByTestId('device-operation-status')).toHaveTextContent('OUTCOME_UNKNOWN');
+    expect(screen.getByTestId(`device-config-card-${configId}`)).toHaveTextContent(
+      'applied_version: Chưa áp dụng',
+    );
+
+    await user.click(screen.getByTestId('btn-reconcile-operation'));
+    await waitFor(() => {
+      expect(screen.getByTestId('device-operation-status')).toHaveTextContent('SUCCEEDED');
+    });
+    expect(screen.getByTestId(`device-config-card-${configId}`)).toHaveTextContent(
+      'applied_version: v2',
+    );
+    expect(screen.getByTestId(`device-config-card-${configId}`)).toHaveTextContent('APPLIED');
+  });
+
+  it('Task 12.7: đọc và lọc nhật ký kiểm toán cấu hình thiết bị từ GET /api/v1/admin/device-settings/audit-logs kèm redacted_changes', async () => {
+    const log1Id = '44444444-5555-4666-8777-888888888881';
+    const log2Id = '44444444-5555-4666-8777-888888888882';
+
+    http.defaults.adapter = async (config) => {
+      if (config.method === 'get' && config.url === '/api/v1/admin/device-settings/audit-logs') {
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+          data: {
+            items: [
+              {
+                id: log1Id,
+                actor_id: adminWithApi.id,
+                action: 'device-settings:cameras:update',
+                target_type: 'cameras',
+                target_id: 'cfg-cam-01',
+                occurred_at: '2026-10-21T08:10:00Z',
+                request_id: 'req-audit-1',
+                outcome: 'SUCCEEDED',
+                redacted_changes: {
+                  reason: 'Cập nhật góc quay camera',
+                  saved_version: 2,
+                  rtsp_secret: 'should-be-redacted',
+                },
+              },
+              {
+                id: log2Id,
+                actor_id: adminWithApi.id,
+                action: 'device-settings:barriers:apply',
+                target_type: 'barriers',
+                target_id: 'cfg-bar-01',
+                occurred_at: '2026-10-21T08:12:00Z',
+                request_id: 'req-audit-2',
+                outcome: 'SUCCEEDED',
+                redacted_changes: {
+                  reason: 'Áp dụng thời gian chờ ACK barrier',
+                  applied_version: 1,
+                },
+              },
+            ],
+            next_cursor: null,
+            has_more: false,
+            limit: 50,
+          },
+        };
+      }
+      throw new Error(`Unexpected request: ${config.method} ${config.url}`);
+    };
+
+    const user = userEvent.setup();
+    mount(adminWithApi, '/settings?section=history');
+
+    const row1 = await screen.findByTestId(`device-audit-row-${log1Id}`);
+    expect(row1).toHaveTextContent('device-settings:cameras:update');
+    expect(screen.getByTestId(`device-audit-changes-${log1Id}`)).toHaveTextContent('[REDACTED]');
+    expect(screen.getByTestId(`device-audit-changes-${log1Id}`)).not.toHaveTextContent(
+      'should-be-redacted',
+    );
+    expect(screen.getByTestId(`device-audit-row-${log2Id}`)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Lọc nhóm thiết bị'), 'barriers');
+    await waitFor(() => {
+      expect(screen.queryByTestId(`device-audit-row-${log1Id}`)).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId(`device-audit-row-${log2Id}`)).toHaveTextContent(
+      'device-settings:barriers:apply',
+    );
+  });
+});

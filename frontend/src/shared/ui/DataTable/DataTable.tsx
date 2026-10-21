@@ -44,15 +44,18 @@ export function DataTable<T>({
 
   if (!loading && rows.length === 0 && emptyState) {
     return (
-      <div className="table-region table-region--empty" role="region" aria-label={label} tabIndex={0}>
+      <div
+        className="table-region table-region--empty"
+        role="region"
+        aria-label={label}
+        tabIndex={0}
+      >
         {emptyState}
       </div>
     );
   }
 
-  const regionStyle = maxHeight
-    ? { maxHeight, overflow: 'auto' }
-    : undefined;
+  const regionStyle = maxHeight ? { maxHeight, overflow: 'auto' } : undefined;
 
   return (
     <div
@@ -90,7 +93,9 @@ export function DataTable<T>({
                 return (
                   <td
                     key={column.id}
-                    className={[column.className, alignClass, truncateClass].filter(Boolean).join(' ')}
+                    className={[column.className, alignClass, truncateClass]
+                      .filter(Boolean)
+                      .join(' ')}
                     style={column.maxWidth ? { maxWidth: column.maxWidth } : undefined}
                   >
                     {column.render(row)}

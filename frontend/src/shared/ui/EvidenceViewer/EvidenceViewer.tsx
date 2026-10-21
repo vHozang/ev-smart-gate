@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CameraIcon, ArrowsOutSimpleIcon, DownloadSimpleIcon, WarningCircleIcon } from '@phosphor-icons/react';
+import {
+  CameraIcon,
+  ArrowsOutSimpleIcon,
+  DownloadSimpleIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react';
 import { Button } from '@/shared/ui/Button';
 
 export interface EvidenceViewerProps {
@@ -52,7 +57,11 @@ export function EvidenceViewer({
   const ratioClass = `evidence-viewer__media--${aspectRatio.replace('/', '-')}`;
 
   return (
-    <div className={`evidence-viewer ${className}`} role="region" aria-label={title || 'Bằng chứng ảnh'}>
+    <div
+      className={`evidence-viewer ${className}`}
+      role="region"
+      aria-label={title || 'Bằng chứng ảnh'}
+    >
       {title && (
         <div className="evidence-viewer__header">
           <h4 className="evidence-viewer__title">{title}</h4>

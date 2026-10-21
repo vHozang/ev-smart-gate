@@ -11,6 +11,7 @@ from pydantic import (
     FiniteFloat,
     JsonValue,
     SecretStr,
+    field_validator,
     model_validator,
 )
 
@@ -70,6 +71,13 @@ class Message(ContractModel):
 class TicketRequest(ContractModel):
     channel: Literal["security.alerts"]
 
+    @field_validator("channel", mode="before")
+    @classmethod
+    def normalize_legacy_channel(cls, value: object) -> object:
+        if value == "security_alerts":
+            return "security.alerts"
+        return value
+
 
 class TicketResponse(ContractModel):
     ticket: str
@@ -122,11 +130,25 @@ class UserCreate(ContractModel):
     role_id: UUID
     display_name: Text | None = None
 
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def _empty_display_name(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
+
 
 class UserProfilePatch(ContractModel):
     expected_version: int = Field(ge=1)
     username: Annotated[str, Field(pattern=r"^[a-zA-Z0-9._-]{3,64}$")] | None = None
     display_name: Text | None = None
+
+    @field_validator("username", "display_name", mode="before")
+    @classmethod
+    def _empty_optional_fields(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
 
 
 class UserStatusChange(VersionedReason):
@@ -166,11 +188,25 @@ class RoleCreate(ContractModel):
     name: Text
     description: Annotated[str, Field(max_length=500)] | None = None
 
+    @field_validator("description", mode="before")
+    @classmethod
+    def _empty_description(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
+
 
 class RolePatch(VersionedReason):
     name: Text | None = None
     description: Annotated[str, Field(max_length=500)] | None = None
     is_active: bool | None = None
+
+    @field_validator("name", "description", mode="before")
+    @classmethod
+    def _empty_role_patch_fields(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
 
 
 class PermissionReplace(VersionedReason):
@@ -217,6 +253,13 @@ class EmployeeCreate(ContractModel):
 class EmployeePatch(VersionedReason):
     employee_code: Text | None = None
     is_active: bool | None = None
+
+    @field_validator("employee_code", mode="before")
+    @classmethod
+    def _empty_employee_code(cls, value: object) -> object:
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value.strip() if isinstance(value, str) else value
 
 
 class EmployeeView(ContractModel):

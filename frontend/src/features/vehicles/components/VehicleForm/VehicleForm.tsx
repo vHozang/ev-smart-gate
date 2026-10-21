@@ -2,16 +2,18 @@ import { useAsyncScope } from '@/shared/hooks';
 import { Button } from '@/shared/ui/Button';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { normalizeError, queryKeys } from '@/shared/api';
 import type { ApiError } from '@/shared/api';
-import { useFeedback } from '@/shared/feedback';
+import { useFeedback, openValidationNoticeModal } from '@/shared/feedback';
 import type { ModalContext } from '@/shared/feedback';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
+import { Select } from '@/shared/ui/Select';
 import { useAuth } from '@/features/auth';
-import { createVehicle, updateVehicle } from '../../api/vehicles';
+import { createVehicle, updateVehicle, setVehicleStatus } from '../../api/vehicles';
 import { vehicleFormSchema } from '../../model/schema';
 import type { Vehicle, VehicleFormValues } from '../../model/schema';
 export interface VehicleFormProps {
@@ -27,6 +29,7 @@ export function VehicleForm({ modal, vehicle }: VehicleFormProps) {
   const uncertain = useRef(false);
   const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const [nextStatus, setNextStatus] = useState<'ACTIVE' | 'INACTIVE'>(vehicle?.status ?? 'ACTIVE');
   const {
     register,
     handleSubmit,
@@ -43,9 +46,9 @@ export function VehicleForm({ modal, vehicle }: VehicleFormProps) {
   });
   const { setDirty, setPending, close, formId } = modal;
   useEffect(() => {
-    setDirty(isDirty);
+    setDirty(isDirty || Boolean(vehicle && nextStatus !== vehicle.status));
     return () => setDirty(false);
-  }, [isDirty, setDirty]);
+  }, [isDirty, nextStatus, setDirty, vehicle]);
   async function submit(values: VehicleFormValues) {
     if (saving.current || uncertain.current || !principal) return;
     const isCurrent = beginScope();
@@ -59,9 +62,12 @@ export function VehicleForm({ modal, vehicle }: VehicleFormProps) {
         model: values.model.trim() || null,
         color: values.color.trim() || null,
       };
-      const saved = vehicle
+      let saved = vehicle
         ? await updateVehicle(vehicle.id, payload)
         : await createVehicle(payload);
+      if (vehicle && nextStatus !== saved.status) {
+        saved = await setVehicleStatus(vehicle.id, nextStatus);
+      }
       if (!isCurrent()) return;
       await client.invalidateQueries({ queryKey: queryKeys.resource(principal.id, 'vehicles') });
       if (!isCurrent()) return;
@@ -108,8 +114,26 @@ export function VehicleForm({ modal, vehicle }: VehicleFormProps) {
     { name: 'model', label: 'Dòng xe', placeholder: 'Không bắt buộc' },
     { name: 'color', label: 'Màu xe', placeholder: 'Không bắt buộc' },
   ] as const;
+
+  function onInvalid(invalidErrors: FieldErrors<VehicleFormValues>) {
+    const labelMap: Record<keyof VehicleFormValues, string> = {
+      plate_number: 'Biển số',
+      vehicle_type: 'Loại phương tiện',
+      make: 'Hãng xe',
+      model: 'Dòng xe',
+      color: 'Màu xe',
+    };
+    const missing = (Object.keys(invalidErrors) as (keyof VehicleFormValues)[])
+      .map((k) => labelMap[k])
+      .filter(Boolean);
+    openValidationNoticeModal(feedback, {
+      title: 'Chưa đủ thông tin phương tiện',
+      fields: missing,
+    });
+  }
+
   return (
-    <form id={formId} className="form-stack" onSubmit={handleSubmit(submit)} noValidate>
+    <form id={formId} className="form-stack" onSubmit={handleSubmit(submit, onInvalid)} noValidate>
       {outcomeUnknown && (
         <div className="inline-note" role="status">
           <div>
@@ -160,6 +184,19 @@ export function VehicleForm({ modal, vehicle }: VehicleFormProps) {
             </Field>
           );
         })}
+        {vehicle && (
+          <Field id={`${formId}-status`} label="Trạng thái phương tiện" required>
+            <Select
+              id={`${formId}-status`}
+              value={nextStatus}
+              onChange={(e) => setNextStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
+              disabled={modal.pending}
+            >
+              <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
+              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
+            </Select>
+          </Field>
+        )}
       </div>
       <p className="field__hint">
         Loại phương tiện giữ theo mã backend hiện tại; dữ liệu cũ không tự đổi sang phân loại mới.

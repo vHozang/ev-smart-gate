@@ -9,6 +9,10 @@ export interface DataTablePaginationProps {
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   disabled?: boolean;
+  hasMoreServerData?: boolean;
+  hasPrevCursor?: boolean;
+  onNextCursor?: () => void;
+  onPrevCursor?: () => void;
 }
 
 export function DataTablePagination({
@@ -19,13 +23,19 @@ export function DataTablePagination({
   onPageChange,
   onPageSizeChange,
   disabled = false,
+  hasMoreServerData = false,
+  hasPrevCursor = false,
+  onNextCursor,
+  onPrevCursor,
 }: DataTablePaginationProps) {
   const totalPages = total !== undefined ? Math.max(1, Math.ceil(total / pageSize)) : undefined;
-  const hasPrevious = page > 1;
-  const hasNext = totalPages !== undefined ? page < totalPages : true;
+  const safePage = totalPages !== undefined ? Math.min(page, totalPages) : page;
+  const hasPrevious = safePage > 1;
+  const hasNext = totalPages !== undefined ? safePage < totalPages : true;
 
-  const startRecord = (page - 1) * pageSize + 1;
-  const endRecord = total !== undefined ? Math.min(page * pageSize, total) : page * pageSize;
+  const startRecord = (safePage - 1) * pageSize + 1;
+  const endRecord =
+    total !== undefined ? Math.min(safePage * pageSize, total) : safePage * pageSize;
 
   return (
     <div className="data-table-pagination" role="navigation" aria-label="Phân trang dữ liệu">
@@ -67,18 +77,23 @@ export function DataTablePagination({
         )}
 
         <div className="data-table-pagination__nav">
+          {onPrevCursor && hasPrevCursor && (
+            <Button size="sm" variant="secondary" disabled={disabled} onClick={onPrevCursor}>
+              Lô trước
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
             icon={<CaretLeftIcon size={16} />}
             disabled={disabled || !hasPrevious}
             aria-label="Trang trước"
-            onClick={() => onPageChange(page - 1)}
+            onClick={() => onPageChange(safePage - 1)}
           >
             Trước
           </Button>
           <span className="data-table-pagination__pages" aria-current="page">
-            Trang {page}
+            Trang {safePage}
             {totalPages !== undefined && ` / ${totalPages}`}
           </span>
           <Button
@@ -87,10 +102,15 @@ export function DataTablePagination({
             icon={<CaretRightIcon size={16} />}
             disabled={disabled || !hasNext}
             aria-label="Trang tiếp"
-            onClick={() => onPageChange(page + 1)}
+            onClick={() => onPageChange(safePage + 1)}
           >
             Sau
           </Button>
+          {onNextCursor && hasMoreServerData && (
+            <Button size="sm" variant="secondary" disabled={disabled} onClick={onNextCursor}>
+              Tải lô tiếp
+            </Button>
+          )}
         </div>
       </div>
     </div>

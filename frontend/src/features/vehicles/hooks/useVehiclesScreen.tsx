@@ -1,6 +1,6 @@
 import type { VehiclesScreen } from '../model/screen';
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/features/auth';
 import { queryKeys } from '@/shared/api';
 import { useFeedback } from '@/shared/feedback';
@@ -17,6 +17,7 @@ export function useVehiclesScreen(): VehiclesScreen {
     queryKey: queryKeys.resource(principal?.id || 'anonymous', 'vehicles'),
     queryFn: ({ signal }) => listVehicles(signal),
     enabled: !!principal && can('vehicles:read'),
+    placeholderData: keepPreviousData,
   });
   const rows = useMemo(
     () =>
@@ -75,6 +76,15 @@ export function useVehiclesScreen(): VehiclesScreen {
           title: 'Ngừng hoạt động phương tiện?',
           size: 'sm',
           renderContent: (modal) => <DeactivateVehicle vehicle={vehicle} modal={modal} />,
+        }),
+      remove: (vehicle: Vehicle) =>
+        feedback.openModal({
+          id: `delete-vehicle-${vehicle.id}`,
+          title: 'Xóa vĩnh viễn phương tiện?',
+          size: 'sm',
+          renderContent: (modal) => (
+            <DeactivateVehicle vehicle={vehicle} modal={modal} mode="delete" />
+          ),
         }),
     },
   };

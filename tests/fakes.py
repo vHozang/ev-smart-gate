@@ -53,6 +53,9 @@ class DriverRepositoryFake:
         self.items[driver.id] = driver
         return driver
 
+    async def delete(self, driver_id: UUID) -> bool:
+        return self.items.pop(driver_id, None) is not None
+
 
 class VehicleRepositoryFake:
     def __init__(self, *vehicles: Vehicle) -> None:
@@ -81,6 +84,9 @@ class VehicleRepositoryFake:
         self.items[vehicle.id] = vehicle
         return vehicle
 
+    async def delete(self, vehicle_id: UUID) -> bool:
+        return self.items.pop(vehicle_id, None) is not None
+
 
 class AuthorizationRepositoryFake:
     def __init__(self, authorized: bool = True) -> None:
@@ -90,6 +96,24 @@ class AuthorizationRepositoryFake:
     async def add(self, authorization: DriverVehicleAuthorization) -> DriverVehicleAuthorization:
         self.items.append(authorization)
         return authorization
+
+    async def get(self, authorization_id: UUID) -> DriverVehicleAuthorization | None:
+        return next((item for item in self.items if item.id == authorization_id), None)
+
+    async def update(
+        self, authorization: DriverVehicleAuthorization
+    ) -> DriverVehicleAuthorization:
+        for idx, item in enumerate(self.items):
+            if item.id == authorization.id:
+                self.items[idx] = authorization
+                return authorization
+        self.items.append(authorization)
+        return authorization
+
+    async def delete(self, authorization_id: UUID) -> bool:
+        before = len(self.items)
+        self.items = [item for item in self.items if item.id != authorization_id]
+        return len(self.items) < before
 
     async def is_authorized(self, driver_id: UUID, vehicle_id: UUID, at: datetime) -> bool:
         return self.authorized
@@ -169,6 +193,9 @@ class OrderRepositoryFake:
     async def update(self, order: WarehouseExitOrder) -> WarehouseExitOrder:
         self.items[order.order_id] = order
         return order
+
+    async def delete(self, order_id: str) -> bool:
+        return self.items.pop(order_id, None) is not None
 
     async def claim_exit(self, order_id: str, event_id: str) -> WarehouseExitOrder | None:
         order = self.items.get(order_id)
@@ -404,6 +431,18 @@ class EmployeeCardRepositoryFake:
 
     async def list_all(self) -> list[EmployeeCard]:
         return list(self.items.values())
+
+    async def update(self, card: EmployeeCard) -> EmployeeCard:
+        self.items[card.id] = card
+        self.by_uid[card.card_uid_normalized] = card
+        return card
+
+    async def delete(self, card_id: UUID) -> bool:
+        removed = self.items.pop(card_id, None)
+        if removed is not None:
+            self.by_uid.pop(removed.card_uid_normalized, None)
+            return True
+        return False
 
     async def change_active_status(
         self,

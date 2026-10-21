@@ -3,6 +3,7 @@ export { useFeedback } from './context';
 export type { ModalContext, ModalDescriptor, ToastInput, FeedbackController } from './types';
 export {
   openNoticeModal,
+  openValidationNoticeModal,
   openConfirmModal,
   openFormModal,
   openDetailModal,
@@ -10,6 +11,7 @@ export {
 } from './modals';
 export type {
   NoticeModalOptions,
+  ValidationNoticeModalOptions,
   ConfirmModalOptions,
   FormModalOptions,
   DetailModalOptions,

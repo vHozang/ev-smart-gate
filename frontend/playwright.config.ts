@@ -15,7 +15,7 @@ export default defineConfig({
   },
   webServer: {
     command: 'npm run preview -- --port 5173',
-    url: 'http://127.0.0.1:5173/console/',
+    url: 'http://127.0.0.1:5173/',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },

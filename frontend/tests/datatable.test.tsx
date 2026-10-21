@@ -1,7 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DataTable, DataTablePagination, DataTableFilter, formatNullable } from '@/shared/ui/DataTable';
+import {
+  DataTable,
+  DataTablePagination,
+  DataTableFilter,
+  formatNullable,
+} from '@/shared/ui/DataTable';
 import type { TableColumn } from '@/shared/ui/DataTable';
 import { EvidenceViewer } from '@/shared/ui/EvidenceViewer';
 
@@ -15,13 +20,24 @@ interface Item {
 const mockItems: Item[] = [
   { id: '1', code: 'ITM-01', name: 'Mục 1', description: 'Mô tả chi tiết mục 1' },
   { id: '2', code: 'ITM-02', name: null, description: 'Mô tả chi tiết mục 2' },
-  { id: '3', code: 'ITM-03', name: 'Mục 3', description: 'Chuỗi văn bản rất dài để kiểm tra tính năng truncate tự động' },
+  {
+    id: '3',
+    code: 'ITM-03',
+    name: 'Mục 3',
+    description: 'Chuỗi văn bản rất dài để kiểm tra tính năng truncate tự động',
+  },
 ];
 
 const columns: TableColumn<Item>[] = [
   { id: 'code', header: 'Mã', render: (row) => row.code, align: 'center' },
   { id: 'name', header: 'Tên', render: (row) => formatNullable(row.name) },
-  { id: 'desc', header: 'Mô tả', render: (row) => row.description, truncate: true, maxWidth: '200px' },
+  {
+    id: 'desc',
+    header: 'Mô tả',
+    render: (row) => row.description,
+    truncate: true,
+    maxWidth: '200px',
+  },
 ];
 
 describe('DataTable dùng chung', () => {
@@ -106,12 +122,7 @@ describe('DataTable dùng chung', () => {
 describe('DataTablePagination phân trang', () => {
   it('hiển thị số bản ghi và thông tin trang chính xác', () => {
     const { container } = render(
-      <DataTablePagination
-        page={2}
-        pageSize={10}
-        total={45}
-        onPageChange={vi.fn()}
-      />,
+      <DataTablePagination page={2} pageSize={10} total={45} onPageChange={vi.fn()} />,
     );
 
     const info = container.querySelector('.data-table-pagination__info');
@@ -124,12 +135,7 @@ describe('DataTablePagination phân trang', () => {
     const handlePageChange = vi.fn();
 
     render(
-      <DataTablePagination
-        page={2}
-        pageSize={10}
-        total={30}
-        onPageChange={handlePageChange}
-      />,
+      <DataTablePagination page={2} pageSize={10} total={30} onPageChange={handlePageChange} />,
     );
 
     const prevButton = screen.getByRole('button', { name: 'Trang trước' });
@@ -144,25 +150,13 @@ describe('DataTablePagination phân trang', () => {
 
   it('vô hiệu hóa nút Trước khi ở trang 1 và nút Sau khi ở trang cuối', () => {
     const { rerender } = render(
-      <DataTablePagination
-        page={1}
-        pageSize={10}
-        total={10}
-        onPageChange={vi.fn()}
-      />,
+      <DataTablePagination page={1} pageSize={10} total={10} onPageChange={vi.fn()} />,
     );
 
     expect(screen.getByRole('button', { name: 'Trang trước' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Trang tiếp' })).toBeDisabled();
 
-    rerender(
-      <DataTablePagination
-        page={1}
-        pageSize={10}
-        total={30}
-        onPageChange={vi.fn()}
-      />,
-    );
+    rerender(<DataTablePagination page={1} pageSize={10} total={30} onPageChange={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Trang trước' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Trang tiếp' })).not.toBeDisabled();
   });
@@ -261,11 +255,7 @@ describe('EvidenceViewer và Resource Cleanup', () => {
     const dummyBlob = new Blob(['fake image data'], { type: 'image/jpeg' });
 
     const { unmount } = render(
-      <EvidenceViewer
-        source={dummyBlob}
-        alt="Bằng chứng từ Blob"
-        title="Bằng chứng nhận diện"
-      />,
+      <EvidenceViewer source={dummyBlob} alt="Bằng chứng từ Blob" title="Bằng chứng nhận diện" />,
     );
 
     expect(createMock).toHaveBeenCalledWith(dummyBlob);
@@ -278,13 +268,7 @@ describe('EvidenceViewer và Resource Cleanup', () => {
   });
 
   it('hiển thị placeholder khi không có dữ liệu nguồn', () => {
-    render(
-      <EvidenceViewer
-        source={null}
-        alt="Ảnh trống"
-        title="Chưa chụp"
-      />,
-    );
+    render(<EvidenceViewer source={null} alt="Ảnh trống" title="Chưa chụp" />);
 
     expect(screen.getByText('Chưa có hình ảnh bằng chứng')).toBeInTheDocument();
   });

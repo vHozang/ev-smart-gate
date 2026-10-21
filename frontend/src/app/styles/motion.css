@@ -8,6 +8,34 @@
       opacity: 0.45;
     }
   }
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes aurora-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(2%, -2%, 0) scale(1.04);
+    }
+  }
+  @keyframes scan-beam {
+    0%,
+    100% {
+      transform: translateY(-0.5rem);
+      opacity: 0.65;
+    }
+    50% {
+      transform: translateY(0.5rem);
+      opacity: 1;
+    }
+  }
   @keyframes enter-overlay {
     from {
       opacity: 0;

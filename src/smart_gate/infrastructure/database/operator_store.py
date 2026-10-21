@@ -485,12 +485,16 @@ class MongoOperatorAudit:
             for key, value in {
                 "actor_id": filters.actor_id,
                 "action": filters.action,
-                "target_type": filters.target_type,
                 "target_id": filters.target_id,
                 "outcome": filters.outcome,
             }.items()
             if value is not None
         }
+        if filters.target_type is not None:
+            query["target_type"] = {
+                "$regex": f"^{re.escape(filters.target_type.strip())}$",
+                "$options": "i",
+            }
         time_filter: dict[str, datetime] = {}
         if filters.from_ is not None:
             time_filter["$gte"] = filters.from_

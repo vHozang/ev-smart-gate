@@ -389,9 +389,7 @@ def operations() -> list[Operation]:
 
 def _parameter(name: str, *, location: str = "query", required: bool = False) -> dict[str, Any]:
     schema: dict[str, Any] = {"type": "string", "maxLength": 128}
-    if name == "snapshot_index":
-        schema = {"type": "integer", "minimum": 0}
-    elif name in {"after_sequence", "watermark"}:
+    if name == "snapshot_index" or name in {"after_sequence", "watermark"}:
         schema = {"type": "integer", "minimum": 0}
     elif name == "limit":
         schema = {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}
@@ -447,7 +445,7 @@ def build_contract() -> dict[str, Any]:
                 "path": "/ws/v2/security/alerts",
                 "ticket_endpoint": "/api/v2/auth/ws-tickets",
                 "authentication": "short-lived single-use ticket; redact URL/access logs",
-                "close_codes": {"4401": "expired/revoked", "4403": "permission denied"},
+
                 "resync": "/api/v2/security/alerts",
                 "event_schema": "#/components/schemas/AlertDelta",
                 "gap_policy": "410 ALERT_HISTORY_GAP; bootstrap có coverage/retained_from, không suy từ array v1",

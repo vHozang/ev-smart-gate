@@ -5,6 +5,7 @@ import { Link, NavLink } from 'react-router';
 import {
   ArrowLineLeftIcon,
   ArrowLineRightIcon,
+  KeyIcon,
   ListIcon,
   ScanIcon,
   SignInIcon,
@@ -24,6 +25,8 @@ export interface AppShellProps {
   collapsed: boolean;
   onCollapse: () => void;
   username?: string;
+  userRole?: string;
+  onChangePassword?: () => void;
   onLogout?: () => void;
   logoutPending?: boolean;
 }
@@ -35,6 +38,8 @@ export function AppShell({
   collapsed,
   onCollapse,
   username,
+  userRole,
+  onChangePassword,
   onLogout,
   logoutPending,
 }: AppShellProps) {
@@ -89,7 +94,13 @@ export function AppShell({
             </span>
             <div className="navigation__label">
               <strong>{username || 'Không gian vận hành'}</strong>
-              <span>{username ? 'Tài khoản đã đăng nhập' : 'Đăng nhập để làm việc'}</span>
+              <span>
+                {username
+                  ? userRole
+                    ? `Vai trò: ${userRole}`
+                    : 'Tài khoản đã đăng nhập'
+                  : 'Đăng nhập để làm việc'}
+              </span>
             </div>
           </div>
         </div>
@@ -134,17 +145,31 @@ export function AppShell({
               </nav>
             </div>
             <div className="topbar__actions">
-              <span className="topbar__workspace">Không gian vận hành</span>
+              <span className="topbar__workspace">
+                {userRole ? `Ca trực · ${userRole}` : 'Không gian vận hành'}
+              </span>
               {username ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  pending={logoutPending}
-                  icon={<SignOutIcon size={18} />}
-                  onClick={onLogout}
-                >
-                  Đăng xuất
-                </Button>
+                <>
+                  {onChangePassword && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<KeyIcon size={16} />}
+                      onClick={onChangePassword}
+                    >
+                      Đổi mật khẩu
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    pending={logoutPending}
+                    icon={<SignOutIcon size={18} />}
+                    onClick={onLogout}
+                  >
+                    Đăng xuất
+                  </Button>
+                </>
               ) : (
                 <Link className="button button--secondary button--sm" to={paths.login}>
                   <SignInIcon size={17} />

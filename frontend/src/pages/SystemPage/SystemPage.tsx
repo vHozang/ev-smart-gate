@@ -4,13 +4,14 @@ import { useSystemHealth } from '@/features/system';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Skeleton } from '@/shared/ui/Skeleton';
+import { SpotlightCard } from '@/shared/ui/SpotlightCard';
 import { formatDate } from '@/shared/lib';
 import { normalizeError } from '@/shared/api';
+
 export function SystemPage() {
   const { data, state, actions } = useSystemHealth();
   return (
     <ListPageLayout
-      eyebrow="HỆ THỐNG / KẾT NỐI"
       title="Trạng thái hệ thống"
       description="Kiểm tra kết nối dịch vụ và khả năng sẵn sàng của cơ sở dữ liệu."
       actions={
@@ -31,7 +32,7 @@ export function SystemPage() {
       }
     >
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="surface">
+        <SpotlightCard padded={false}>
           <header className="section-heading">
             <div>
               <h2>Dịch vụ nền tảng</h2>
@@ -51,7 +52,10 @@ export function SystemPage() {
                       : 'Phản hồi từ dịch vụ ứng dụng'}
                   </p>
                 </div>
-                <Badge tone={data.live?.status === 'ok' ? 'success' : 'danger'}>
+                <Badge
+                  tone={data.live?.status === 'ok' ? 'success' : 'danger'}
+                  pulse={data.live?.status === 'ok'}
+                >
                   {data.live?.status === 'ok' ? 'Có phản hồi' : 'Chưa kết nối'}
                 </Badge>
               </div>
@@ -64,14 +68,17 @@ export function SystemPage() {
                       : 'Khả năng sẵn sàng phục vụ yêu cầu'}
                   </p>
                 </div>
-                <Badge tone={data.ready?.status === 'ready' ? 'success' : 'danger'}>
+                <Badge
+                  tone={data.ready?.status === 'ready' ? 'success' : 'danger'}
+                  pulse={data.ready?.status === 'ready'}
+                >
                   {data.ready?.status === 'ready' ? 'Sẵn sàng' : 'Chưa sẵn sàng'}
                 </Badge>
               </div>
             </div>
           )}
-        </section>
-        <section className="surface">
+        </SpotlightCard>
+        <SpotlightCard padded={false}>
           <header className="section-heading">
             <div>
               <h2>Thiết bị & nhận diện</h2>
@@ -89,7 +96,7 @@ export function SystemPage() {
               </div>
             ))}
           </div>
-        </section>
+        </SpotlightCard>
       </div>
       <div className="inline-note mt-6">
         <InfoIcon size={18} />

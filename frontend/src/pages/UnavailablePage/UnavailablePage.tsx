@@ -18,7 +18,6 @@ export function UnavailablePage() {
   return (
     <ListPageLayout
       title={title}
-      eyebrow={handle.success ? handle.data.group : 'KHÔNG GIAN VẬN HÀNH'}
       description={handle.success ? handle.data.description : undefined}
     >
       <div className="surface">

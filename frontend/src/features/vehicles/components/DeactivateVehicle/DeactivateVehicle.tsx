@@ -7,13 +7,18 @@ import type { ApiError } from '@/shared/api';
 import { useFeedback } from '@/shared/feedback';
 import type { ModalContext } from '@/shared/feedback';
 import { useAuth } from '@/features/auth';
-import { deactivateVehicle } from '../../api/vehicles';
+import { deactivateVehicle, deleteVehiclePermanent } from '../../api/vehicles';
 import type { Vehicle } from '../../model/schema';
 export interface DeactivateVehicleProps {
   vehicle: Vehicle;
   modal: ModalContext;
+  mode?: 'deactivate' | 'delete';
 }
-export function DeactivateVehicle({ vehicle, modal }: DeactivateVehicleProps) {
+export function DeactivateVehicle({
+  vehicle,
+  modal,
+  mode = 'deactivate',
+}: DeactivateVehicleProps) {
   const beginScope = useAsyncScope();
   const { principal } = useAuth();
   const client = useQueryClient();
@@ -27,15 +32,22 @@ export function DeactivateVehicle({ vehicle, modal }: DeactivateVehicleProps) {
     modal.setPending(true);
     setError(null);
     try {
-      await deactivateVehicle(vehicle.id);
+      if (mode === 'delete') {
+        await deleteVehiclePermanent(vehicle.id);
+      } else {
+        await deactivateVehicle(vehicle.id);
+      }
       if (!isCurrent()) return;
       await client.invalidateQueries({ queryKey: queryKeys.resource(principal.id, 'vehicles') });
       if (!isCurrent()) return;
       modal.setPending(false);
       modal.close();
       feedback.notify({
-        id: `deactivate-${vehicle.id}`,
-        title: 'Đã ngừng hoạt động phương tiện',
+        id: `${mode}-${vehicle.id}`,
+        title:
+          mode === 'delete'
+            ? 'Đã xóa phương tiện khỏi hệ thống'
+            : 'Đã ngừng hoạt động phương tiện',
         description: vehicle.plate_number,
         tone: 'success',
       });
@@ -49,8 +61,17 @@ export function DeactivateVehicle({ vehicle, modal }: DeactivateVehicleProps) {
   return (
     <div className="form-stack">
       <p>
-        Phương tiện <strong>{vehicle.plate_number}</strong> sẽ được chuyển sang trạng thái ngừng
-        hoạt động. Hồ sơ vẫn được giữ lại.
+        {mode === 'delete' ? (
+          <>
+            Phương tiện <strong>{vehicle.plate_number}</strong> sẽ bị xóa vĩnh viễn khỏi cơ sở dữ
+            liệu.
+          </>
+        ) : (
+          <>
+            Phương tiện <strong>{vehicle.plate_number}</strong> sẽ được chuyển sang trạng thái ngừng
+            hoạt động. Hồ sơ vẫn được giữ lại.
+          </>
+        )}
       </p>
       {error && (
         <div role="alert" className="form-error">
@@ -59,10 +80,10 @@ export function DeactivateVehicle({ vehicle, modal }: DeactivateVehicleProps) {
       )}
       <div className="modal__actions">
         <Button onClick={modal.requestClose} disabled={modal.pending}>
-          Giữ hoạt động
+          {mode === 'delete' ? 'Hủy' : 'Giữ hoạt động'}
         </Button>
         <Button variant="danger" onClick={() => void submit()} pending={modal.pending}>
-          Ngừng hoạt động
+          {mode === 'delete' ? 'Xóa vĩnh viễn' : 'Ngừng hoạt động'}
         </Button>
       </div>
     </div>

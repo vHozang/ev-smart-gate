@@ -265,6 +265,27 @@ class BeanieEmployeeCardRepository:
         )
         return [_employee_card_from_document(document) for document in documents]
 
+    async def update(self, card: EmployeeCard) -> EmployeeCard:
+        document = await EmployeeCardDocument.get(card.id)
+        if document is None:
+            return card
+        document.status = card.status
+        document.status_reason = card.status_reason
+        document.metadata = card.metadata
+        document.updated_at = utc_now()
+        try:
+            await document.save(session=current_session())
+        except DuplicateKeyError as exc:
+            raise _card_conflict_from_duplicate_key(exc) from exc
+        return _employee_card_from_document(document)
+
+    async def delete(self, card_id: UUID) -> bool:
+        document = await EmployeeCardDocument.get(card_id)
+        if document is None:
+            return False
+        await document.delete(session=current_session())
+        return True
+
     async def change_active_status(
         self,
         card_id: UUID,
@@ -374,11 +395,17 @@ class BeanieDriverRepository:
         self.cipher = cipher
 
     async def add(self, driver: Driver) -> Driver:
+        emp_code = (
+            driver.employee_code.strip()
+            if driver.employee_code and driver.employee_code.strip()
+            else None
+        )
+        phone_val = driver.phone.strip() if driver.phone and driver.phone.strip() else None
         document = DriverDocument(
             id=driver.id,
             full_name=driver.full_name,
-            employee_code=driver.employee_code,
-            phone=driver.phone,
+            employee_code=emp_code,
+            phone=phone_val,
             status=driver.status,
             face_embedding_ciphertext=self.cipher.encrypt(driver.face_embedding, str(driver.id)),
             embedding_dimension=len(driver.face_embedding),
@@ -388,6 +415,11 @@ class BeanieDriverRepository:
         )
         try:
             await document.insert()
+            if emp_code is None:
+                await DriverDocument.get_pymongo_collection().update_one(
+                    {"_id": document.id},
+                    {"$unset": {"employee_code": ""}},
+                )
         except DuplicateKeyError as exc:
             raise ConflictError("DRIVER_ALREADY_EXISTS", "Mã nhân viên đã được đăng ký") from exc
         return _driver_from_document(document, self.cipher)
@@ -410,9 +442,15 @@ class BeanieDriverRepository:
         document = await DriverDocument.get(driver.id)
         if document is None:
             return driver
+        emp_code = (
+            driver.employee_code.strip()
+            if driver.employee_code and driver.employee_code.strip()
+            else None
+        )
+        phone_val = driver.phone.strip() if driver.phone and driver.phone.strip() else None
         document.full_name = driver.full_name
-        document.employee_code = driver.employee_code
-        document.phone = driver.phone
+        document.employee_code = emp_code
+        document.phone = phone_val
         document.status = driver.status
         document.face_embedding_ciphertext = self.cipher.encrypt(
             driver.face_embedding, str(driver.id)
@@ -423,9 +461,21 @@ class BeanieDriverRepository:
         document.updated_at = utc_now()
         try:
             await document.save()
+            if emp_code is None:
+                await DriverDocument.get_pymongo_collection().update_one(
+                    {"_id": driver.id},
+                    {"$unset": {"employee_code": ""}},
+                )
         except DuplicateKeyError as exc:
             raise ConflictError("DRIVER_ALREADY_EXISTS", "Mã nhân viên đã được đăng ký") from exc
         return _driver_from_document(document, self.cipher)
+
+    async def delete(self, driver_id: UUID) -> bool:
+        document = await DriverDocument.get(driver_id)
+        if document is None:
+            return False
+        await document.delete()
+        return True
 
 
 class BeanieVehicleRepository:
@@ -485,6 +535,13 @@ class BeanieVehicleRepository:
         except DuplicateKeyError as exc:
             raise ConflictError("VEHICLE_ALREADY_EXISTS", "Biển số xe đã được đăng ký") from exc
         return _vehicle_from_document(document)
+
+    async def delete(self, vehicle_id: UUID) -> bool:
+        document = await VehicleDocument.get(vehicle_id)
+        if document is None:
+            return False
+        await document.delete()
+        return True
 
 
 class BeanieAuthorizationRepository:
@@ -565,6 +622,40 @@ class BeanieAuthorizationRepository:
             )
             for document in documents
         ]
+
+    async def get(self, authorization_id: UUID) -> DriverVehicleAuthorization | None:
+        document = await DriverVehicleAuthorizationDocument.get(authorization_id)
+        if document is None:
+            return None
+        return DriverVehicleAuthorization(
+            id=document.id,
+            driver_id=document.driver_id,
+            vehicle_id=document.vehicle_id,
+            valid_from=document.valid_from,
+            valid_until=document.valid_until,
+            status=document.status,
+        )
+
+    async def update(
+        self, authorization: DriverVehicleAuthorization
+    ) -> DriverVehicleAuthorization:
+        document = await DriverVehicleAuthorizationDocument.get(authorization.id)
+        if document is None:
+            return authorization
+        document.driver_id = authorization.driver_id
+        document.vehicle_id = authorization.vehicle_id
+        document.valid_from = authorization.valid_from
+        document.valid_until = authorization.valid_until
+        document.status = authorization.status
+        await document.save()
+        return authorization
+
+    async def delete(self, authorization_id: UUID) -> bool:
+        document = await DriverVehicleAuthorizationDocument.get(authorization_id)
+        if document is None:
+            return False
+        await document.delete()
+        return True
 
 
 class BeanieGateLogRepository:
@@ -653,6 +744,15 @@ class BeanieOrderRepository:
         document.updated_at = utc_now()
         await document.save(session=current_session())
         return _order_from_document(document)
+
+    async def delete(self, order_id: str) -> bool:
+        document = await WarehouseExitOrderDocument.find_one(
+            WarehouseExitOrderDocument.order_id == order_id
+        )
+        if document is None:
+            return False
+        await document.delete(session=current_session())
+        return True
 
     async def claim_exit(self, order_id: str, event_id: str) -> WarehouseExitOrder | None:
         collection = WarehouseExitOrderDocument.get_pymongo_collection()

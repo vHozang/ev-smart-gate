@@ -222,8 +222,12 @@ async def test_real_openapi_and_validation_do_not_publish_planned_features(serve
     async with httpx.AsyncClient(base_url=server["url"], timeout=15) as client:
         schema = (await client.get("/openapi.json")).json()
         paths = schema["paths"]
-        assert len([method for path in paths.values() for method in path]) == 49
-        assert "/api/v1/admin/users" not in paths and "/api/v2/auth/ws-tickets" not in paths
+        assert len([method for path in paths.values() for method in path]) == 103
+        assert (
+            "/api/v1/admin/users" in paths
+            and "/api/v2/auth/ws-tickets" in paths
+            and "/api/v2/security/alerts" in paths
+        )
         assert paths["/api/v2/auth/refresh"]["post"]["security"] == [
             {"RefreshCookie": [], "AuthCsrf": []}
         ]

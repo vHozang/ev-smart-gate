@@ -21,3 +21,19 @@ export async function deactivateVehicle(id: string) {
   const response = await http.delete<unknown>(`/api/v1/vehicles/${encodeURIComponent(id)}`);
   return parsePayload(vehicleSchema, response.data, response.headers['x-request-id']);
 }
+export async function setVehicleStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+  const response = await http.post<unknown>(`/api/v1/vehicles/${encodeURIComponent(id)}/status`, {
+    status,
+  });
+  return parsePayload(vehicleSchema, response.data, response.headers['x-request-id']);
+}
+export async function deleteVehiclePermanent(id: string) {
+  const response = await http.delete<unknown>(
+    `/api/v1/vehicles/${encodeURIComponent(id)}/permanent`,
+  );
+  return parsePayload(
+    z.object({ message: z.string() }),
+    response.data,
+    response.headers['x-request-id'],
+  );
+}

@@ -138,6 +138,10 @@ class WarehouseService:
         order.updated_at = datetime.now(UTC)
         return self.order_output(await self.orders.update(order))
 
+    async def delete_order(self, order_id: str) -> None:
+        if not await self.orders.delete(order_id):
+            raise NotFoundError("ORDER_NOT_FOUND", "Không tìm thấy lệnh xuất kho")
+
     async def start_dock(self, order_id: str) -> DockOutput:
         order = await self.get_order(order_id)
         now = datetime.now(UTC)

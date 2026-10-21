@@ -7,6 +7,7 @@ from smart_gate.application.dto import (
     CreateAuthorizationInput,
     CreateDriverInput,
     CreateVehicleInput,
+    UpdateAuthorizationInput,
     UpdateDriverInput,
     UpdateVehicleInput,
 )
@@ -46,11 +47,17 @@ class RegistrationService:
             raise SmartGateError("FACE_SPOOF", "Ảnh đăng ký không vượt qua kiểm tra liveness")
         await self._ensure_face_unique(observation.embedding)
         now = datetime.now(UTC)
+        emp_code = (
+            payload.employee_code.strip()
+            if payload.employee_code and payload.employee_code.strip()
+            else None
+        )
+        phone_val = payload.phone.strip() if payload.phone and payload.phone.strip() else None
         return await self.drivers.add(
             Driver(
                 full_name=payload.full_name,
-                employee_code=payload.employee_code,
-                phone=payload.phone,
+                employee_code=emp_code,
+                phone=phone_val,
                 face_embedding=observation.embedding,
                 face_model=observation.model_version,
                 enrolled_at=now,
@@ -110,6 +117,8 @@ class RegistrationService:
         driver = await self.get_driver(driver_id)
         changes = payload.model_dump(exclude_unset=True)
         for field_name, value in changes.items():
+            if field_name in {"employee_code", "phone"} and isinstance(value, str):
+                value = value.strip() or None
             setattr(driver, field_name, value)
         if face_image is not None:
             observation = await self.face_gateway.extract(face_image)
@@ -132,6 +141,10 @@ class RegistrationService:
         driver.status = RecordStatus.INACTIVE
         driver.updated_at = datetime.now(UTC)
         return await self.drivers.update(driver)
+
+    async def delete_driver(self, driver_id: UUID) -> None:
+        if not await self.drivers.delete(driver_id):
+            raise NotFoundError("DRIVER_NOT_FOUND", "Không tìm thấy tài xế")
 
     async def get_vehicle(self, vehicle_id: UUID) -> Vehicle:
         vehicle = await self.vehicles.get(vehicle_id)
@@ -162,8 +175,35 @@ class RegistrationService:
         vehicle.updated_at = datetime.now(UTC)
         return await self.vehicles.update(vehicle)
 
+    async def delete_vehicle(self, vehicle_id: UUID) -> None:
+        if not await self.vehicles.delete(vehicle_id):
+            raise NotFoundError("VEHICLE_NOT_FOUND", "Không tìm thấy phương tiện")
+
     async def list_authorizations(self) -> list[DriverVehicleAuthorization]:
         return await self.authorizations.list_all()
+
+    async def update_authorization(
+        self, authorization_id: UUID, payload: UpdateAuthorizationInput
+    ) -> DriverVehicleAuthorization:
+        auth = await self.authorizations.get(authorization_id)
+        if auth is None:
+            raise NotFoundError("AUTHORIZATION_NOT_FOUND", "Không tìm thấy quan hệ ủy quyền")
+        changes = payload.model_dump(exclude_unset=True)
+        for field_name, value in changes.items():
+            setattr(auth, field_name, value)
+        if auth.valid_until is not None and auth.valid_until <= auth.valid_from:
+            raise SmartGateError(
+                "AUTHORIZATION_WINDOW_INVALID", "valid_until phải lớn hơn valid_from"
+            )
+        if await self.drivers.get(auth.driver_id) is None:
+            raise NotFoundError("DRIVER_NOT_FOUND", "Không tìm thấy tài xế")
+        if await self.vehicles.get(auth.vehicle_id) is None:
+            raise NotFoundError("VEHICLE_NOT_FOUND", "Không tìm thấy phương tiện")
+        return await self.authorizations.update(auth)
+
+    async def delete_authorization(self, authorization_id: UUID) -> None:
+        if not await self.authorizations.delete(authorization_id):
+            raise NotFoundError("AUTHORIZATION_NOT_FOUND", "Không tìm thấy quan hệ ủy quyền")
 
     async def revoke_authorization(self, driver_id: UUID, vehicle_id: UUID) -> None:
         if not await self.authorizations.revoke(driver_id, vehicle_id):

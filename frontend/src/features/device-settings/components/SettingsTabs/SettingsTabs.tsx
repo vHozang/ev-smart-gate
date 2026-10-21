@@ -22,7 +22,7 @@ export function SettingsTabs({ sections, activeId, onSelect }: SettingsTabsProps
     }
   }
   return (
-    <div className="settings-tabs" role="tablist" aria-label="Nhóm cấu hình thiết bị">
+    <div className="settings-tabs" role="tablist" aria-label="Danh mục nhóm cấu hình thiết bị">
       {sections.map((section, index) => (
         <button
           key={section.id}

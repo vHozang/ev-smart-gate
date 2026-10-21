@@ -3,10 +3,10 @@ import { mkdir } from 'node:fs/promises';
 // QA giao diện thật, không intercept/mock response API. Dịch vụ chưa chạy hiển thị lỗi kết nối.
 const widths = [320, 360, 768, 1024, 1440, 1920];
 const pages = [
-  { path: '/console/', title: 'Không gian điều hành', name: 'overview' },
-  { path: '/console/login', title: 'Đăng nhập hệ thống', name: 'login' },
-  { path: '/console/system', title: 'Trạng thái hệ thống', name: 'system' },
-  { path: '/console/settings', title: 'Cấu hình thiết bị', name: 'settings' },
+  { path: '/', title: 'Không gian điều hành', name: 'overview' },
+  { path: '/login', title: 'Đăng nhập hệ thống', name: 'login' },
+  { path: '/system', title: 'Trạng thái hệ thống', name: 'system' },
+  { path: '/settings', title: 'Cấu hình thiết bị', name: 'settings' },
 ];
 for (const width of widths)
   for (const route of pages)
@@ -29,7 +29,7 @@ test('drawer mobile trap/restore focus và shell giữ preference khi điều h�
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 780 });
-  await page.goto('/console/');
+  await page.goto('/');
   const trigger = page.getByRole('button', { name: 'Mở điều hướng' });
   await trigger.click();
   await expect(page.getByRole('dialog', { name: 'Điều hướng', exact: true })).toBeVisible();
@@ -47,7 +47,7 @@ test('drawer mobile trap/restore focus và shell giữ preference khi điều h�
 });
 test('rail desktop giữ sau navigation và reload', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/console/');
+  await page.goto('/');
   await page.getByRole('button', { name: 'Thu gọn thanh điều hướng' }).click();
   await expect(page.getByRole('button', { name: 'Mở rộng thanh điều hướng' })).toHaveAttribute(
     'aria-expanded',
@@ -67,7 +67,7 @@ test('route chưa có API không gọi endpoint dự kiến, reduced motion gi�
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const requested: string[] = [];
   page.on('request', (request) => requested.push(new URL(request.url()).pathname));
-  await page.goto('/console/admin/users');
+  await page.goto('/admin/users');
   await expect(
     page.getByRole('heading', { name: 'Tài khoản người dùng', exact: true }),
   ).toBeVisible();
@@ -75,14 +75,14 @@ test('route chưa có API không gọi endpoint dự kiến, reduced motion gi�
   expect(requested.some((path) => path.startsWith('/api/v1/admin/'))).toBe(false);
 });
 test('deep link và unknown route giữ shell, lỗi không lộ exception', async ({ page }) => {
-  await page.goto('/console/not-a-real-page');
+  await page.goto('/not-a-real-page');
   await expect(page.getByRole('heading', { name: 'Không tìm thấy trang' })).toBeVisible();
   await expect(page.getByRole('banner')).toBeVisible();
 });
 
 test('một theme qua lazy route và reduced motion tắt transition', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/console/');
+  await page.goto('/');
   const readAccent = () =>
     page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim(),
@@ -108,7 +108,7 @@ test('landscape và viewport hiệu dụng tương đương zoom 200%', async ({
     { width: 720, height: 450 },
   ]) {
     await page.setViewportSize(size);
-    await page.goto('/console/system');
+    await page.goto('/system');
     await expect(
       page.getByRole('heading', { name: 'Trạng thái hệ thống', exact: true }),
     ).toBeVisible();
@@ -126,7 +126,7 @@ test('API 404/500 qua proxy không bị SPA trả HTML thành công', async ({ r
 test('cấu hình sáu nhóm: keyboard, modal dùng chung và không gọi API dự kiến', async ({ page }) => {
   const requests: string[] = [];
   page.on('request', (request) => requests.push(new URL(request.url()).pathname));
-  await page.goto('/console/settings?section=models');
+  await page.goto('/settings?section=models');
   await expect(page.getByRole('tab', { name: 'Mô hình nhận diện' })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -154,7 +154,7 @@ test('cấu hình sáu nhóm: keyboard, modal dùng chung và không gọi API d
 test('cấu hình responsive mọi nhóm tại mobile, nội dung không tràn ngang', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/console/settings');
+  await page.goto('/settings');
   for (const name of [
     'Camera',
     'Mô hình nhận diện',
@@ -171,5 +171,87 @@ test('cấu hình responsive mọi nhóm tại mobile, nội dung không tràn n
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+  }
+});
+
+const coreRoutes = [
+  { path: '/gate', heading: 'Chức năng đang được hoàn thiện' },
+  { path: '/pedestrian', heading: 'Chức năng đang được hoàn thiện' },
+  { path: '/dashboard', heading: 'Chức năng đang được hoàn thiện' },
+  { path: '/assistant', heading: 'Chức năng đang được hoàn thiện' },
+  { path: '/admin/users', heading: 'Tài khoản người dùng' },
+  { path: '/admin/roles', heading: 'Vai trò & Phân quyền' },
+  { path: '/admin/audit', heading: 'Nhật ký kiểm toán (Audit Log)' },
+  { path: '/settings', heading: 'Cấu hình thiết bị' },
+];
+
+for (const width of [320, 1440]) {
+  test(`8 core routes giữ landmark main, trạng thái chuẩn và không tràn ngang tại ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: width === 320 ? 780 : 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    for (const route of coreRoutes) {
+      await page.goto(route.path);
+      await expect(page.getByRole('banner')).toBeVisible();
+      await expect(page.getByRole('main')).toBeVisible();
+      await expect(page.getByRole('heading', { name: route.heading, exact: true })).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  });
+}
+
+test('form đăng nhập kiểm tra hợp lệ, gửi bằng bàn phím và giữ bố cục 320px/1440px', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 780 });
+  await page.goto('/login');
+  const usernameInput = page.getByLabel('Tên đăng nhập');
+  const passwordInput = page.getByLabel('Mật khẩu');
+
+  await usernameInput.focus();
+  await page.keyboard.press('Enter');
+
+  await expect(usernameInput).toHaveAttribute('aria-invalid', 'true');
+  await expect(passwordInput).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Tên đăng nhập cần ít nhất 3 ký tự.')).toBeVisible();
+  await expect(page.getByText('Mật khẩu cần ít nhất 8 ký tự.')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await usernameInput.fill('operator01');
+  await passwordInput.fill('password123');
+  await passwordInput.press('Enter');
+
+  await expect(usernameInput).toHaveAttribute('aria-invalid', 'false');
+  await expect(passwordInput).toHaveAttribute('aria-invalid', 'false');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
+
+test('deep-link refresh trên các phân hệ giữ nguyên layout shell và landmark', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const route of [
+    { path: '/gate', heading: 'Chức năng đang được hoàn thiện' },
+    { path: '/pedestrian', heading: 'Chức năng đang được hoàn thiện' },
+    { path: '/admin/roles', heading: 'Vai trò & Phân quyền' },
+    { path: '/admin/audit', heading: 'Nhật ký kiểm toán (Audit Log)' },
+    { path: '/settings?section=barriers', heading: 'Cấu hình thiết bị' },
+  ]) {
+    await page.goto(route.path);
+    await page.reload();
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('main')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: route.heading, exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
   }
 });

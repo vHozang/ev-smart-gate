@@ -1,12 +1,19 @@
 import { forwardRef } from 'react';
 import type { SelectHTMLAttributes } from 'react';
-export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
+export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  invalid?: boolean;
+}
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { className = '', children, ...props },
+  { className = '', children, invalid, 'aria-invalid': ariaInvalid, ...props },
   ref,
 ) {
   return (
-    <select ref={ref} className={`input select ${className}`} {...props}>
+    <select
+      ref={ref}
+      className={`input select ${className}`}
+      aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
+      {...props}
+    >
       {children}
     </select>
   );

@@ -21,6 +21,7 @@ from smart_gate.presentation.routers import (
     gates,
     health,
     master_data,
+    migration_ops,
     operator_admin,
     operator_auth,
     security,
@@ -59,7 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "Idempotency-Key",
             "Last-Event-ID",
         ],
-        expose_headers=["X-Request-ID"],
+        expose_headers=["X-Request-ID", "X-CSRF-Token"],
     )
 
     static_root = Path(__file__).resolve().parent / "presentation" / "static"
@@ -84,7 +85,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         request.state.request_id = request_id
         response = await call_next(request)
-        if request.url.path.startswith(("/api/v2/auth/", "/api/v1/admin/")):
+        if request.url.path.startswith(
+            (
+                "/api/v2/auth/",
+                "/api/v1/admin/",
+                "/api/v1/assistant/",
+                "/api/v1/analytics/",
+                "/api/v1/employees",
+                "/api/v1/access-points",
+                "/api/v1/pedestrian-access-grants",
+                "/api/v1/pedestrian-gates/",
+                "/api/v1/vehicle-types",
+                "/api/v1/person-access-logs",
+                "/api/v2/capture-bundles",
+                "/api/v2/access-events/",
+                "/api/v2/gates/",
+            )
+        ):
             response.headers["Cache-Control"] = "no-store"
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -99,6 +116,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if resolved.operator_auth_enabled:
         app.include_router(operator_auth.router)
         app.include_router(operator_admin.router)
+        app.include_router(security.v2_router)
+        app.include_router(security.v2_ws_router)
+        app.include_router(migration_ops.core_access_router)
+        app.include_router(migration_ops.analytics_router)
+        app.include_router(migration_ops.assistant_router)
+        app.include_router(migration_ops.device_settings_router)
     app.include_router(master_data.router)
     app.include_router(employee_cards.router)
     app.include_router(warehouse.router)

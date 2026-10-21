@@ -7,10 +7,11 @@ export interface ConfirmModalOptions {
   id: string;
   title: string;
   description?: string;
-  message: ReactNode;
+  message?: ReactNode;
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'primary';
+  danger?: boolean;
   size?: 'sm' | 'md';
   onConfirm: () => Promise<void> | void;
   onCancel?: () => void;
@@ -28,10 +29,13 @@ export function openConfirmModal(
     confirmText = 'Xác nhận',
     cancelText = 'Hủy',
     variant = 'danger',
+    danger,
     size = 'sm',
     onConfirm,
     onCancel,
   } = options;
+  const resolvedVariant = danger ? 'danger' : variant;
+  const bodyContent = message ?? description;
 
   let localError: string | null = null;
 
@@ -47,7 +51,7 @@ export function openConfirmModal(
             size={26}
             style={{ color: 'var(--color-warning)', flexShrink: 0, marginTop: '0.125rem' }}
           />
-          <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{message}</div>
+          <div style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{bodyContent}</div>
         </div>
         {localError && (
           <div className="form-error" role="alert">
@@ -87,7 +91,7 @@ export function openConfirmModal(
             {cancelText}
           </Button>
           <Button
-            variant={variant}
+            variant={resolvedVariant}
             pending={context.pending}
             disabled={context.pending || context.submitBlocked}
             onClick={() => void handleConfirm()}

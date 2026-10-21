@@ -26,6 +26,7 @@ export interface ToastInput {
 }
 export interface FeedbackController {
   openModal: (descriptor: ModalDescriptor) => boolean;
+  openAlertModal?: (descriptor: ModalDescriptor) => boolean;
   notify: (toast: ToastInput) => void;
   dismiss: (id: string) => void;
   reset: () => void;

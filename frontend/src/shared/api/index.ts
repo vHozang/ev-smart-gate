@@ -1,7 +1,19 @@
-export { http, clearTransportIdentity, configureCredentials } from './transport';
+export {
+  http,
+  clearTransportIdentity,
+  configureCredentials,
+  setAuthToken,
+  getAuthToken,
+  setTokenRefreshHandler,
+  captureIdentityGuard,
+} from './transport';
 export { ApiError, normalizeError, parsePayload } from './errors';
-export { createQueryClient, queryKeys } from './query';
+export {
+  createQueryClient,
+  queryKeys,
+  invalidateResource,
+  invalidateIdentity,
+  clearSensitiveCache,
+} from './query';
 export type { components, paths } from './generated/runtime';
-
-export { captureIdentityGuard } from './transport';
-export type { ListScreen } from './screen';
+export type { ListScreen, CursorPage } from './screen';

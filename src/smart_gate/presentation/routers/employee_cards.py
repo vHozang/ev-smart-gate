@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import BaseModel, Field
 
 from smart_gate.application.dto import (
     ChangeEmployeeCardStatusInput,
     IssueEmployeeCardInput,
     ReplaceEmployeeCardInput,
+    UpdateEmployeeCardInput,
 )
 from smart_gate.bootstrap.container import Container
 from smart_gate.domain.entities import EmployeeCard, User
-from smart_gate.domain.enums import UserRole
+from smart_gate.domain.enums import CardStatus, UserRole
 from smart_gate.domain.services import mask_card_uid
 from smart_gate.presentation.dependencies import get_container, require_roles
 from smart_gate.presentation.schemas import (
@@ -19,7 +22,14 @@ from smart_gate.presentation.schemas import (
     EmployeeCardReplaceRequest,
     EmployeeCardResponse,
     EmployeeCardStatusRequest,
+    MessageResponse,
 )
+
+
+class EmployeeCardPatchBody(BaseModel):
+    status: CardStatus | None = None
+    status_reason: str | None = Field(None, max_length=500)
+    metadata: dict[str, Any] | None = None
 
 router = APIRouter(prefix="/api/v1", tags=["Quản lý thẻ nhân viên"])
 
@@ -143,3 +153,35 @@ async def replace_employee_card(
         ),
     )
     return _card_response(card)
+
+
+@router.patch(
+    "/employee-cards/{card_id}",
+    response_model=EmployeeCardResponse,
+    include_in_schema=False,
+)
+async def update_employee_card(
+    card_id: UUID,
+    payload: EmployeeCardPatchBody,
+    user: User = Depends(require_roles(UserRole.ADMIN, csrf=True)),
+    container: Container = Depends(get_container),
+) -> EmployeeCardResponse:
+    card = await container.card_management.update_card(
+        card_id,
+        UpdateEmployeeCardInput(**payload.model_dump(exclude_unset=True)),
+    )
+    return _card_response(card)
+
+
+@router.delete(
+    "/employee-cards/{card_id}",
+    response_model=MessageResponse,
+    include_in_schema=False,
+)
+async def delete_employee_card(
+    card_id: UUID,
+    user: User = Depends(require_roles(UserRole.ADMIN, csrf=True)),
+    container: Container = Depends(get_container),
+) -> MessageResponse:
+    await container.card_management.delete_card(card_id)
+    return MessageResponse(message="Đã xóa thẻ nhân viên")

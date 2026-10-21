@@ -10,6 +10,7 @@ export const paths = {
   pedestrian: '/pedestrian',
   users: '/admin/users',
   roles: '/admin/roles',
+  audit: '/admin/audit',
   dashboard: '/dashboard',
   assistant: '/assistant',
 } as const;

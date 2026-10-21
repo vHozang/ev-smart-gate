@@ -570,8 +570,13 @@ class OperatorAdminService:
         async def operation():
             current = await self.auth.current_in_work(actor)
             current.require("users:read")
+            effective_filters = filters
+            if filters.role is not None and filters.role_id is None:
+                matched_role = await self.roles.by_code(filters.role.strip().upper())
+                resolved_role_id = matched_role.id if matched_role is not None else UUID(int=0)
+                effective_filters = replace(filters, role_id=resolved_role_id)
             scope, before = self._page_start(current, "users", asdict(filters), cursor, limit)
-            rows = await self.users.list_users(filters, before, limit + 1)
+            rows = await self.users.list_users(effective_filters, before, limit + 1)
             return self._page(
                 rows, scope, limit, lambda user: PageBoundary(user.created_at, user.id)
             )

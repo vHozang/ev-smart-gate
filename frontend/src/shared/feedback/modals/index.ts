@@ -1,5 +1,5 @@
-export { openNoticeModal } from './NoticeModal';
-export type { NoticeModalOptions } from './NoticeModal';
+export { openNoticeModal, openValidationNoticeModal } from './NoticeModal';
+export type { NoticeModalOptions, ValidationNoticeModalOptions } from './NoticeModal';
 export { openConfirmModal } from './ConfirmModal';
 export type { ConfirmModalOptions } from './ConfirmModal';
 export { openFormModal } from './FormModal';
