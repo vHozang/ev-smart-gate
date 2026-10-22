@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EVN Smart-Gate — Hệ thống Kiểm soát Cổng & An ninh Thông minh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Ambient Liquid Glass & Lighting Layers -->
+  <div class="ambient-glow glow-top"></div>
+  <div class="ambient-glow glow-bottom"></div>
+
+  <!-- Header Section -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <h1 class="brand-title">EVN SMART-GATE</h1>
+          <p class="brand-sub">Tổng Công ty Điện lực • Trung tâm Giám sát Ra/Vào Thông minh</p>
+        </div>
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span class="status-text">CỔNG TRỤ SỞ CHÍNH — HOẠT ĐỘNG TỐT</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs (Clean Pill Design) -->
+      <nav class="nav-container" id="main-nav">
+        <button class="nav-tab active" data-tab="guard-center">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          <span>Trực ban Bảo vệ</span>
+        </button>
+        <button class="nav-tab" data-tab="portal-register">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+          </svg>
+          <span>Đăng ký & Bảo vệ Dữ liệu</span>
+        </button>
+        <button class="nav-tab" data-tab="inspection-zone">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+          <span>Kiểm soát Hàng hóa Lối ra</span>
+        </button>
+        <button class="nav-tab nav-tab-highlight" data-tab="scenario-suite">
+          <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <span>Tình huống Thử nghiệm</span>
+        </button>
+      </nav>
+
+      <!-- Utility Controls -->
+      <div class="header-actions">
+        <div class="legal-badge">
+          <svg class="badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="m9 12 2 2 4-4"></path>
+          </svg>
+          <span>BẢO MẬT THEO LUẬT</span>
+        </div>
+        <button class="audio-btn" id="audio-toggle" title="Bật/Tắt âm thanh hiệu ứng">
+          <svg class="audio-icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span class="audio-text">ÂM THANH</span>
+        </button>
+        <div class="live-clock" id="live-clock">17:00:00</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-layout">
+    
+    <!-- ========================================================================= -->
+    <!-- TAB 1: GUARD COMMAND CENTER                                               -->
+    <!-- ========================================================================= -->
+    <section class="tab-view active" id="pane-guard-center">
+      
+      <!-- Quick Scenario Bar (Bento Header) -->
+      <div class="quick-scenarios-panel">
+        <div class="quick-label">
+          <svg class="quick-star-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+          <span>CHỌN NHANH TÌNH HUỐNG THỬ NGHIỆM:</span>
+        </div>
+        <div class="quick-buttons-row">
+          <button class="scenario-btn active" onclick="window.runDemoScenario(1)">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2"></rect>
+              <circle cx="7" cy="15" r="2"></circle>
+              <circle cx="17" cy="15" r="2"></circle>
+            </svg>
+            <span>1. Xe Ô tô Nhân viên (Tự động mở cổng)</span>
+          </button>
+          <button class="scenario-btn btn-danger" onclick="window.runDemoScenario(2)">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+            </svg>
+            <span>2. Người bị Chặn (Khóa cổng lập tức)</span>
+          </button>
+          <button class="scenario-btn" onclick="window.runDemoScenario(3)">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5" cy="16" r="3"></circle>
+              <circle cx="19" cy="16" r="3"></circle>
+              <path d="M12 16h3l2-5h-4l-2 5z"></path>
+            </svg>
+            <span>3. Làn Xe máy (Quẹt thẻ nhanh 1.2s)</span>
+          </button>
+          <button class="scenario-btn btn-warning" onclick="window.runDemoScenario(4)">
+            <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="3" width="15" height="13"></rect>
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+              <circle cx="5.5" cy="18.5" r="2.5"></circle>
+              <circle cx="18.5" cy="18.5" r="2.5"></circle>
+            </svg>
+            <span>4. Xe tải mang hàng (Lệch phiếu xuất)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bento Grid (Split 60 / 40) -->
+      <div class="bento-main-grid">
+        
+        <!-- CỘT TRÁI: CAMERA & BARRIER (60%) -->
+        <div class="bento-col-left">
+          
+          <!-- Card 1: Camera Feed & AI Recognition -->
+          <div class="bento-card card-camera">
+            <div class="card-top-bar">
+              <div class="camera-meta">
+                <span class="live-pulse"></span>
+                <span class="camera-title" id="current-cam-name">Camera Cổng vào Ô tô</span>
+                <span class="stream-pill">HÌNH ẢNH TRỰC TIẾP</span>
+              </div>
+              <div class="lane-switch-group">
+                <button class="lane-pill active" data-lane="lane-auto" onclick="switchLane('lane-auto')">Làn Ô tô (Vào)</button>
+                <button class="lane-pill" data-lane="lane-moto" onclick="switchLane('lane-moto')">Làn Xe máy (Vào)</button>
+                <button class="lane-pill" data-lane="lane-exit" onclick="switchLane('lane-exit')">Làn Kiểm tra (Ra)</button>
+              </div>
+            </div>
+
+            <!-- Viewport Canvas -->
+            <div class="viewport-box" id="cctv-viewport">
+              <canvas id="camera-canvas" width="640" height="340"></canvas>
+              
+              <!-- Subtle Scanner Wave -->
+              <div class="scanner-wave"></div>
+              
+              <!-- Bounding Box Overlays -->
+              <div class="detection-box plate-box" id="hud-plate-box">
+                <span class="detection-tag" id="hud-plate-tag">Biển số: 51A-123.45 (Chính xác 98%)</span>
+              </div>
+
+              <div class="detection-box face-box" id="hud-face-box">
+                <span class="detection-tag" id="hud-face-tag">Khuôn mặt: Nguyễn Văn An (Khớp 95%)</span>
+              </div>
+
+              <div class="detection-box cargo-box" id="hud-cargo-box" style="display:none;">
+                <span class="detection-tag tag-hazard" id="hud-cargo-tag">Hàng hóa: Cuộn cáp điện 110kV</span>
+              </div>
+
+              <!-- Camera Footer Meta -->
+              <div class="viewport-overlay">
+                <div>Vị trí: Cổng số 1 • <span id="tele-lane">Làn Ô tô vào</span></div>
+                <div>Thời gian: <span id="tele-timestamp">--</span></div>
+              </div>
+            </div>
+
+            <!-- Plate Specs Strip (Clean Table Form) -->
+            <div class="plate-summary-strip">
+              <div class="summary-item">
+                <span class="item-label">CAMERA ĐỌC ĐƯỢC:</span>
+                <strong class="item-value" id="spec-raw-plate">51A-123.45</strong>
+              </div>
+              <div class="summary-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </div>
+              <div class="summary-item">
+                <span class="item-label">TÌM TRONG HỆ THỐNG:</span>
+                <strong class="item-value val-accent" id="spec-norm-plate">51A12345</strong>
+              </div>
+              <div class="summary-item">
+                <span class="item-label">LOẠI PHƯƠNG TIỆN:</span>
+                <span class="item-badge" id="spec-plate-type">Xe Ô tô con</span>
+              </div>
+              <div class="summary-item">
+                <span class="item-label">KẾT QUẢ ĐỐI CHIẾU:</span>
+                <span class="item-status-text" id="spec-ocr-fix">Trùng khớp đăng ký</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Physical Barrier & Safety -->
+          <div class="bento-card card-barrier">
+            <div class="card-top-bar">
+              <div class="section-title">TRẠNG THÁI CẦN BARRIER & CẢM BIẾN AN TOÀN</div>
+              <div class="sensor-pill" id="loop-sensor-badge">
+                <span class="sensor-dot"></span>
+                <span class="sensor-name">CẢM BIẾN XE: AN TOÀN (KHÔNG VƯỚNG)</span>
+              </div>
+            </div>
+
+            <div class="barrier-interactive-stage">
+              <div class="barrier-visual-container">
+                <div class="barrier-pedestal">
+                  <div class="barrier-lamp red" id="barrier-light"></div>
+                </div>
+                <div class="barrier-rod-mount">
+                  <div class="barrier-rod down" id="barrier-arm"></div>
+                </div>
+                <div class="road-grid">
+                  <div class="loop-zone" id="loop-zone">VÙNG CẢM BIẾN AN TOÀN DƯỚI LÒNG ĐƯỜNG</div>
+                </div>
+              </div>
+
+              <div class="barrier-state-details">
+                <div class="detail-group">
+                  <span class="detail-label">TRẠNG THÁI CỔNG:</span>
+                  <div class="gate-status-badge status-closed" id="gate-state-badge">CỔNG ĐANG ĐÓNG</div>
+                </div>
+                <div class="detail-speed">Thời gian mở tự động: <strong id="gate-latency-val">1.8 giây</strong></div>
+                <p class="detail-note">
+                  <svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                  </svg>
+                  <span><strong>Tính năng an toàn:</strong> Cần barrier chỉ hạ xuống khi xe đã qua hẳn vùng cảm biến, tuyệt đối không va chạm vào xe hoặc người.</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CỘT PHẢI: THÔNG TIN NGƯỜI & HỆ THỐNG ĐÁNH GIÁ (40%) -->
+        <div class="bento-col-right">
+          
+          <!-- Card 3: User Identity Profile -->
+          <div class="bento-card card-identity">
+            <div class="card-top-bar">
+              <span class="section-title">THÔNG TIN ĐỐI TƯỢNG QUA CỔNG</span>
+              <span class="badge-role" id="identity-source">NHÂN VIÊN NỘI BỘ</span>
+            </div>
+
+            <div class="profile-layout">
+              <div class="profile-avatar-box">
+                <div class="avatar-frame" id="id-avatar-placeholder">
+                  <svg class="avatar-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="match-score-pill" id="face-similarity-badge">KHỚP: 95.1%</div>
+              </div>
+
+              <div class="profile-info-list">
+                <div class="info-item">
+                  <span class="info-label">Họ và tên:</span>
+                  <strong class="info-val" id="id-name">Nguyễn Văn An</strong>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Đơn vị công tác:</span>
+                  <span class="info-val" id="id-role">Ban Quản lý Dự án Lưới điện</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Biển số đăng ký:</span>
+                  <strong class="info-val val-plate" id="id-reg-plate">51A-123.45</strong>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Lịch làm việc:</span>
+                  <span class="info-val" id="id-schedule">Ca trực ngày (07:00 - 18:00)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 4: 2-Step Decision Engine -->
+          <div class="bento-card card-evaluation">
+            <div class="card-top-bar">
+              <span class="section-title">QUY TRÌNH ĐÁNH GIÁ TỰ ĐỘNG</span>
+              <span class="badge-tag">CHÍNH XÁC & BẢO MẬT</span>
+            </div>
+
+            <!-- Bước 1: Điều kiện tiên quyết -->
+            <div class="eval-step-box step-prerequisite" id="tier-1-container">
+              <div class="step-header">
+                <span class="step-title">BƯỚC 1: KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT</span>
+                <span class="step-status status-pass" id="tier-1-status">HỢP LỆ (KHÔNG VI PHẠM)</span>
+              </div>
+              <div class="step-checklist">
+                <div class="check-item">
+                  <span class="check-name">1. Danh sách cấm/hạn chế:</span>
+                  <span class="check-val val-green" id="val-blacklist">BÌNH THƯỜNG</span>
+                </div>
+                <div class="check-item">
+                  <span class="check-name">2. Giấy ra vào / Lịch trực:</span>
+                  <span class="check-val val-green" id="val-appointment">HỢP LỆ</span>
+                </div>
+                <div class="check-item">
+                  <span class="check-name">3. Thiết bị Camera & Cảm biến:</span>
+                  <span class="check-val val-green" id="val-device">HOẠT ĐỘNG TỐT</span>
+                </div>
+              </div>
+              <div class="hazard-alert-box" id="hard-rule-alert" style="display:none;">
+                <svg class="alert-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>CẢNH BÁO AN NINH: Đối tượng nằm trong danh sách cấm/hạn chế. Hệ thống khóa cổng lập tức!</span>
+              </div>
+            </div>
+
+            <!-- Bước 2: Điểm rủi ro -->
+            <div class="eval-step-box step-scoring" id="tier-2-container">
+              <div class="step-header">
+                <span class="step-title">BƯỚC 2: MỨC ĐỘ RỦI RO ĐÁNH GIÁ</span>
+                <div class="score-display">
+                  <span>ĐIỂM:</span>
+                  <strong class="score-num" id="risk-score-num">0</strong>
+                  <span class="score-max">/ 100</span>
+                </div>
+              </div>
+
+              <!-- Thẻ tiêu chí -->
+              <div class="chips-flex-row" id="score-breakdown-list">
+                <span class="eval-chip chip-ok">Lịch làm việc hợp lệ</span>
+                <span class="eval-chip chip-ok">Biển số trùng khớp</span>
+                <span class="eval-chip chip-ok">Khuôn mặt trùng khớp</span>
+              </div>
+
+              <!-- Thanh thước đo -->
+              <div class="gauge-wrapper">
+                <div class="gauge-track">
+                  <div class="gauge-fill low" id="risk-gauge-fill" style="width: 5%;"></div>
+                </div>
+                <div class="gauge-labels">
+                  <span>0 (An toàn)</span>
+                  <span>30 (Cần chú ý)</span>
+                  <span>60 (Nghi vấn)</span>
+                  <span>80+ (Nguy hiểm)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Kết luận quyết định -->
+            <div class="decision-result-box" id="final-decision-panel">
+              <div class="result-label">KẾT QUẢ XỬ LÝ:</div>
+              <div class="decision-badge badge-allow" id="decision-badge">CHO PHÉP VÀO (TỰ ĐỘNG MỞ CỔNG)</div>
+              <div class="decision-summary-text" id="decision-reason">Lịch hợp lệ, Biển số khớp 98.4%, Khuôn mặt khớp 95.1%. Mức độ rủi ro: An toàn (0 điểm).</div>
+            </div>
+
+            <!-- Nút thao tác của Bảo vệ -->
+            <div class="guard-actions-row">
+              <button class="guard-btn btn-open" id="btn-manual-open" onclick="guardManualAction('OPEN')">
+                <svg class="g-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+                </svg>
+                <span>BẢO VỆ MỞ CỔNG</span>
+              </button>
+              <button class="guard-btn btn-review" id="btn-manual-review" onclick="guardManualAction('REVIEW')">
+                <svg class="g-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span>KIỂM TRA XE</span>
+              </button>
+              <button class="guard-btn btn-block" id="btn-manual-block" onclick="guardManualAction('BLOCK')">
+                <svg class="g-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <span>KHÓA BÁO ĐỘNG</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 5: Live Activity Log -->
+          <div class="bento-card card-log">
+            <div class="card-top-bar bar-compact">
+              <span class="section-title-sm">NHẬT KÝ RA VÀO THỜI GIAN THỰC</span>
+              <span class="log-badge" id="log-count">1 sự kiện</span>
+            </div>
+            <div class="log-terminal-feed" id="audit-terminal">
+              <div class="terminal-row"><span class="t-stamp">17:00:01</span> <span class="t-badge">[HỆ THỐNG]</span> Sẵn sàng ghi nhận lượt xe qua cổng.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: PORTAL & BẢO VỆ DỮ LIỆU CÁ NHÂN                                    -->
+    <!-- ========================================================================= -->
+    <section class="tab-view" id="pane-portal-register">
+      <div class="bento-split-50">
+        
+        <!-- Form đăng ký -->
+        <div class="bento-card">
+          <div class="card-top-bar">
+            <div class="section-title">CỔNG ĐĂNG KÝ THÔNG TIN RA VÀO</div>
+            <div class="pill-selector">
+              <button class="selector-btn active" id="role-employee-btn" onclick="switchPortalRole('EMPLOYEE')">Nhân viên Nội bộ</button>
+              <button class="selector-btn" id="role-guest-btn" onclick="switchPortalRole('GUEST')">Khách / Đối tác</button>
+            </div>
+          </div>
+
+          <form class="clean-form" id="portal-registration-form" onsubmit="handlePortalSubmit(event)">
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label>Họ và tên <span class="req">*</span></label>
+                <input type="text" id="p-fullname" value="Trần Thị Bích Ngọc" required>
+              </div>
+              <div class="form-field">
+                <label>Mã nhân viên / Số CCCD <span class="req">*</span></label>
+                <input type="text" id="p-idcard" value="EVN-2026-908" required>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label>Biển số xe đăng ký <span class="req">*</span></label>
+                <input type="text" id="p-plate" value="51A-987.65" placeholder="VD: 51A-123.45" required>
+              </div>
+              <div class="form-field">
+                <label>Loại phương tiện</label>
+                <select id="p-veh-type">
+                  <option value="CAR">Xe Ô tô con / Bán tải</option>
+                  <option value="MOTORBIKE">Xe máy</option>
+                  <option value="TRUCK">Xe tải chở vật tư</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label>Đơn vị công tác</label>
+                <input type="text" id="p-department" value="Ban Kỹ thuật Viễn thông & CNTT">
+              </div>
+              <div class="form-field">
+                <label>Lý do ra vào</label>
+                <input type="text" id="p-purpose" value="Trực ca & Kiểm tra định kỳ">
+              </div>
+            </div>
+
+            <!-- Chụp ảnh chân dung mẫu -->
+            <div class="form-field">
+              <label>Ảnh chân dung nhận diện khuôn mặt <span class="req">*</span></label>
+              <div class="photo-capture-box">
+                <div class="photo-preview-slot">
+                  <svg class="camera-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span class="preview-caption">ẢNH ĐẠT CHUẨN</span>
+                </div>
+                <div class="photo-rules">
+                  <p class="rule-line">
+                    <svg class="check-mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span>Ảnh chụp rõ khuôn mặt, đủ ánh sáng</span>
+                  </p>
+                  <p class="rule-line">
+                    <svg class="check-mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span>Không đeo kính râm hoặc khẩu trang khi chụp</span>
+                  </p>
+                  <p class="security-caption">
+                    <svg class="lock-mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <span>Dữ liệu khuôn mặt được mã hóa bảo mật tuyệt đối, chỉ phục vụ mở cổng.</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cam kết bảo mật -->
+            <div class="legal-consent-card">
+              <div class="consent-header">
+                <svg class="consent-shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <span>CAM KẾT BẢO VỆ THÔNG TIN CÁ NHÂN THEO QUY ĐỊNH PHÁP LUẬT</span>
+              </div>
+              <p class="consent-body">
+                Tổng Công ty Điện lực cam kết hình ảnh khuôn mặt và biển số xe chỉ được sử dụng cho mục đích duy nhất là kiểm soát an ninh ra vào cổng. Bạn có toàn quyền yêu cầu tra cứu hoặc <strong>Rút lại đồng ý & Yêu cầu xóa sạch dữ liệu khuôn mặt</strong> bất kỳ lúc nào theo quy định của Luật Bảo vệ Dữ liệu Cá nhân.
+              </p>
+              <label class="custom-checkbox-row">
+                <input type="checkbox" id="p-consent-check" checked required>
+                <span>Tôi đã đọc, hiểu rõ quyền lợi và <strong>ĐỒNG Ý</strong> đăng ký nhận diện khuôn mặt qua cổng.</span>
+              </label>
+            </div>
+
+            <button type="submit" class="submit-primary-btn">
+              <span>XÁC NHẬN ĐĂNG KÝ HỒ SƠ</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Quản trị quyền bảo mật & Quyền được xóa -->
+        <div class="bento-card">
+          <div class="card-top-bar">
+            <div class="section-title">QUẢN LÝ QUYỀN BẢO VỆ DỮ LIỆU CÁ NHÂN</div>
+            <span class="badge-legal">TUÂN THỦ PHÁP LUẬT</span>
+          </div>
+
+          <!-- Thông tin phiếu đồng ý -->
+          <div class="active-certificate-box">
+            <div class="cert-title">CHỨNG NHẬN ĐỒNG Ý CUNG CẤP THÔNG TIN:</div>
+            <div class="cert-row">
+              <span class="cert-label">Mã chứng nhận:</span>
+              <code class="cert-code" id="c-id">XN_20260820_00912</code>
+            </div>
+            <div class="cert-row">
+              <span class="cert-label">Người đăng ký:</span>
+              <strong id="c-user">Trần Thị Bích Ngọc</strong>
+            </div>
+            <div class="cert-row">
+              <span class="cert-label">Mục đích:</span>
+              <span>Kiểm soát an ninh ra vào cổng EVN</span>
+            </div>
+            <div class="cert-row">
+              <span class="cert-label">Mã xác thực bảo mật:</span>
+              <code class="cert-code" id="c-hash">EVN-SEC-88a7c2901f44</code>
+            </div>
+            <div class="cert-row">
+              <span class="cert-label">Trạng thái:</span>
+              <span class="cert-status-tag" id="c-status">ĐANG CÓ HIỆU LỰC</span>
+            </div>
+          </div>
+
+          <!-- Quyền được xóa -->
+          <div class="erasure-management-box">
+            <div class="erasure-title">QUYỀN ĐƯỢC XÓA DỮ LIỆU (THEO YÊU CẦU CỦA BẠN):</div>
+            <p class="erasure-text">
+              Nếu bạn không còn làm việc tại đơn vị hoặc không muốn tiếp tục nhận diện khuôn mặt, bạn có thể yêu cầu xóa thông tin ngay lập tức. Hệ thống sẽ xóa sạch ảnh và dữ liệu khuôn mặt trên mọi máy chủ.
+            </p>
+            <button class="btn-revoke" id="btn-revoke" onclick="triggerRightToErasure()">
+              <svg class="trash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>RÚT ĐỒNG Ý & XÓA SẠCH DỮ LIỆU KHUÔN MẶT</span>
+            </button>
+          </div>
+
+          <!-- Tiến trình xóa minh bạch -->
+          <div class="erasure-progress-card" id="deletion-trail-box" style="display:none;">
+            <div class="progress-title">TIẾN TRÌNH XÓA THÔNG TIN MINH BẠCH:</div>
+            <ul class="progress-checklist">
+              <li class="prog-done">
+                <svg class="check-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>1. Tiếp nhận yêu cầu hủy đăng ký từ người dùng</span>
+              </li>
+              <li class="prog-done">
+                <svg class="check-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>2. Xóa vĩnh viễn dữ liệu khuôn mặt trên máy chủ trung tâm</span>
+              </li>
+              <li class="prog-done">
+                <svg class="check-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>3. Đồng bộ lệnh xóa tới toàn bộ camera tại các cổng</span>
+              </li>
+              <li class="prog-done">
+                <svg class="check-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>4. Khóa chức năng tự động nhận diện cho người này</span>
+              </li>
+              <li class="prog-done">
+                <svg class="check-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>5. Phát hành Giấy chứng nhận đã xóa sạch dữ liệu: <code id="del-hash">CHUNG_NHAN_XOA_88FA72</code></span>
+              </li>
+            </ul>
+            <div class="progress-success-pill">
+              ĐÃ XÓA SẠCH DỮ LIỆU KHUÔN MẶT HOÀN TOÀN THEO ĐÚNG QUY ĐỊNH PHÁP LUẬT.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: KIỂM TRA HÀNG HÓA LỐI RA (4-CAMERA)                                -->
+    <!-- ========================================================================= -->
+    <section class="tab-view" id="pane-inspection-zone">
+      <div class="bento-split-55">
+        
+        <!-- Lưới 4 Camera -->
+        <div class="bento-card">
+          <div class="card-top-bar">
+            <div class="section-title">HỆ THỐNG 4 CAMERA SOI CHI TIẾT THÙNG XE (LỐI RA)</div>
+            <span class="badge-stage">KIỂM SOÁT THÙNG XE TỰ ĐỘNG</span>
+          </div>
+
+          <div class="quad-camera-grid">
+            <!-- Cam 1 -->
+            <div class="quad-cam-cell">
+              <div class="cell-label">Camera 1: Biển số & Cabin trước</div>
+              <div class="cell-screen" id="ex-cam-1">
+                <div class="aim-crosshair"></div>
+                <div class="cell-tag">Xe ra cổng: 51D-882.11 (Khớp hồ sơ)</div>
+              </div>
+            </div>
+            <!-- Cam 2 (Hazard) -->
+            <div class="quad-cam-cell cell-hazard">
+              <div class="cell-label">Camera 2: Bên trong Thùng/Cốp xe</div>
+              <div class="cell-screen" id="ex-cam-2">
+                <div class="target-hazard-box" style="top:25%; left:30%; width:45%; height:50%;">
+                  <span class="hazard-tag-text">AI: Cuộn cáp đồng ngầm 110kV</span>
+                </div>
+                <div class="cell-tag tag-alert">CẢNH BÁO: PHÁT HIỆN THIẾT BỊ ĐIỆN LỰC</div>
+              </div>
+            </div>
+            <!-- Cam 3 -->
+            <div class="quad-cam-cell">
+              <div class="cell-label">Camera 3: Bên hông trái xe</div>
+              <div class="cell-screen" id="ex-cam-3">
+                <div class="aim-crosshair"></div>
+                <div class="cell-tag">Góc quan sát: Rõ ràng</div>
+              </div>
+            </div>
+            <!-- Cam 4 -->
+            <div class="quad-cam-cell">
+              <div class="cell-label">Camera 4: Bên hông phải xe</div>
+              <div class="cell-screen" id="ex-cam-4">
+                <div class="aim-crosshair"></div>
+                <div class="cell-tag">Góc quan sát: Rõ ràng</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khung đối chiếu kho -->
+        <div class="bento-card">
+          <div class="card-top-bar">
+            <div class="section-title">ĐỐI CHIẾU DANH MỤC VỚI PHIẾU XUẤT KHO</div>
+            <span class="badge-phase">CHỐNG THẤT THOÁT TÀI SẢN</span>
+          </div>
+
+          <div class="voucher-card-box">
+            <div class="v-prop"><span>Số Phiếu xuất kho:</span> <strong id="v-code">PXK-EVN-2026-08819</strong></div>
+            <div class="v-prop"><span>Xe vận chuyển:</span> <strong id="v-plate">51D-882.11 (Đội vận tải số 2)</strong></div>
+            <div class="v-prop"><span>Kho xuất hàng:</span> <span>Kho Vật tư Thiết bị Miền Đông</span></div>
+          </div>
+
+          <!-- Bảng đối chiếu -->
+          <div class="matching-table-container">
+            <table class="clean-data-table">
+              <thead>
+                <tr>
+                  <th>Vật tư theo Phiếu Xuất</th>
+                  <th>Camera AI phát hiện trên xe</th>
+                  <th>Đối chiếu</th>
+                </tr>
+              </thead>
+              <tbody id="matching-table-body">
+                <tr>
+                  <td>2x Máy biến áp 22kV 100kVA</td>
+                  <td>2x Máy biến áp 22kV</td>
+                  <td><span class="tbl-badge ok">HỢP LỆ</span></td>
+                </tr>
+                <tr class="row-warning">
+                  <td><em>(Không có trong phiếu xuất)</em></td>
+                  <td><strong>1x Cuộn cáp đồng ngầm 110kV</strong></td>
+                  <td><span class="tbl-badge danger">LỆCH PHIẾU</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Kết luận & Thao tác -->
+          <div class="inspection-alert-panel">
+            <div class="alert-headline-row">
+              <div>KẾT QUẢ KIỂM SOÁT: <strong class="text-danger">PHÁT HIỆN BẤT THƯỜNG (RỦI RO CAO)</strong></div>
+              <span class="gate-closed-tag">GIỮ CỔNG ĐÓNG</span>
+            </div>
+            <p class="alert-desc-text">
+              Hệ thống phát hiện trên xe có <strong>Cuộn cáp đồng ngầm 110kV</strong> nhưng không có tên trong Phiếu xuất kho. Bảo vệ bắt buộc kiểm tra thực tế thùng xe trước khi cho phép rời cổng.
+            </p>
+            
+            <div class="inspect-actions-row">
+              <button class="inspect-action-btn btn-inspect-guard" onclick="alert('Đã gửi yêu cầu kiểm tra thực tế tới Bảo vệ trực ca!')">
+                <svg class="btn-svg-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <span>YÊU CẦU BẢO VỆ RA KIỂM TRA XE</span>
+              </button>
+              <button class="inspect-action-btn btn-inspect-allow" onclick="alert('Bảo vệ đã xác nhận ngoại lệ và lưu vết nhật ký thành công.')">
+                <svg class="btn-svg-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <span>BẢO VỆ XÁC NHẬN CHO XE RA</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: TÌNH HUỐNG THỬ NGHIỆM                                              -->
+    <!-- ========================================================================= -->
+    <section class="tab-view" id="pane-scenario-suite">
+      <div class="scenarios-wrapper">
+        <div class="scenarios-intro-banner">
+          <h2>CÁC TÌNH HUỐNG TRÌNH DIỄN MẪU</h2>
+          <p>Nhấp vào bất kỳ nút "CHẠY TÌNH HUỐNG NÀY" để xem hệ thống AI nhận diện và xử lý tự động trong tích tắc.</p>
+        </div>
+
+        <div class="scenarios-asymmetric-grid">
+          
+          <!-- Card 1 -->
+          <div class="scenario-bento-card">
+            <div class="sc-badge sc-badge-ok">TÌNH HUỐNG 1 • LUỒNG VÀO CHUẨN</div>
+            <h3 class="sc-title">Xe Ô tô Nhân viên EVN vào cổng</h3>
+            <p class="sc-desc">Nhân viên đã đăng ký xe và khuôn mặt trước. Khi xe đến cổng, camera đọc biển số và nhận diện khuôn mặt trong 1.8 giây, cần barrier tự động mở cho xe vào nhẹ nhàng.</p>
+            <div class="sc-meta-box">
+              <div><strong>Biển số xe:</strong> 51A-123.45</div>
+              <div><strong>Họ tên:</strong> Nguyễn Văn An (Ban QLDA)</div>
+              <div><strong>Thời gian mở cổng:</strong> 1.8 giây</div>
+              <div><strong>Kết quả:</strong> Tự động mở cổng (Không cần bấm nút)</div>
+            </div>
+            <button class="sc-run-btn" onclick="window.runDemoScenario(1)">
+              <svg class="play-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>CHẠY TÌNH HUỐNG NÀY</span>
+            </button>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="scenario-bento-card card-border-danger">
+            <div class="sc-badge sc-badge-danger">TÌNH HUỐNG 2 • AN NINH NGHIÊM NGẶT</div>
+            <h3 class="sc-title">Đối tượng trong danh sách cấm/chặn</h3>
+            <p class="sc-desc">Đối tượng có tiền sử vi phạm dù có nhờ đăng ký lịch hẹn vẫn bị hệ thống phát hiện ngay ở Bước 1. Hệ thống khóa chặt cổng và phát còi cảnh báo cho bảo vệ can thiệp.</p>
+            <div class="sc-meta-box">
+              <div><strong>Đối tượng:</strong> Lê Văn Trọng (Danh sách chặn)</div>
+              <div><strong>Kiểm tra tiên quyết:</strong> PHÁT HIỆN VI PHẠM</div>
+              <div><strong>Trạng thái Barrier:</strong> KHÓA CHẶT TUYỆT ĐỐI</div>
+              <div><strong>Hành động:</strong> Báo động cho trực ban</div>
+            </div>
+            <button class="sc-run-btn btn-sc-danger" onclick="window.runDemoScenario(2)">
+              <svg class="play-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>CHẠY TÌNH HUỐNG NÀY</span>
+            </button>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="scenario-bento-card">
+            <div class="sc-badge sc-badge-cyan">TÌNH HUỐNG 3 • GIẢI TỎA CAO ĐIỂM</div>
+            <h3 class="sc-title">Làn Xe máy (Đọc biển sau + Quẹt thẻ)</h3>
+            <p class="sc-desc">Giải quyết bài toán người đi xe máy đội mũ bảo hiểm và biển số ở phía sau. Camera đọc biển sau kết hợp quẹt thẻ nhân viên chỉ mất 1.2 giây/xe, hoàn toàn không gây ùn tắc giờ tan ca.</p>
+            <div class="sc-meta-box">
+              <div><strong>Biển số sau:</strong> 59-F1 2345</div>
+              <div><strong>Cách xác thực:</strong> Quẹt thẻ nhân viên + Đọc biển sau</div>
+              <div><strong>Thời gian xử lý:</strong> 1.2 giây/xe</div>
+              <div><strong>Hiệu quả:</strong> Giải tỏa nhanh, không ùn tắc</div>
+            </div>
+            <button class="sc-run-btn" onclick="window.runDemoScenario(3)">
+              <svg class="play-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>CHẠY TÌNH HUỐNG NÀY</span>
+            </button>
+          </div>
+
+          <!-- Card 4 -->
+          <div class="scenario-bento-card card-border-warning">
+            <div class="sc-badge sc-badge-warning">TÌNH HUỐNG 4 • CHỐNG THẤT THOÁT TÀI SẢN</div>
+            <h3 class="sc-title">Xe tải ra cổng chở hàng lệch phiếu xuất</h3>
+            <p class="sc-desc">Xe tải chở hàng ra cổng được 4 camera soi chi tiết thùng xe. AI phát hiện cuộn cáp đồng không có trong phiếu xuất kho, tự động giữ cổng đóng và báo bảo vệ kiểm tra.</p>
+            <div class="sc-meta-box">
+              <div><strong>Biển số xe tải:</strong> 51D-882.11</div>
+              <div><strong>Hàng hóa phát hiện:</strong> Cuộn cáp đồng ngầm 110kV</div>
+              <div><strong>Đối chiếu phiếu:</strong> KHÔNG CÓ TRONG PHIẾU</div>
+              <div><strong>Kết quả:</strong> Giữ cổng đóng, yêu cầu kiểm tra</div>
+            </div>
+            <button class="sc-run-btn btn-sc-warning" onclick="window.runDemoScenario(4)">
+              <svg class="play-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>CHẠY TÌNH HUỐNG NÀY</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Script điều khiển -->
+  <script src="demo-scenarios.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

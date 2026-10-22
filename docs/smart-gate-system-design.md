@@ -95,6 +95,9 @@ flowchart LR
    - Khuôn mặt trực tiếp khớp `1:1` với chủ thẻ (`face_similarity >= 0.75` và đạt `liveness`).
    - Quyền đi bộ vật lý (`PedestrianAccessGrant`) đang `ACTIVE` cho đúng `access_point_id`, `direction` (`ENTRY`/`EXIT`) và khoảng hiệu lực `[valid_from, valid_until)` (được kiểm tra lại ngay trước bước phát lệnh mở cửa để chống race condition thu hồi quyền).
 
+> `VehiclePassed` yêu cầu tín hiệu từ loop detector / sensor vật lý xác nhận xe đã rời vùng barrier.
+> Không có sự kiện này → rủi ro tailgating (2 xe qua 1 lần mở) và barrier hạ khi xe còn trong vùng (`R-10`).
+
 ---
 
 ### 2.3. Luồng Thống kê Hoạt động (`Operational Analytics`) & Trợ lý AI Báo cáo Nhanh (`Self-Hosted AI Assistant`)
@@ -148,6 +151,55 @@ sequenceDiagram
 - Mỗi lần chụp tại dock lưu ảnh mã hóa `AES-256-GCM` cùng lịch sử quan sát của `Cargo Vision Adapter` (`EMPTY`, `PARTIAL`, `FULL`, `ANOMALY`).
 - Khi phát hiện `ANOMALY`, đơn hàng bị giữ lại để review; chỉ khi nhân viên `WAREHOUSE` xác nhận `finalize LOADED` mới chuyển đơn sang `READY_FOR_EXIT`.
 - Phiếu xuất kho (`Exit Slip`) được ký bằng `Compact JWS Ed25519` (`order_id`, `vehicle_id`, `driver_id`, `slip_version`, `jti`, `iat`, `exp`, `kid`), lưu băm `HMAC-SHA256` trong DB và lưu bản QR/HTML/PDF mã hóa trong MinIO. Cấp lại phiếu (`reissue`) tăng `slip_version + 1` và làm mất hiệu lực các mã cũ.
+
+### ADR-014 — Degraded Mode: Edge tự chủ khi mất WAN
+
+**Status:** `PROPOSED` — cần khách ký xác nhận.
+
+"Central down → Site Manual Safe Mode" hiện tại nghĩa là mất mạng WAN thì cổng chuyển
+hoàn toàn thủ công. Với site điện lực, mất mạng có thể xảy ra thường xuyên.
+
+**Các vấn đề cần thiết kế:**
+
+| Vấn đề | Giải pháp đề xuất |
+|---|---|
+| Edge buffer sự kiện khi mất WAN? | Có — persistent queue tại Edge (SQLite / embedded queue) |
+| Replay khi reconnect? | Thứ tự FIFO, idempotency key ngăn duplicate |
+| Edge giữ whitelist cache? | Có — cho phép vận hành tự chủ hạn chế (chỉ ALLOW xe trong whitelist) |
+| Whitelist cache TTL? | TBD — cần khách chốt (vài giờ? 1 ngày? vô thời hạn?) |
+| Làm sao biết Edge đang offline? | Heartbeat + UI indicator trên Guard Dashboard |
+
+> Đây phải là một ADR riêng có khách ký, vì nó quyết định trải nghiệm vận hành hằng ngày
+> chứ không phải tình huống hiếm.
+
+### ADR-015 — Face Gallery Architecture: 1:N Recognition vs 1:1 Verification
+
+**Status:** `PROPOSED` — lỗ hổng thiết kế lớn nhất về kiến trúc, cần chốt.
+
+**Vấn đề:** Event contract (§8.3) có `face_candidate_id` do Edge trả về → tức Edge
+đã làm nhận dạng 1:N trên một gallery. Nhưng `FaceVerificationGateway.verify(image_ref,
+candidate_person_id)` là 1:1 do Backend gọi. Trong khi `project-structure.md` khẳng định
+"Edge không truy cập database trung tâm".
+
+**Vậy gallery khuôn mặt nằm ở đâu?**
+
+| Phương án | Ưu điểm | Nhược điểm |
+|---|---|---|
+| A: Gallery tại Central, Edge chỉ detect face → gửi crop về Backend verify 1:1 | Dữ liệu tập trung, dễ xóa | Latency cao hơn, phụ thuộc network |
+| B: Sync embedding xuống Edge, Edge match 1:N | Nhanh, hoạt động offline | Nhân bản dữ liệu sinh trắc học ra thiết bị cổng |
+| C: Hybrid — Edge detect + top-K candidates, Backend verify final | Cân bằng | Phức tạp nhất |
+
+**Nếu chọn B hoặc C, bắt buộc phải bổ sung:**
+
+1. Cơ chế đồng bộ gallery (push từ Central → Edge, có version).
+2. Mã hóa embedding tại Edge (at-rest + in-memory).
+3. **Lan truyền lệnh xóa**: chủ thể dữ liệu rút đồng ý → phải xóa trên mọi Edge,
+   có bằng chứng đã xóa (Luật 91/2025/QH15, điều 31).
+4. Thiết kế "embedding_ref lưu Object Storage, không lưu vector trong DB" hiện tại
+   trở nên không nhất quán nếu embedding có trên Edge.
+
+> Quyết định này ảnh hưởng trực tiếp đến ADR-014 (Edge cần gallery để vận hành offline),
+> đến rủi ro pháp lý R-07, và đến chi phí triển khai. Cần chốt trước M1.
 
 ---
 
