@@ -1,427 +1,82 @@
-# Smart Gate & Vehicle Security — Project Structure & Architecture
+# Cấu trúc Dự án & Quy tắc Phụ thuộc (Clean Architecture + React SPA)
 
-Tài liệu mô tả cấu trúc backend theo **Clean Architecture + DDD**, tập trung cho domain Smart Gate, AI Vision, Camera, IoT, Access Control và Vehicle Security.
-
-> **Ràng buộc kiến trúc bắt buộc từ BRD §9 (Out of Scope):**
-> Camera, Server và thiết bị IoT **do khách hàng tự đầu tư**, chưa biết vendor và model cụ thể.
-> Do đó `CameraGateway` và `GateControllerGateway` **không phải** là lựa chọn thiết kế "cho đẹp"
-> mà là yêu cầu bắt buộc — xem `ADR-006`. Mọi code chạm trực tiếp vendor SDK ngoài
-> `infrastructure/` đều là vi phạm scope hợp đồng.
-
-> Trạng thái yêu cầu (`CONFIRMED` / `PROPOSED` / `DESIGN-ADDED`) của từng use case:
-> xem `requirements-traceability.md`. **Chỉ ưu tiên implement các use case `CONFIRMED`.**
+| Thuộc tính | Giá trị |
+| --- | --- |
+| **Mã tài liệu** | `EVSG-STRUCT-2026-V2` |
+| **Phiên bản** | `2.0` — Bao phủ cả Backend (`src/smart_gate/`) và React Frontend (`frontend/`) |
+| **Tài liệu liên kết** | [BRD chuẩn AI](BRD.md) · [Thiết kế hệ thống](smart-gate-system-design.md) · [Kiến trúc Frontend](frontend-architecture.md) · [Hướng dẫn phát triển](development.md) |
 
 ---
 
-## High-Level Architecture
+## 1. Sơ đồ Cây Thư mục Tổng thể
 
 ```text
-Presentation Layer
-       │
-       ▼
-Application Layer
-       │
-       ▼
-Domain Layer
-       ▲
-       │
-Infrastructure Layer
-```
-
-### Dependency Rules
-
-1. `domain/` không import FastAPI, SQLAlchemy, Redis, OpenCV, ONNX, TensorRT, Pydantic `BaseModel` hoặc vendor SDK.
-2. `application/` chỉ orchestrate use case và phụ thuộc Domain ports/entities/services.
-3. `infrastructure/` implement repository/gateway Protocol.
-4. `presentation/` chỉ validate → map → call use case → response.
-5. `bootstrap/` là Composition Root.
-
----
-
-## Directory Layout
-
-```text
-smart-gate/
-├── app/
-│   ├── domain/
-│   │   ├── entities/
-│   │   │   ├── user.py
-│   │   │   ├── vehicle.py
-│   │   │   ├── appointment.py
-│   │   │   ├── access_event.py
-│   │   │   ├── inspection_session.py
-│   │   │   ├── security_alert.py
-│   │   │   ├── asset.py
-│   │   │   ├── evidence.py
-│   │   │   └── export_voucher.py
-│   │   ├── value_objects/
-│   │   │   ├── license_plate.py
-│   │   │   ├── confidence_score.py
-│   │   │   ├── risk_score.py
-│   │   │   ├── time_window.py
-│   │   │   ├── access_decision.py
-│   │   │   └── direction.py
-│   │   ├── services/
-│   │   │   ├── access_policy_service.py
-│   │   │   ├── risk_assessment_service.py
-│   │   │   ├── inspection_policy_service.py
-│   │   │   └── export_voucher_matching_service.py
-│   │   ├── repositories/
-│   │   │   ├── appointment_repository.py
-│   │   │   ├── vehicle_repository.py
-│   │   │   ├── access_event_repository.py
-│   │   │   ├── inspection_repository.py
-│   │   │   ├── alert_repository.py
-│   │   │   └── unit_of_work.py
-│   │   ├── gateways/
-│   │   │   ├── cache_gateway.py
-│   │   │   ├── lpr_gateway.py
-│   │   │   ├── face_verification_gateway.py
-│   │   │   ├── object_detection_gateway.py
-│   │   │   ├── camera_gateway.py
-│   │   │   ├── gate_controller_gateway.py
-│   │   │   ├── notification_gateway.py
-│   │   │   ├── evidence_storage_gateway.py
-│   │   │   ├── inventory_gateway.py
-│   │   │   └── event_bus_gateway.py
-│   │   └── exceptions/
-│   │
-│   ├── application/
-│   │   ├── dto/
-│   │   ├── use_cases/
-│   │   │   ├── register_visitor.py            # FR01
-│   │   │   ├── register_vehicle.py            # FR01
-│   │   │   ├── approve_appointment.py         # DA-01
-│   │   │   ├── process_entry_observation.py   # FR02 + FR03  [CONFIRMED]
-│   │   │   ├── review_access_decision.py      # FR03         [CONFIRMED]
-│   │   │   ├── notify_host.py                 # FR04
-│   │   │   ├── process_exit_observation.py    # FR05
-│   │   │   ├── start_exit_inspection.py       # FR05
-│   │   │   ├── evaluate_inspection.py         # FR05
-│   │   │   ├── review_security_alert.py       # FR05
-│   │   │   ├── manual_gate_override.py        # DA-07
-│   │   │   └── sync_export_voucher.py         # FR06  (Phase 2)
-│   │   ├── interfaces/
-│   │   └── mappers/
-│   │
-│   ├── infrastructure/
-│   │   ├── database/
-│   │   │   ├── models/
-│   │   │   ├── session.py
-│   │   │   ├── unit_of_work.py
-│   │   │   └── migrations/
-│   │   ├── repositories/
-│   │   ├── cache/
-│   │   ├── vision/
-│   │   │   ├── lpr/
-│   │   │   ├── face/
-│   │   │   ├── object_detection/
-│   │   │   └── model_registry.py
-│   │   ├── camera/
-│   │   ├── iot/
-│   │   ├── messaging/
-│   │   ├── storage/
-│   │   ├── notification/
-│   │   └── external_api/
-│   │       ├── inventory_client.py
-│   │       └── hr_client.py
-│   │
-│   ├── presentation/
-│   │   ├── api/
-│   │   │   ├── schemas/
-│   │   │   └── routers/
-│   │   ├── realtime/
-│   │   ├── middleware/
-│   │   └── exception_handlers.py
-│   │
-│   ├── bootstrap/
-│   │   ├── providers.py
-│   │   ├── container.py
-│   │   └── startup.py
-│   │
-│   ├── config/
-│   └── shared/
-│
-├── edge_agent/
-│   ├── pipeline/
-│   ├── runtime/
-│   ├── transport/
-│   └── main.py
-│
-├── simulators/
-│   ├── camera_event_simulator.py
-│   ├── gate_controller_simulator.py
-│   └── inventory_api_simulator.py
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── contract/
-│
-├── .env.example
-├── alembic.ini
-├── docker-compose.yml
-├── justfile
-├── pyproject.toml
-└── README.md
+ev-smart-gate/
+├── src/
+│   ├── smart_gate/                  # Backend FastAPI theo Clean Architecture
+│   │   ├── domain/                  # Entities, Value Objects, Enums, Domain Services, Exceptions, Protocol Ports
+│   │   ├── application/             # Use Cases, Policy Orchestration, Grounding Validators, Application DTOs
+│   │   ├── infrastructure/          # Adapters hiện thực Protocol Ports của Domain
+│   │   │   ├── database/            # Beanie Documents, MongoDB Repositories, MongoUnitOfWork, Migrations
+│   │   │   ├── devices/             # Barrier HTTP Adapter / Simulator, Capture Gateway Validator
+│   │   │   ├── realtime/            # WebSocket Hub fan-out, Sequence Counter & AlertDelta Outbox
+│   │   │   ├── security/            # AES-256-GCM (Evidence/Embedding), Argon2 (Password), HMAC-SHA256
+│   │   │   ├── signing/             # Compact JWS Ed25519 (Exit Slip & Operator Auth Keys), QR/HTML/PDF
+│   │   │   ├── storage/             # MinIO Private Bucket Adapter
+│   │   │   └── vision/              # YuNet/SFace (Face 1:1), FastALPR/PaddleOCR (Plate), YOLOX (Cargo), PyZbar
+│   │   ├── presentation/            # FastAPI Routers, Pydantic v2 Schemas, Auth/RBAC Dependencies, Error Handlers
+│   │   │   ├── contracts/           # Target Migration DTO Contracts (M0)
+│   │   │   └── static/              # Legacy Vanilla JS SPA (Giữ phục vụ rollback có thời hạn trong cửa sổ chuyển đổi)
+│   │   ├── bootstrap/               # Composition Root (Dependency Injection) & FastAPI Lifespan
+│   │   └── main.py                  # FastAPI App Entrypoint
+│   └── edge_agent/                  # Edge Snapshot/RTSP Collector, RFID Reader Integration & Retry Client
+├── frontend/                        # React 19 + TypeScript Strict + Vite SPA (Độc lập với package gốc)
+│   ├── src/
+│   │   ├── app/                     # App Providers, Redux Store, QueryClient, Router, Stylesheet Entry
+│   │   ├── layouts/                 # AppShell, AuthLayout, ListPageLayout, DetailPageLayout, WorkspaceLayout
+│   │   ├── pages/                   # 13 Route Pages (Lazy-loaded qua named exports & routeRegistry)
+│   │   ├── widgets/                 # Khối giao diện ghép nối lớn (Sidebar, Topbar, AlertsPanel, VerificationCard...)
+│   │   ├── features/                # Nghiệp vụ theo từng miền (auth, users, roles, audit, drivers, vehicles, gate, pedestrian, analytics, assistant, device-settings)
+│   │   └── shared/                  # Design System Primitives, DataTable, EvidenceViewer, ModalHost, ToastHost, Axios Transport, Generated API Types & Zod Schemas
+│   ├── scripts/                     # Kiểm tra ranh giới kiến trúc (check-boundaries.mjs) & đồng bộ OpenAPI
+│   └── tests/                       # Unit/Component Tests (Vitest) & Responsive/A11Y Browser Tests (Playwright)
+├── simulators/                      # Camera Simulator & Barrier Simulator phục vụ phát triển/kiểm thử cô lập
+├── models/                          # Model Manifest, SHA-256 Checksum, License & Downloader
+├── tests/                           # Backend Unit, Contract, Integration & E2E Tests (Pytest)
+├── docs/                            # Bộ tài liệu chuẩn BA Thời AI (BRD, HLD, ERD, RTM, Contracts, Diagrams)
+├── openspec/                        # Quản lý đặc tả và thay đổi theo Schema intent-driven
+├── Dockerfile
+└── docker-compose.yml
 ```
 
 ---
 
-## Implementation Priority
-
-Thứ tự implement bám theo **trạng thái yêu cầu**, không bám theo độ dễ kỹ thuật.
-Lý do: 4/6 module trong BRD vẫn là `PROPOSED` (`R-04`) — code viết cho phần chưa chốt
-có nguy cơ bị vứt bỏ.
-
-| Ưu tiên | Use case | FR | Vì sao |
-|---|---|---|---|
-| **P0** | `process_entry_observation` | FR02 + FR03 | Module duy nhất khách đã `CONFIRMED` |
-| **P0** | `review_access_decision` | FR03 | Đi kèm FR03, khách đã `CONFIRMED` |
-| P1 | `register_visitor`, `register_vehicle`, `approve_appointment` | FR01 | High priority nhưng `PROPOSED` |
-| P1 | `notify_host` | FR04 | Medium priority |
-| P2 | `start_exit_inspection`, `evaluate_inspection`, `review_security_alert` | FR05 | High priority nhưng rủi ro kỹ thuật `R-01` cao nhất — chờ M3 Dataset Benchmark |
-| P3 | `sync_export_voucher` | FR06 | Low priority, Phase 2, chưa có API contract |
-| — | Vehicle Tracking | FR07 | **Không implement** — chờ `OQ-05` |
-
-> Không tạo file rỗng/stub cho FR07. Việc để sẵn thư mục cho một yêu cầu chưa được
-> xác nhận sẽ tạo ảo giác là hạng mục đó đã nằm trong scope.
-
----
-
-## Entities vs DTOs vs Schemas vs ORM Models
-
-### Domain Entity
-
-```python
-@dataclass
-class Appointment:
-    id: AppointmentId
-    visitor_id: UserId
-    vehicle_id: VehicleId
-    host_id: UserId
-    time_window: TimeWindow
-    status: AppointmentStatus
-```
-
-### Application DTO
-
-```python
-class ProcessEntryDTO(BaseModel):
-    event_id: str
-    site_id: str
-    gate_id: str
-    plate: str
-    plate_confidence: float
-    face_candidate_id: str | None
-    face_similarity: float | None
-```
-
-### API Schema
-
-```python
-class EdgeVehicleObservationRequest(BaseModel):
-    event_id: UUID
-    observed_at: datetime
-    vehicle: VehicleObservationSchema
-    person: PersonObservationSchema | None = None
-```
-
-### ORM Model
-
-ORM models chỉ tồn tại trong `infrastructure/database/models/`.
-
----
-
-## Aggregate Boundaries
-
-Đề xuất:
-
-- `Appointment`
-- `AccessEvent`
-- `InspectionSession`
-- `SecurityAlert`
-- `ExportVoucher`
-
-Không dùng một aggregate khổng lồ cho toàn bộ hệ thống.
-
----
-
-## Dependency Injection
-
-### Scope.APP
-
-- Settings.
-- Logger.
-- Redis Pool.
-- HTTP Client.
-- Object Storage Client.
-- Event Bus.
-- AI Model Registry.
-- Camera/Gate Client Factory.
-
-### Scope.REQUEST
-
-- AsyncSession.
-- UnitOfWork.
-- Repository implementations.
-- UseCases.
-
----
-
-## Protocol vs ABC
-
-Dùng `typing.Protocol` cho:
-
-- Repositories.
-- UnitOfWork.
-- LPRGateway.
-- FaceVerificationGateway.
-- ObjectDetectionGateway.
-- CameraGateway.
-- GateControllerGateway.
-- InventoryGateway.
-- EvidenceStorageGateway.
-
-Dùng `ABC` khi có shared behavior thực sự, ví dụ:
-
-- `BaseVisionGateway`.
-- `BaseDeviceAdapter`.
-- `BaseEventConsumer`.
-
----
-
-## Repository + Unit of Work
-
-```python
-class ProcessEntryObservationUseCase:
-    def __init__(
-        self,
-        uow: UnitOfWork,
-        access_policy: AccessPolicyService,
-        risk_service: RiskAssessmentService,
-        gate: GateControllerGateway,
-    ) -> None:
-        ...
-```
-
-UseCase không nhận `AsyncSession`.
-
----
-
-## AI Vision as Ports
-
-```text
-LPRGateway
-    ▲
-    │
-    ├── LocalONNXLPR
-    ├── VendorCameraLPR
-    └── ExternalLPRService
-```
-
-Domain không biết OpenCV/ONNX/TensorRT.
-
----
-
-## Gate Adapter Pattern
-
-```text
-GateControllerGateway
-        ▲
-   ┌────┼─────┐
-   │    │     │
- HTTP MQTT  Modbus
-```
-
----
-
-## Event-driven Boundary
-
-Edge gửi:
-
-```text
-Observation Event
-```
-
-Backend tạo:
-
-```text
-Access Decision
-Security Alert
-Gate Command
-Audit Event
-```
-
-Edge không truy cập database trung tâm.
-
----
-
-## Idempotency
-
-Unique identifiers:
-
-```text
-event_id
-gate_command_id
-inspection_id
-```
-
-Camera reconnect không được làm mở cổng nhiều lần.
-
----
-
-## Auditability
-
-Audit log phải lưu:
-
-```text
-actor_type
-actor_id
-action
-resource_type
-resource_id
-reason
-before
-after
-occurred_at
-correlation_id
-```
-
-AI decision phải lưu `model_version` và `threshold_version`.
-
----
-
-## Test Strategy
-
-### Unit
-
-- AccessPolicyService.
-- RiskAssessmentService.
-- Voucher Matching.
-- Access UseCases.
-- Inspection UseCases.
-
-### Integration
-
-- PostgreSQL.
-- Redis.
-- Object Storage.
-- API.
-- Message Broker.
-
-### Contract
-
-- Edge Event JSON.
-- Gate Command.
-- Inventory API.
-- Evidence Metadata.
-
-### Hardware-in-the-loop
-
-- RTSP camera.
-- Day/Night.
-- Motion Blur.
-- Occlusion.
-- Barrier command.
-- Network interruption.
+## 2. Quy tắc Phụ thuộc Bắt buộc (`Dependency Rules`)
+
+### 2.1. Backend (`src/smart_gate/` — Clean Architecture)
+1. **Chiều phụ thuộc duy nhất**: `Presentation -> Application -> Domain <- Infrastructure`.
+2. **`Domain` (`src/smart_gate/domain/`)**:
+   - Thuần Python (`>= 3.11`); **tuyệt đối không** import FastAPI, Pydantic `BaseModel`, Beanie, PyMongo, MinIO, OpenCV hay bất kỳ thư viện I/O nào.
+   - Định nghĩa các `Protocol` ports cho Repositories, `UnitOfWork`, `VisionAdapters`, `BarrierAdapter`, `SlipSigner`, `ModelGateway`, `TokenService`.
+3. **`Application` (`src/smart_gate/application/`)**:
+   - Chỉ phụ thuộc vào `Domain` và các DTO dữ liệu đầu vào/đầu ra.
+   - Chứa toàn bộ luồng điều phối nghiệp vụ (`Use Cases`), `Policy Engine`, kiểm chứng số liệu (`Grounding Validator`) và quyết định `permit_granted`.
+4. **`Infrastructure` (`src/smart_gate/infrastructure/`)**:
+   - Hiện thực các `Protocol` ports của `Domain`.
+   - **Adapters AI (`vision/`, `ModelGateway`) chỉ trả về kết quả quan sát (`Observation`) hoặc bản nháp văn bản**, tuyệt đối không tự gọi `BarrierAdapter` hoặc tự cập nhật trạng thái đơn hàng/quyền hạn trong DB.
+5. **`Presentation` (`src/smart_gate/presentation/`)**:
+   - Chuyển đổi HTTP/WebSocket/SSE transport thành Application DTO, kiểm tra xác thực/quyền truy cập (`Auth/RBAC Dependencies`) và gọi Use Case; không chứa quy tắc nghiệp vụ.
+6. **`Bootstrap` (`src/smart_gate/bootstrap/`)**:
+   - Là nơi duy nhất khởi tạo và tiêm (`inject`) các adapter cụ thể vào Use Case.
+
+### 2.2. Frontend (`frontend/` — Feature-Sliced Composition)
+1. **Chiều phụ thuộc bắt buộc** (được kiểm tra tự động bằng `node scripts/check-boundaries.mjs`):
+   - `app -> layouts / pages -> widgets -> features -> shared`.
+   - Tuyệt đối không có phụ thuộc vòng (`circular dependencies`) và không import ngược từ tầng dưới lên tầng trên (ví dụ: `shared` không được import từ `features`, `features` không được import từ `pages`).
+2. **Phân tách Quyền sở hữu Trạng thái (`State Ownership`)**:
+   - **`TanStack Query`**: Là bộ nhớ đệm trạng thái máy chủ (`Server State`) duy nhất, được phân vùng theo `principal` và `authz_version`.
+   - **`Redux Toolkit`**: Chỉ lưu trạng thái giao diện tuần tự hóa được (`Client State`: đóng/mở sidebar, tùy chọn hiển thị không nhạy cảm, vòng đời xác thực); không lưu `Blob`, `AbortController`, callback, danh sách dữ liệu máy chủ hoặc secret/token dài hạn.
+   - **RAM-Only Auth State**: `Access JWT` và `card_uid` vừa nhập chỉ giữ tạm thời trong bộ nhớ RAM, không bao giờ ghi xuống `localStorage` hay `sessionStorage`.
+3. **Quy ước Import / Export & Styling**:
+   - Mỗi thư mục component/layout/page có `index.ts` dùng `named exports` và `export type`; từng page được `lazy-import` trực tiếp trong `routeRegistry`.
+   - Dùng một stylesheet entry với semantic CSS tokens dùng chung; Tailwind chỉ dùng để bố cục riêng trên cùng hệ thống biến tokens, không hardcode mã màu hex tùy tiện.

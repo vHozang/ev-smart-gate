@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "sequence",
+  "quality": "showcase",
+  "specification": {
+    "path": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.json",
+    "sha256": "9998690bfbf7125a514e1585309fa2581e431ccef4ceaa4a9b8f699cf19ac244",
+    "bytes": 5031
+  },
+  "artifact": {
+    "path": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.html",
+    "sha256": "c15c5aaa9a66e9abe7f14a54b0bf3418c236674a1ed51b9a6b4e0b1a4494dff4",
+    "bytes": 823084
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.finalize.json",
+    "summaryReceipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.finalize-summary.json",
+    "browserCheckReceipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-20T04:47:11.903Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 2690,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "c770abb0-8f99-49c1-9e09-bbf6b4e3362e",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.json",
+  "output": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-verification-auth.html",
+  "specification": {
+    "sha256": "9998690bfbf7125a514e1585309fa2581e431ccef4ceaa4a9b8f699cf19ac244",
+    "bytes": 5031
+  },
+  "artifact": {
+    "sha256": "c15c5aaa9a66e9abe7f14a54b0bf3418c236674a1ed51b9a6b4e0b1a4494dff4",
+    "bytes": 823084
+  }
+}

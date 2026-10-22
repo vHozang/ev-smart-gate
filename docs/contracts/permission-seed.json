@@ -1,0 +1,1027 @@
+{
+  "schema_version": "1.0.0",
+  "status": "review-required-not-applied",
+  "legacy_permissions": [
+    "alerts:read",
+    "alerts:update",
+    "dock:capture",
+    "dock:finalize",
+    "dock:read",
+    "dock:start",
+    "driver-vehicle-authorizations:create",
+    "driver-vehicle-authorizations:read",
+    "driver-vehicle-authorizations:revoke",
+    "drivers:create",
+    "drivers:deactivate",
+    "drivers:read",
+    "drivers:update",
+    "employee-cards:block",
+    "employee-cards:issue",
+    "employee-cards:read",
+    "employee-cards:replace",
+    "employee-cards:report-lost",
+    "exit-slips:issue",
+    "exit-slips:read",
+    "exit-slips:reissue",
+    "gate-evidence:read",
+    "gate-logs:read",
+    "gates:verify-entry",
+    "gates:verify-exit",
+    "orders:cancel",
+    "orders:create",
+    "orders:read",
+    "orders:update",
+    "vehicles:create",
+    "vehicles:deactivate",
+    "vehicles:read",
+    "vehicles:update"
+  ],
+  "catalog": [
+    {
+      "code": "access-points:read",
+      "group": "access-points",
+      "description": "Quyền access-points:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "access:verify-pedestrian-entry",
+      "group": "access",
+      "description": "Quyền access:verify-pedestrian-entry; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "access:verify-pedestrian-exit",
+      "group": "access",
+      "description": "Quyền access:verify-pedestrian-exit; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "alerts:read",
+      "group": "alerts",
+      "description": "Quyền alerts:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "alerts:update",
+      "group": "alerts",
+      "description": "Quyền alerts:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "analytics:read-alerts",
+      "group": "analytics",
+      "description": "Quyền analytics:read-alerts; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "alerts:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "analytics:read-gates",
+      "group": "analytics",
+      "description": "Quyền analytics:read-gates; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "gate-logs:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "analytics:read-people",
+      "group": "analytics",
+      "description": "Quyền analytics:read-people; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "person-access-logs:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "analytics:read-warehouse",
+      "group": "analytics",
+      "description": "Quyền analytics:read-warehouse; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "orders:read",
+        "dock:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "assistant:use",
+      "group": "assistant",
+      "description": "Quyền assistant:use; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "audit-logs:read",
+      "group": "audit-logs",
+      "description": "Quyền audit-logs:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "dashboard:read",
+      "group": "dashboard",
+      "description": "Quyền dashboard:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "dock:capture",
+      "group": "dock",
+      "description": "Quyền dock:capture; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "dock:finalize",
+      "group": "dock",
+      "description": "Quyền dock:finalize; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "dock:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "dock:read",
+      "group": "dock",
+      "description": "Quyền dock:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "dock:start",
+      "group": "dock",
+      "description": "Quyền dock:start; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "driver-vehicle-authorizations:create",
+      "group": "driver-vehicle-authorizations",
+      "description": "Quyền driver-vehicle-authorizations:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "driver-vehicle-authorizations:read",
+      "group": "driver-vehicle-authorizations",
+      "description": "Quyền driver-vehicle-authorizations:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "driver-vehicle-authorizations:revoke",
+      "group": "driver-vehicle-authorizations",
+      "description": "Quyền driver-vehicle-authorizations:revoke; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "drivers:create",
+      "group": "drivers",
+      "description": "Quyền drivers:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "drivers:deactivate",
+      "group": "drivers",
+      "description": "Quyền drivers:deactivate; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "drivers:read",
+      "group": "drivers",
+      "description": "Quyền drivers:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "drivers:update",
+      "group": "drivers",
+      "description": "Quyền drivers:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employee-cards:block",
+      "group": "employee-cards",
+      "description": "Quyền employee-cards:block; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employee-cards:issue",
+      "group": "employee-cards",
+      "description": "Quyền employee-cards:issue; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employee-cards:read",
+      "group": "employee-cards",
+      "description": "Quyền employee-cards:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employee-cards:replace",
+      "group": "employee-cards",
+      "description": "Quyền employee-cards:replace; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employee-cards:report-lost",
+      "group": "employee-cards",
+      "description": "Quyền employee-cards:report-lost; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employees:create",
+      "group": "employees",
+      "description": "Quyền employees:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employees:read",
+      "group": "employees",
+      "description": "Quyền employees:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "employees:update",
+      "group": "employees",
+      "description": "Quyền employees:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "exit-slips:issue",
+      "group": "exit-slips",
+      "description": "Quyền exit-slips:issue; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "exit-slips:read",
+      "group": "exit-slips",
+      "description": "Quyền exit-slips:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "exit-slips:reissue",
+      "group": "exit-slips",
+      "description": "Quyền exit-slips:reissue; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "gate-evidence:read",
+      "group": "gate-evidence",
+      "description": "Quyền gate-evidence:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "gate-logs:read",
+      "group": "gate-logs",
+      "description": "Quyền gate-logs:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "gates:verify-entry",
+      "group": "gates",
+      "description": "Quyền gates:verify-entry; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "gates:verify-exit",
+      "group": "gates",
+      "description": "Quyền gates:verify-exit; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "orders:cancel",
+      "group": "orders",
+      "description": "Quyền orders:cancel; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "orders:create",
+      "group": "orders",
+      "description": "Quyền orders:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "orders:read",
+      "group": "orders",
+      "description": "Quyền orders:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "orders:update",
+      "group": "orders",
+      "description": "Quyền orders:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "pedestrian-grants:create",
+      "group": "pedestrian-grants",
+      "description": "Quyền pedestrian-grants:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "pedestrian-grants:read",
+      "group": "pedestrian-grants",
+      "description": "Quyền pedestrian-grants:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "pedestrian-grants:revoke",
+      "group": "pedestrian-grants",
+      "description": "Quyền pedestrian-grants:revoke; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "permissions:read",
+      "group": "permissions",
+      "description": "Quyền permissions:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "person-access-logs:read",
+      "group": "person-access-logs",
+      "description": "Quyền person-access-logs:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "person-evidence:read",
+      "group": "person-evidence",
+      "description": "Quyền person-evidence:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "reports:export",
+      "group": "reports",
+      "description": "Quyền reports:export; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "reports:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "reports:generate",
+      "group": "reports",
+      "description": "Quyền reports:generate; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "assistant:use",
+        "reports:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "reports:read",
+      "group": "reports",
+      "description": "Quyền reports:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "roles:assign-permissions",
+      "group": "roles",
+      "description": "Quyền roles:assign-permissions; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "roles:read",
+        "permissions:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "roles:create",
+      "group": "roles",
+      "description": "Quyền roles:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "roles:delete",
+      "group": "roles",
+      "description": "Quyền roles:delete; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "roles:read",
+      "group": "roles",
+      "description": "Quyền roles:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "roles:update",
+      "group": "roles",
+      "description": "Quyền roles:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:assign-admin",
+      "group": "users",
+      "description": "Quyền users:assign-admin; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "users:assign-role"
+      ],
+      "protected": true
+    },
+    {
+      "code": "users:assign-role",
+      "group": "users",
+      "description": "Quyền users:assign-role; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [
+        "roles:read"
+      ],
+      "protected": false
+    },
+    {
+      "code": "users:create",
+      "group": "users",
+      "description": "Quyền users:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:manage-admin",
+      "group": "users",
+      "description": "Quyền users:manage-admin; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": true
+    },
+    {
+      "code": "users:read",
+      "group": "users",
+      "description": "Quyền users:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:read-sessions",
+      "group": "users",
+      "description": "Quyền users:read-sessions; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:reset-password",
+      "group": "users",
+      "description": "Quyền users:reset-password; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:revoke-sessions",
+      "group": "users",
+      "description": "Quyền users:revoke-sessions; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:set-status",
+      "group": "users",
+      "description": "Quyền users:set-status; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "users:update",
+      "group": "users",
+      "description": "Quyền users:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "vehicles:create",
+      "group": "vehicles",
+      "description": "Quyền vehicles:create; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "vehicles:deactivate",
+      "group": "vehicles",
+      "description": "Quyền vehicles:deactivate; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "vehicles:read",
+      "group": "vehicles",
+      "description": "Quyền vehicles:read; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    },
+    {
+      "code": "vehicles:update",
+      "group": "vehicles",
+      "description": "Quyền vehicles:update; kiểm thêm target/domain/state policy tại application",
+      "dependencies": [],
+      "protected": false
+    }
+  ],
+  "baseline_roles": {
+    "ADMIN": [
+      "alerts:read",
+      "alerts:update",
+      "dock:capture",
+      "dock:finalize",
+      "dock:read",
+      "dock:start",
+      "driver-vehicle-authorizations:create",
+      "driver-vehicle-authorizations:read",
+      "driver-vehicle-authorizations:revoke",
+      "drivers:create",
+      "drivers:deactivate",
+      "drivers:read",
+      "drivers:update",
+      "employee-cards:block",
+      "employee-cards:issue",
+      "employee-cards:read",
+      "employee-cards:replace",
+      "employee-cards:report-lost",
+      "exit-slips:issue",
+      "exit-slips:read",
+      "exit-slips:reissue",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "gates:verify-entry",
+      "gates:verify-exit",
+      "orders:cancel",
+      "orders:create",
+      "orders:read",
+      "orders:update",
+      "vehicles:create",
+      "vehicles:deactivate",
+      "vehicles:read",
+      "vehicles:update"
+    ],
+    "WAREHOUSE": [
+      "dock:capture",
+      "dock:finalize",
+      "dock:read",
+      "dock:start",
+      "driver-vehicle-authorizations:read",
+      "drivers:read",
+      "exit-slips:issue",
+      "exit-slips:read",
+      "exit-slips:reissue",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "orders:cancel",
+      "orders:create",
+      "orders:read",
+      "orders:update",
+      "vehicles:read"
+    ],
+    "SECURITY": [
+      "alerts:read",
+      "alerts:update",
+      "dock:read",
+      "driver-vehicle-authorizations:read",
+      "drivers:read",
+      "exit-slips:read",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "gates:verify-entry",
+      "gates:verify-exit",
+      "orders:read",
+      "vehicles:read"
+    ]
+  },
+  "new_permission_grants_requiring_review": {
+    "ADMIN": [
+      "access-points:read",
+      "access:verify-pedestrian-entry",
+      "access:verify-pedestrian-exit",
+      "analytics:read-alerts",
+      "analytics:read-gates",
+      "analytics:read-people",
+      "analytics:read-warehouse",
+      "assistant:use",
+      "audit-logs:read",
+      "dashboard:read",
+      "employees:create",
+      "employees:read",
+      "employees:update",
+      "pedestrian-grants:create",
+      "pedestrian-grants:read",
+      "pedestrian-grants:revoke",
+      "permissions:read",
+      "person-access-logs:read",
+      "person-evidence:read",
+      "reports:export",
+      "reports:generate",
+      "reports:read",
+      "roles:assign-permissions",
+      "roles:create",
+      "roles:delete",
+      "roles:read",
+      "roles:update",
+      "users:assign-admin",
+      "users:assign-role",
+      "users:create",
+      "users:manage-admin",
+      "users:read",
+      "users:read-sessions",
+      "users:reset-password",
+      "users:revoke-sessions",
+      "users:set-status",
+      "users:update"
+    ],
+    "WAREHOUSE": [
+      "analytics:read-gates",
+      "analytics:read-warehouse",
+      "assistant:use",
+      "dashboard:read",
+      "reports:export",
+      "reports:generate",
+      "reports:read"
+    ],
+    "SECURITY": [
+      "access-points:read",
+      "access:verify-pedestrian-entry",
+      "access:verify-pedestrian-exit",
+      "analytics:read-alerts",
+      "analytics:read-gates",
+      "analytics:read-people",
+      "assistant:use",
+      "dashboard:read",
+      "employees:read",
+      "person-access-logs:read",
+      "person-evidence:read",
+      "reports:export",
+      "reports:generate",
+      "reports:read"
+    ]
+  },
+  "target_roles_after_review": {
+    "ADMIN": [
+      "access-points:read",
+      "access:verify-pedestrian-entry",
+      "access:verify-pedestrian-exit",
+      "alerts:read",
+      "alerts:update",
+      "analytics:read-alerts",
+      "analytics:read-gates",
+      "analytics:read-people",
+      "analytics:read-warehouse",
+      "assistant:use",
+      "audit-logs:read",
+      "dashboard:read",
+      "dock:capture",
+      "dock:finalize",
+      "dock:read",
+      "dock:start",
+      "driver-vehicle-authorizations:create",
+      "driver-vehicle-authorizations:read",
+      "driver-vehicle-authorizations:revoke",
+      "drivers:create",
+      "drivers:deactivate",
+      "drivers:read",
+      "drivers:update",
+      "employee-cards:block",
+      "employee-cards:issue",
+      "employee-cards:read",
+      "employee-cards:replace",
+      "employee-cards:report-lost",
+      "employees:create",
+      "employees:read",
+      "employees:update",
+      "exit-slips:issue",
+      "exit-slips:read",
+      "exit-slips:reissue",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "gates:verify-entry",
+      "gates:verify-exit",
+      "orders:cancel",
+      "orders:create",
+      "orders:read",
+      "orders:update",
+      "pedestrian-grants:create",
+      "pedestrian-grants:read",
+      "pedestrian-grants:revoke",
+      "permissions:read",
+      "person-access-logs:read",
+      "person-evidence:read",
+      "reports:export",
+      "reports:generate",
+      "reports:read",
+      "roles:assign-permissions",
+      "roles:create",
+      "roles:delete",
+      "roles:read",
+      "roles:update",
+      "users:assign-admin",
+      "users:assign-role",
+      "users:create",
+      "users:manage-admin",
+      "users:read",
+      "users:read-sessions",
+      "users:reset-password",
+      "users:revoke-sessions",
+      "users:set-status",
+      "users:update",
+      "vehicles:create",
+      "vehicles:deactivate",
+      "vehicles:read",
+      "vehicles:update"
+    ],
+    "WAREHOUSE": [
+      "analytics:read-gates",
+      "analytics:read-warehouse",
+      "assistant:use",
+      "dashboard:read",
+      "dock:capture",
+      "dock:finalize",
+      "dock:read",
+      "dock:start",
+      "driver-vehicle-authorizations:read",
+      "drivers:read",
+      "exit-slips:issue",
+      "exit-slips:read",
+      "exit-slips:reissue",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "orders:cancel",
+      "orders:create",
+      "orders:read",
+      "orders:update",
+      "reports:export",
+      "reports:generate",
+      "reports:read",
+      "vehicles:read"
+    ],
+    "SECURITY": [
+      "access-points:read",
+      "access:verify-pedestrian-entry",
+      "access:verify-pedestrian-exit",
+      "alerts:read",
+      "alerts:update",
+      "analytics:read-alerts",
+      "analytics:read-gates",
+      "analytics:read-people",
+      "assistant:use",
+      "dashboard:read",
+      "dock:read",
+      "driver-vehicle-authorizations:read",
+      "drivers:read",
+      "employees:read",
+      "exit-slips:read",
+      "gate-evidence:read",
+      "gate-logs:read",
+      "gates:verify-entry",
+      "gates:verify-exit",
+      "orders:read",
+      "person-access-logs:read",
+      "person-evidence:read",
+      "reports:export",
+      "reports:generate",
+      "reports:read",
+      "vehicles:read"
+    ]
+  },
+  "current_operation_bindings": [
+    {
+      "method": "GET",
+      "path": "/api/v1/driver-vehicle-authorizations",
+      "permission": "driver-vehicle-authorizations:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/driver-vehicle-authorizations",
+      "permission": "driver-vehicle-authorizations:create"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/driver-vehicle-authorizations/{driver_id}/{vehicle_id}",
+      "permission": "driver-vehicle-authorizations:revoke"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/drivers",
+      "permission": "drivers:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/drivers",
+      "permission": "drivers:create"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/drivers/{driver_id}",
+      "permission": "drivers:deactivate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/drivers/{driver_id}",
+      "permission": "drivers:read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/drivers/{driver_id}",
+      "permission": "drivers:update"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/employee-cards",
+      "permission": "employee-cards:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards",
+      "permission": "employee-cards:issue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/employee-cards/{card_id}",
+      "permission": "employee-cards:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/block",
+      "permission": "employee-cards:block"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/replace",
+      "permission": "employee-cards:replace"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/report-lost",
+      "permission": "employee-cards:report-lost"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/gate-logs",
+      "permission": "gate-logs:read"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/gate-logs/{gate_log_id}/snapshots/{snapshot_index}",
+      "permission": "gate-evidence:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gates/entry/verifications",
+      "permission": "gates:verify-entry"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gates/exit/verifications",
+      "permission": "gates:verify-exit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/security/alerts",
+      "permission": "alerts:read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/security/alerts/{alert_id}",
+      "permission": "alerts:update"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/vehicles",
+      "permission": "vehicles:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/vehicles",
+      "permission": "vehicles:create"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "permission": "vehicles:deactivate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "permission": "vehicles:read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "permission": "vehicles:update"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions",
+      "permission": "dock:read"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}",
+      "permission": "dock:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/captures",
+      "permission": "dock:capture"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/captures/{capture_index}/image",
+      "permission": "dock:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/finalize",
+      "permission": "dock:finalize"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders",
+      "permission": "orders:read"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders",
+      "permission": "orders:create"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "permission": "orders:cancel"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "permission": "orders:read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "permission": "orders:update"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/dock-sessions",
+      "permission": "dock:start"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip",
+      "permission": "exit-slips:issue"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip/reissue",
+      "permission": "exit-slips:reissue"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip/{artifact_type}",
+      "permission": "exit-slips:read"
+    }
+  ],
+  "device_scopes_separate_from_operator_permissions": [
+    "gate:entry",
+    "gate:exit",
+    "dock:capture",
+    "capture:ingest",
+    "pedestrian:entry",
+    "pedestrian:exit"
+  ],
+  "invariants": [
+    "Một active role/user; system role code/ID ổn định; không wildcard/direct grants/hierarchy.",
+    "Protected ADMIN assignment/target management/last-admin và grantable policy luôn áp dụng.",
+    "Report owner-only không bị thay bằng ADMIN read-all dù ADMIN có reports:read.",
+    "Baseline quyền cũ không đổi; quyền mới chỉ seed sau G2 review."
+  ]
+}

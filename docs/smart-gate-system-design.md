@@ -1,1004 +1,156 @@
-# Smart Gate & Vehicle Security Platform — Business System & High Level Design
+# Thiết kế Hệ thống Mức cao (High-Level Design — HLD) — EV Smart Gate
 
-> **Project:** AI-Powered Vehicle Gate Control and Inventory Management System  
-> **Client:** Tổng Công ty Điện lực  
-> **Status:** DRAFT / PROPOSED — chờ Official Requirement bằng văn bản (`OQ-01`)  
-> **Architecture:** Edge AI + Event-driven Backend + Decision/Risk Engine + Human-in-the-loop
-
-> ⚠️ **Đọc `requirements-traceability.md` trước tài liệu này.**
-> Tài liệu HLD chỉ mô tả *giải pháp kỹ thuật*. Việc hạng mục nào đã được khách hàng
-> xác nhận (`CONFIRMED`), hạng mục nào mới chỉ là đề xuất của team (`PROPOSED`),
-> và hạng mục nào team tự thêm (`DESIGN-ADDED`) được quản lý tập trung tại RTM.
-> **Hiện chỉ có 2/6 module là `CONFIRMED`** (Nhận diện AI, Điều khiển Cổng).
+| Thuộc tính | Giá trị |
+| --- | --- |
+| **Mã tài liệu** | `EVSG-HLD-AI-2026-V2` |
+| **Phiên bản** | `2.0` — Đồng bộ Kiến trúc Clean Architecture, React SPA Migration & Safe Flow 4 Lớp Khóa |
+| **Ngày cập nhật** | `21/10/2026` (`Asia/Bangkok`) |
+| **Tài liệu liên kết** | [BRD chuẩn AI](BRD.md) · [Kiến trúc Frontend](frontend-architecture.md) · [Hợp đồng M0](contracts/migration-v1.md) · [ERD](data-model-erd.md) · [RTM](requirements-traceability.md) |
 
 ---
 
-# PART A — BUSINESS SYSTEM
+## 1. Kiến trúc Tổng thể (Clean Architecture & Trust Boundaries)
 
-## 1. Problem Statement
-
-### 1.1 Quy trình AS-IS (hiện tại)
+Hệ thống tuân thủ nghiêm ngặt quy tắc phụ thuộc một chiều: **`Presentation -> Application -> Domain <- Infrastructure`**. Mọi tác nhân AI (`Vision AI Adapters` và `Self-Hosted ModelGateway`) đều nằm ở tầng `Infrastructure` dưới dạng các adapter thực thi `Protocol` của `Domain`, **tuyệt đối không đứng trực tiếp giữa Client/Edge và Database hoặc Thiết bị vật lý (`Barrier`)**.
 
 ```mermaid
 flowchart LR
-    A["Khách / NV<br/>đến cổng"] --> B["Dừng xe<br/>chờ đợi"]
-    B --> C["Xuất trình CCCD<br/>khai báo thủ công"]
-    C --> D["Bảo vệ ghi sổ<br/>liên hệ người bên trong"]
-    D --> E["Bảo vệ mở cổng<br/>thủ công"]
-    E --> F["Xe vào bãi<br/>(không theo dõi)"]
-    F --> G["Xe ra cổng"]
-    G --> H["Bảo vệ yêu cầu<br/>mở cốp / cửa"]
-    H --> I["Kiểm tra<br/>bằng mắt thường"]
-    I --> J["Mở cổng cho ra"]
-```
-
-Pain points được xác định trong BRD §1:
-
-| # | Pain point | Hệ quả |
-|---|---|---|
-| 1 | Khách phải dừng lại, xuất trình CCCD, khai báo người cần gặp | Tốn thời gian check-in, ùn ứ giao thông tại cổng |
-| 2 | Bảo vệ kiểm tra cốp xe bằng mắt thường / bằng tay | Không đảm bảo độ chính xác, dễ sai sót |
-| 3 | Nhân viên hoặc nhà cung cấp có thể "tuồn" tài sản, thiết bị ra ngoài | Thất thoát tài sản có giá trị (vật tư, thiết bị điện) |
-| 4 | Không có dữ liệu truy vết thống nhất người – xe – lịch hẹn – quyết định – bằng chứng | Khi xảy ra mất mát, không quy trách nhiệm được |
-| 5 | Việc phát hiện bất thường phụ thuộc hoàn toàn kinh nghiệm cá nhân của bảo vệ | Chất lượng kiểm soát không ổn định giữa các ca trực |
-
-### 1.2 Quy trình TO-BE (đề xuất)
-
-Chi tiết xem `diagrams.md §3`. Tóm tắt nguyên tắc:
-
-> **AI nhận diện → Business Rule kiểm tra → Risk Engine đánh giá → Decision Engine quyết định → Guard can thiệp khi cần.**
-
-AI là hệ thống **hỗ trợ** quyết định, không phải nguồn quyết định an ninh duy nhất.
-Đây là ràng buộc nghiệp vụ bắt buộc, xuất phát từ rủi ro `R-01` và `R-05` — xem RTM §8.
-
----
-
-## 2. Business Goals & Success Metrics
-
-### 2.1 Business KPIs
-
-| Goal | Metric | Proposed Target |
-|---|---|---:|
-| Giảm thời gian check-in | Thời gian từ lúc xe vào vùng nhận diện đến quyết định | ≤ 10s |
-| Giảm thao tác thủ công | Tỷ lệ lượt hợp lệ không cần nhập lại thông tin | ≥ 80% |
-| Tăng khả năng truy vết | Lượt ra/vào có đầy đủ event + evidence + decision | 100% |
-| Tăng hiệu quả bảo vệ | Cảnh báo có evidence để review | 100% |
-| Sẵn sàng nhân rộng | Multi-site / Multi-gate configuration | Có |
-
-> Các KPI trên là mục tiêu đề xuất và phải được khách hàng xác nhận trước khi trở thành Acceptance Criteria.
-
-### 2.2 Technical KPIs
-
-| Goal | Metric | PoC Target |
-|---|---|---:|
-| License Plate Recognition | Accuracy trong điều kiện PoC | ≥ 95% |
-| Face Verification | Accuracy trong điều kiện PoC | ≥ 95% |
-| Access Decision latency | P95 | ≤ 3s |
-| Auditability | Decision/Gate Command có Audit | 100% |
-| Asset Detection | Precision / Recall | TBD sau Dataset Benchmark |
-
-### 2.3 KPI → Architecture Mapping
-
-```text
-KPI                            Architecture Decision
-────────────────────────────────────────────────────────────
-LPR / Face real-time      →   Edge AI
-Decision P95 ≤ 3s         →   Local inference + async event
-100% audit                →   AccessEvent + Audit + Evidence
-AI uncertain              →   Human Review
-Asset control             →   Inspection Session + Risk Engine
-Multi-site rollout        →   Site/Gate/Lane configuration
-```
-
----
-
-## 3. Stakeholders
-
-Nguồn: BRD §2. Cột **Origin** chỉ rõ vai trò nào có trong BRD, vai trò nào do team bổ sung.
-
-| Actor | Responsibility | Origin |
-|---|---|---|
-| Client Sponsor — Cán bộ/Trưởng phòng Thông tin | Chủ đầu tư phía Điện lực, duyệt scope và nghiệm thu | BRD |
-| Guest / Supplier | Đăng ký lịch, người và xe qua Portal | BRD |
-| Employee | Nhân viên nội bộ đi xe máy/ô tô/bán tải, được nhận diện và kiểm soát hàng mang ra | BRD |
-| Host | Nhân viên bên trong có lịch hẹn, nhận thông báo khi khách tới cổng | BRD |
-| Guard | Nhận cảnh báo, giám sát camera, hỗ trợ mở cổng khi hệ thống không tự mở | BRD |
-| Warehouse System | Cung cấp Export Voucher (Phase 2) | BRD |
-| Security Supervisor | Quản lý policy, alert và audit | `DA-08` |
-| System Admin | Quản lý user/site/gate/camera/device | `DA-06` |
-| Edge AI | LPR, Face, Object Detection (system actor) | BRD (BR-02) |
-| Gate Controller | Điều khiển Barrier (system actor) | BRD (BR-03) |
-
-> `Security Supervisor` và `System Admin` **không có trong BRD**. Team bổ sung vì cần
-> tách quyền cấu hình policy khỏi Guard trực ca. Cần khách duyệt — xem RTM §4.
-
----
-
-## 4. Scope
-
-> **Phase numbering tuân theo BRD §4.** BRD chỉ định nghĩa 2 phase thương mại:
-> Phase 1 (scope chính) và Phase 2 (Đối chiếu Xuất kho).
-> Bên trong Phase 1 team chia thành **Stage 1A / 1B** để giao hàng tăng dần —
-> đây là phân rã kỹ thuật, **không phải** phase hợp đồng.
-
-### Phase 1 — Smart Gate + Vehicle Security
-
-#### Stage 1A — Entry Automation (`FR01`–`FR04`)
-
-| Hạng mục | FR | Status |
-|---|---|---|
-| Visitor / Supplier Registration Portal | FR01 | `PROPOSED` |
-| Vehicle Registration | FR01 | `PROPOSED` |
-| Appointment | FR01 | `PROPOSED` |
-| Host Approval | — | `DESIGN-ADDED` (`DA-01`) |
-| License Plate Recognition | FR02 | **`CONFIRMED`** |
-| Face Verification | FR02 | **`CONFIRMED`** |
-| Access Decision + Gate Control | FR03 | **`CONFIRMED`** |
-| Guard Dashboard + Manual Open | FR03 | **`CONFIRMED`** |
-| Host Notification | FR04 | `PROPOSED` |
-| Access Event | — | `DESIGN-ADDED` (`DA-02`) |
-| Audit & Evidence | — | `DESIGN-ADDED` (`DA-02`, `DA-03`) |
-
-#### Stage 1B — Exit Inspection (`FR05`)
-
-| Hạng mục | FR | Status |
-|---|---|---|
-| Exit Inspection Zone | FR05 | `PROPOSED` |
-| Four-camera capture (trước, sau, 2 bên/cốp) | FR05 | `PROPOSED` |
-| Object Detection / Classification | FR05 | `PROPOSED` |
-| Security Alert | FR05 | `PROPOSED` |
-| Risk Scoring | — | `DESIGN-ADDED` (`DA-04`) |
-| Guard Review + Rescan | — | `DESIGN-ADDED` (`DA-07`) |
-| Evidence Package | — | `DESIGN-ADDED` (`DA-03`) |
-
-> ⚠️ Stage 1B chịu rủi ro kỹ thuật cao nhất (`R-01`): nhận diện vật thể bị che khuất
-> phụ thuộc mạnh vào ánh sáng và chất lượng camera. **Không cam kết con số accuracy**
-> trước khi hoàn thành Dataset Benchmark — xem `ADR-005`.
-
-### Phase 2 — Inventory Intelligence (`FR06`)
-
-- Export Voucher integration (Warehouse System).
-- Approved Asset List.
-- Asset Type Matching.
-- Quantity Matching **chỉ khi được kiểm chứng khả thi về mặt kỹ thuật**.
-- Match / Mismatch Decision.
-
-Điều kiện tiên quyết để khởi động Phase 2 — xem §18 PoC 3.
-
-### Chưa phân bổ Phase — cần khách hàng chốt
-
-| Hạng mục | BR | Vấn đề |
-|---|---|---|
-| Vehicle Tracking trong bãi đỗ | BR-05 | BRD §4 và TO-BE §6 bước 5 đều nêu, **nhưng BRD §5 không có FR tương ứng**. Đã đề xuất `FR07`, chờ trả lời `OQ-05` |
-
-> Đây là gap của BRD, không phải của thiết kế. **Không đưa BR-05 vào estimate**
-> cho đến khi `OQ-05` được trả lời (mức độ tracking: vị trí đỗ cuối vs toàn hành trình,
-> có cần Vehicle Re-ID hay không — chênh lệch chi phí kỹ thuật rất lớn).
-
-### Out of Scope — BRD §9
-
-> **Toàn bộ phần cứng do khách hàng (Tổng Công ty Điện lực) tự đầu tư/cung cấp:**
-> Camera IP · Server / máy chủ AI · Thiết bị IoT điều khiển barrier.
-
-Ràng buộc kiến trúc bắt buộc phát sinh từ điều này:
-
-1. Không hard-code vendor camera → bắt buộc `CameraGateway` port + adapter.
-2. Không hard-code giao thức barrier → bắt buộc `GateControllerGateway` port (HTTP / MQTT / Modbus).
-3. Team phải bàn giao **Hardware Specification** bằng văn bản (độ phân giải, FPS, góc đặt,
-   yêu cầu ánh sáng vùng Inspection Zone) như điều kiện tiên quyết trong phụ lục hợp đồng.
-   Nếu phần cứng khách mua không đạt chuẩn, team không chịu trách nhiệm về độ chính xác AI (`R-06`).
-
-### Future / Potential Scope — BRD §9
-
-- Tích hợp sâu đối chiếu Phiếu xuất kho (mở rộng Phase 2).
-- **Đóng gói SaaS / License** để nhân rộng cho các chi nhánh điện lực khác hoặc bán ra ngoài.
-- HR / SSO integration.
-- Multi-site deployment · Central SOC dashboard · Parking analytics · Vehicle Re-identification.
-
----
-
-## 5. Guardrails & Business Rules
-
-1. AI không trực tiếp mở cổng.
-2. `LOW` risk có thể auto-open nếu policy cho phép.
-3. `MEDIUM` risk phải chuyển `HUMAN_REVIEW`.
-4. `HIGH` risk phải giữ cổng đóng và tạo alert.
-5. Low confidence không được coi là mismatch chắc chắn.
-6. **Blacklist là hard rule ưu tiên tuyệt đối** — blacklisted entity luôn bị BLOCK, không tham gia cộng điểm risk (xem §12 Tầng 1).
-7. Manual Override bắt buộc có operator + reason + audit.
-8. Mọi Access Decision phải liên kết `AccessEvent`.
-9. Mọi Inspection Session phải liên kết Access Event.
-10. Raw video/image retention phải cấu hình.
-11. Stage 1B (`FR05`) AI chỉ phát hiện/phân loại vật thể, không kết luận "trộm".
-12. Phase 2 mới thực hiện Voucher Matching (`FR06`).
-13. AI/Camera failure phải degrade về Manual Inspection.
-14. Central Backend failure không được dẫn tới fail-open.
-15. **Barrier chỉ đóng khi sensor xác nhận vùng trống** (`R-10`). Phải tồn tại nút dừng khẩn cấp vật lý độc lập với phần mềm.
-
----
-
-# PART B — HIGH LEVEL DESIGN
-
-## 6. Overall Architecture
-
-```mermaid
-flowchart TB
-    subgraph Actors
-        Guest["Guest / Supplier"]
-        Host["Host"]
-        Guard["Security Guard"]
-        Admin["Administrator"]
+    subgraph EdgeSite["Hiện trường (Edge & Hardware)"]
+        Cam["IP Cameras (Face / Plate)"]
+        RFID["RFID Card Reader"]
+        Edge["Edge Agent / Capture Gateway"]
+        Barrier["Barrier / Turnstile Controller"]
+        Cam --> Edge
+        RFID --> Edge
     end
 
-    subgraph Client
-        Portal["Visitor / Host Portal"]
-        GuardUI["Guard Dashboard"]
-        AdminUI["Admin Portal"]
+    subgraph Client["Trình duyệt Vận hành"]
+        Console["React 19 + TS + Vite SPA (/console)\nRAM Access JWT + HttpOnly Refresh Cookie"]
     end
 
-    subgraph Backend
-        API["FastAPI API"]
-        Appointment["Appointment Service"]
-        Access["Access Service"]
-        Inspection["Inspection Service"]
-        Decision["Decision Engine"]
-        Risk["Risk Engine"]
-        Notification["Notification Service"]
-        Audit["Audit Service"]
-        Inventory["Inventory Adapter"]
-        EventBus["Event Bus"]
-        DB[("PostgreSQL")]
-        Redis[("Redis")]
-        Storage[("Object Storage")]
+    subgraph Backend["FastAPI Backend (Clean Architecture)"]
+        Pres["Presentation Layer\n(Routers, Pydantic Schemas, Auth/RBAC Guards, SSE/WS)"]
+        App["Application Layer\n(Use Cases, Policy Engine, Grounding Validator, UoW)"]
+        Dom["Domain Layer\n(Entities, Value Objects, Domain Services, Protocol Ports)"]
+        Infra["Infrastructure Adapters"]
     end
 
-    subgraph Site
-        Camera["IP Cameras"]
-        Edge["Edge AI Gateway"]
-        Vision["LPR / Face / Object Models"]
-        IoT["IoT Gateway"]
-        Barrier["Barrier"]
-        Sensors["Sensors"]
+    subgraph DataAndAI["Hạ tầng Lưu trữ & AI Nội bộ"]
+        Mongo[("MongoDB Replica Set\n(Transactions + CAS + TTL)")]
+        MinIO[("MinIO Private Bucket\n(AES-256-GCM Evidence & Artifacts)")]
+        Vision["Open-Source Vision AI\n(YuNet/SFace, FastALPR/PaddleOCR, YOLOX)"]
+        LLM["Self-Hosted ModelGateway\n(Internal LLM - No Cloud Fallback)"]
+        Worker["Durable Report Worker\n(Out-of-band Lease & Validation)"]
     end
 
-    Warehouse["Warehouse System"]
-
-    Guest --> Portal
-    Host --> Portal
-    Guard --> GuardUI
-    Admin --> AdminUI
-
-    Portal --> API
-    GuardUI --> API
-    AdminUI --> API
-
-    API --> Appointment
-    API --> Access
-    API --> Inspection
-
-    Camera --> Edge
-    Edge --> Vision
-    Vision --> EventBus
-
-    EventBus --> Access
-    EventBus --> Inspection
-
-    Access --> Decision
-    Inspection --> Risk
-    Risk --> Decision
-
-    Decision --> IoT
-    IoT --> Barrier
-    Sensors --> IoT
-
-    Decision --> Notification
-    Decision --> Audit
-
-    Appointment --> DB
-    Access --> DB
-    Inspection --> DB
-    Access --> Redis
-    Inspection --> Storage
-
-    Warehouse --> Inventory
-    Inventory --> Inspection
+    Edge -->|"X-Device-Key (capture:ingest)\nCaptureBundle / Multipart"| Pres
+    Console -->|"HTTPS + Bearer JWT / Session + CSRF\nREST + WebSocket + Fetch SSE"| Pres
+    Pres --> App
+    App --> Dom
+    Infra -.->|"Implements Protocol"| Dom
+    App --> Infra
+    Infra --> Mongo
+    Infra --> MinIO
+    Infra --> Vision
+    Infra --> Barrier
+    Worker --> Mongo
+    Worker --> MinIO
+    Worker --> LLM
 ```
 
 ---
 
-## 7. AI vs Code vs Human
+## 2. Luồng Nghiệp vụ Cốt lõi & Cơ chế Kiểm soát AI
 
-```text
-┌───────────────────────────────────────────────────────┐
-│ AI VISION                                            │
-│ - Vehicle Detection                                  │
-│ - License Plate Recognition                          │
-│ - Face Detection / Verification                      │
-│ - Object Detection / Classification                  │
-├───────────────────────────────────────────────────────┤
-│ BUSINESS CODE                                        │
-│ - Appointment Validation                             │
-│ - Whitelist / Blacklist                              │
-│ - Risk Score                                         │
-│ - Decision Rules                                     │
-│ - Voucher Matching                                   │
-│ - Audit / Idempotency                                │
-├───────────────────────────────────────────────────────┤
-│ HUMAN                                                │
-│ - Low-confidence Review                              │
-│ - Suspicious Asset Review                            │
-│ - Approve / Reject / Rescan                          │
-│ - Manual Override                                    │
-└───────────────────────────────────────────────────────┘
-```
+### 2.1. Luồng Cổng Phương tiện Đa yếu tố (`Vehicle Gate In / Gate Out` — 3 Nhóm xe: `motorcycle`, `car`, `truck`)
+> [!IMPORTANT]
+> **Tách biệt Core Access và Module Kho**: Luồng Cổng Ra (`EXIT`) cốt lõi của bãi xe sử dụng cùng cơ chế xác minh 3 yếu tố (`Thẻ RFID + Khuôn mặt 1:1 + Biển số & Ủy quyền Tài xế–Xe`) như Cổng Vào (`ENTRY`), **không** bắt buộc phải có `WarehouseExitOrder` hay `QR Exit Slip`. Luồng đối chiếu `QR Exit Slip` chỉ kích hoạt khi cổng được cấu hình thuộc phân hệ xuất kho mở rộng.
 
----
-
-## 8. AI & Device Integration
-
-### 8.1 AI Capabilities
-
-| Capability | Input | Output |
-|---|---|---|
-| Vehicle Detection | RTSP Frame | Vehicle Bounding Box |
-| LPR | Plate Crop | Plate + Confidence |
-| Face Verification | Face Crop | Candidate + Similarity |
-| Object Detection | Inspection Images | Object + Bounding Box |
-| Object Tracking | Consecutive Frames | Track ID |
-| Vehicle Re-ID | Multi-camera | Future |
-
-### 8.2 Port Contracts
-
-```python
-from typing import Protocol
-
-class LicensePlateRecognitionGateway(Protocol):
-    async def recognize(self, image_ref: str) -> "PlateRecognitionResult": ...
-
-class FaceVerificationGateway(Protocol):
-    async def verify(
-        self,
-        image_ref: str,
-        candidate_person_id: str,
-    ) -> "FaceVerificationResult": ...
-
-class ObjectDetectionGateway(Protocol):
-    async def detect(self, image_refs: list[str]) -> list["DetectedObject"]: ...
-
-class GateControllerGateway(Protocol):
-    async def open_gate(
-        self,
-        gate_id: str,
-        command_id: str,
-    ) -> "GateCommandResult": ...
-
-class InventoryGateway(Protocol):
-    async def get_export_voucher(
-        self,
-        voucher_code: str,
-    ) -> "ExportVoucherDTO | None": ...
-```
-
-### 8.3 AI Event Contract
-
-```json
-{
-  "event_id": "evt_01J...",
-  "event_type": "VEHICLE_OBSERVED",
-  "site_id": "EVN-HQ",
-  "gate_id": "GATE-01",
-  "lane_id": "IN-01",
-  "camera_id": "CAM-IN-LPR-01",
-  "occurred_at": "2026-08-17T10:30:00+07:00",
-  "vehicle": {
-    "plate": "51A-123.45",
-    "plate_normalized": "51A12345",
-    "confidence": 0.974
-  },
-  "person": {
-    "face_candidate_id": "person_1021",
-    "similarity": 0.941
-  },
-  "evidence_refs": [
-    "evidence://2026/08/17/evt_01J/front.jpg"
-  ],
-  "model_versions": {
-    "lpr": "lpr-v1.0.0",
-    "face": "face-v1.0.0"
-  }
-}
-```
-
-### 8.4 Cache Strategy
-
-| Data | Suggested TTL |
-|---|---:|
-| Active Appointment | 1–5 min |
-| Vehicle Whitelist | 5–15 min |
-| Blacklist | Short TTL + explicit invalidation |
-| Device Configuration | 5 min |
-| Idempotency Key | 24h |
-| Latest Gate Status | Seconds |
-
-### 8.5 Fallback Chain
-
-```text
-LPR:
-Edge LPR → alternate frame → Guard Review
-
-Face:
-Face Verify → low confidence → Guard Review
-
-Central Backend:
-Unavailable → Site Manual Safe Mode
-
-Inventory:
-Unavailable → no auto-clear → Manual Review
-
-Object Detection:
-Unavailable → Manual Inspection
-```
-
-### 8.6 Notification Matrix — BRD §8
-
-| Sự kiện | Người nhận | Kênh | FR | Priority |
-|---|---|---|---|---|
-| Phương tiện **chưa đăng ký** tới cổng | Guard | Guard Dashboard + Alert | FR03 | High |
-| Nghi vấn **mang hàng hóa ra ngoài** (tuồn hàng) | Guard | Guard Dashboard + Alert kèm Evidence | FR05 | High |
-| Khách **đã check-in qua cổng** | Host | Push Notification (App) | FR04 | Medium |
-| Gate command **thất bại / timeout** | Guard | Guard Dashboard | — | `DESIGN-ADDED` |
-| Voucher **mismatch** | Guard, Security Supervisor | Alert kèm Evidence | FR06 | Low (Phase 2) |
-
-> Cảnh báo gửi cho Guard **bắt buộc kèm Evidence** (`DA-03`). Cảnh báo không có bằng chứng
-> thì bảo vệ không thể xử lý và không có giá trị pháp lý khi truy trách nhiệm.
-
-### 8.7 Integration Matrix — BRD §8
-
-| Hệ thống ngoài | Chiều dữ liệu | Port | Phase | Status |
-|---|---|---|---|---|
-| Camera IP | Inbound (RTSP stream) | `CameraGateway` | 1 | `CONFIRMED` — phần cứng do khách cấp |
-| Thiết bị IoT đóng/mở cổng | Outbound (command) | `GateControllerGateway` | 1 | `CONFIRMED` — phần cứng do khách cấp |
-| Hệ thống Quản lý kho Điện lực | Inbound (Export Voucher) | `InventoryGateway` | 2 | `PROPOSED` — chưa có API contract |
-| Hệ thống Nhân sự (HR) | Inbound (hồ sơ nhân viên) | `HRGateway` | Future | Future Scope |
-| Push Notification Provider | Outbound | `NotificationGateway` | 1 | `PROPOSED` |
-
-> ⚠️ **Chưa có API contract của hệ thống kho.** Đây là điều kiện tiên quyết bắt buộc
-> để khởi động Phase 2 — xem §18 PoC 3.
+1. **Thu nhận & Kiểm tra Độ tin cậy (`Lock 1 — Capture Trust & Sanitizer`)**:
+   - `Edge Agent` gửi gói thu nhận (`CaptureBundle` tại `/api/v2/capture-bundles` hoặc multipart tương thích tại `/api/v1/gates/{entry,exit}`) kèm `event_id` duy nhất.
+   - Server kiểm tra `X-Device-Key` có đúng scope thiết bị/làn, kiểm tra định dạng/kích thước ảnh (`<= 10 MiB`), cấu hình `calibration`, `ROI`, `freshness` và `max_clock_skew`. Nếu thiếu cấu hình hoặc lệch chuẩn → trả `CAPTURE_CONFIG_REQUIRED` / `CAPTURE_UNTRUSTED` (**fail-closed**).
+2. **Lưu Bằng chứng Mã hóa Trước khi Quyết định (`Lock 2 — Data Boundary`)**:
+   - Mã hóa `face_image` và `plate_image` bằng `AES-256-GCM` (với `AAD` gắn theo định danh sự kiện/bản ghi) rồi lưu vào `MinIO` private bucket. Nếu `MinIO` lỗi → dừng ngay và từ chối mở cổng (**fail-closed**).
+   - `card_uid` thô chỉ dùng để băm/tra cứu chủ thẻ trong RAM, không ghi vào log văn bản và chỉ trả về `card_uid_masked` trên UI.
+3. **Quan sát AI Song song (`AI Observation — Bounded Executor`)**:
+   - `Face Verification Adapter` (`YuNet/SFace`) phát hiện khuôn mặt người điều khiển trong vùng `ROI`, kiểm tra `liveness` và tính `face_similarity` `1:1` với embedding của chủ thẻ `card_uid`. (Nếu có nhiều khuôn mặt tranh chấp không phân biệt được người lái → trả cờ `AMBIGUOUS_DRIVER_FACE`).
+   - `ALPR Adapter` (`FastALPR/PaddleOCR`) đọc biển số, chuẩn hóa `plate_normalized` và tìm phương tiện theo thứ tự:
+     - Ưu tiên khớp chính xác (`EXACT`).
+     - Chỉ chấp nhận khớp mờ (`FUZZY`) khi cùng độ dài, cùng 2 ký tự mã tỉnh đầu, `Levenshtein <= 1`, `RapidFuzz >= 90` và **chỉ có duy nhất 1 ứng viên đạt điểm cao nhất** (nếu hòa điểm → từ chối `AMBIGUOUS_PLATE_CANDIDATE`).
+4. **Đánh giá Chính sách (`Lock 3 — Policy Engine`)**:
+   - Kiểm tra đồng thời: Thẻ `EmployeeCard` đang `ACTIVE` + Hồ sơ `Driver` đang `ACTIVE` + `face_similarity >= 0.75` + `liveness` đạt + Phương tiện `ACTIVE` thuộc danh mục hợp lệ (`motorcycle`, `car`, `truck`; ánh xạ `sedan -> car`, chặn mở tự động với `unknown`) + Bản ghi `DriverVehicleAuthorization` đang `ACTIVE` trong khoảng `[valid_from, valid_until)`.
+5. **Ghi Nhật ký, Phát Lệnh Barrier Idempotent & Đối soát ACK (`Lock 4 — Execution & Fallback Gate`)**:
+   - Ghi `GateLog` trước khi phát lệnh phần cứng.
+   - Nếu đạt 100% điều kiện: `BarrierService` phát lệnh với `command_id = "open:{gate_id}:{event_id}"`.
+   - **Chỉ khi `Barrier Controller` trả về `ACK` thành công**, hệ thống mới cập nhật `barrier_status = OPENED` và cho phép UI hiển thị `Đã mở barrier (OPENED)`.
+   - Nếu không đạt hoặc lỗi AI/thiết bị: giữ barrier đóng, ghi `GateLog` trạng thái `FAILED` (hoặc `OUTCOME_UNKNOWN` khi timeout ACK), sinh `SecurityAlert` có số thứ tự `sequence` bền vững và đẩy qua WebSocket. Khi timeout, client tra cứu lại qua `GET /api/v2/access-events/{event_id}` thay vì tự tạo `event_id` mới.
 
 ---
 
-## 9. Core Data Model
-
-```text
-Site
-Gate
-Lane
-CameraDevice
-GateDevice
-
-User
-Vehicle
-Appointment
-AppointmentApproval
-
-AccessEvent
-AIDetection
-AccessDecision
-GateCommand
-
-InspectionSession
-DetectedObject
-SecurityAlert
-GuardReview
-
-Asset
-ExportVoucher
-ExportVoucherItem
-
-Evidence
-Notification
-AuditLog
-```
-
-### 9.1 Mapping tới Data Requirements của BRD §7
-
-| Entity trong BRD | Entity trong thiết kế | Ghi chú |
-|---|---|---|
-| Users (Khách, Nhà cung cấp, Nhân viên) | `User` | Lưu Tên, Ảnh khuôn mặt, CCCD. Phân loại qua `user_type` thay vì tách bảng |
-| Vehicles (Xe tải, bán tải, ô tô con) | `Vehicle` | Lưu Biển số, Loại xe |
-| Appointments | `Appointment` + `AppointmentApproval` | Tách approval để phục vụ `DA-01` (Host Approval) |
-| Assets / Equipments | `Asset` | Hình dáng, nhãn mác (thùng điện, vật tư) |
-| ExportVoucher | `ExportVoucher` + `ExportVoucherItem` | Tách item để đối chiếu theo từng dòng vật tư |
-
-### 9.2 Cardinality — theo BRD §7
-
-```text
-User        1 ──── * Vehicle          (1 người đăng ký nhiều xe)
-Appointment * ──── 1 User             (visitor)
-Appointment * ──── 1 Vehicle
-Appointment * ──── 1 User             (host)
-Vehicle     1 ──── 0..1 ExportVoucher (khi rời công ty có chở hàng)
-AccessEvent * ──── 0..1 Appointment   (xe không hẹn trước vẫn tạo AccessEvent)
-AccessEvent 1 ──── 0..1 InspectionSession
-```
-
-> Lưu ý ràng buộc `AccessEvent * ──── 0..1 Appointment`: hệ thống **phải** ghi nhận được
-> cả phương tiện **chưa đăng ký** (BRD §8 yêu cầu cảnh báo bảo vệ khi có xe chưa đăng ký).
-> Không được thiết kế `appointment_id` là NOT NULL.
-
-### Access Event Example
-
-```json
-{
-  "access_event_id": "acc_20260817_000123",
-  "direction": "ENTRY",
-  "vehicle_id": "veh_001",
-  "person_id": "person_001",
-  "appointment_id": "apt_001",
-  "observed_plate": "51A12345",
-  "plate_confidence": 0.974,
-  "face_similarity": 0.941,
-  "risk_score": 12,
-  "decision": "ALLOW",
-  "decision_reason": [
-    "APPOINTMENT_APPROVED",
-    "TIME_WINDOW_VALID",
-    "PLATE_MATCH",
-    "FACE_MATCH"
-  ]
-}
-```
-
----
-
-## 10. Entry State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> VehicleObserved
-    VehicleObserved --> IdentityResolved
-    IdentityResolved --> AppointmentValidated
-
-    AppointmentValidated --> RiskEvaluated
-    AppointmentValidated --> ReviewRequired
-
-    RiskEvaluated --> AutoAllow
-    RiskEvaluated --> ReviewRequired
-    RiskEvaluated --> Blocked
-
-    ReviewRequired --> GuardApproved
-    ReviewRequired --> GuardRejected
-
-    AutoAllow --> GateOpening
-    GuardApproved --> GateOpening
-    GuardRejected --> Blocked
-
-    GateOpening --> GateOpened
-    GateOpened --> VehiclePassed
-    VehiclePassed --> Completed
-    Blocked --> Completed
-```
+### 2.2. Luồng Cổng Nhân viên Đi bộ (`Pedestrian Access` — 4 Yếu tố)
+1. Sử dụng hợp đồng và đường dẫn riêng (`/api/v1/employees`, `/api/v1/pedestrian-grants`, `/api/v1/person-access-logs`), **tuyệt đối không dùng biển số giả hoặc phương tiện giả**.
+2. Kiểm tra 4 yếu tố bắt buộc:
+   - Thẻ `EmployeeCard` ở trạng thái `ACTIVE`.
+   - Bản ghi `EmployeeRegistry` ở trạng thái `ACTIVE` (tham chiếu `person_id` tới hồ sơ sinh trắc học đã enrollment, không nhân bản `face_embedding`).
+   - Khuôn mặt trực tiếp khớp `1:1` với chủ thẻ (`face_similarity >= 0.75` và đạt `liveness`).
+   - Quyền đi bộ vật lý (`PedestrianAccessGrant`) đang `ACTIVE` cho đúng `access_point_id`, `direction` (`ENTRY`/`EXIT`) và khoảng hiệu lực `[valid_from, valid_until)` (được kiểm tra lại ngay trước bước phát lệnh mở cửa để chống race condition thu hồi quyền).
 
 > `VehiclePassed` yêu cầu tín hiệu từ loop detector / sensor vật lý xác nhận xe đã rời vùng barrier.
 > Không có sự kiện này → rủi ro tailgating (2 xe qua 1 lần mở) và barrier hạ khi xe còn trong vùng (`R-10`).
 
 ---
 
-## 11. Exit Inspection State Machine
-
-```mermaid
-stateDiagram-v2
-    [*] --> VehicleResolved
-    VehicleResolved --> InspectionCreated
-    InspectionCreated --> Capturing
-    Capturing --> Analyzing
-    Analyzing --> RiskEvaluated
-
-    RiskEvaluated --> Approved
-    RiskEvaluated --> ReviewRequired
-
-    ReviewRequired --> RescanRequested
-    RescanRequested --> Capturing
-
-    ReviewRequired --> GuardApproved
-    ReviewRequired --> GuardRejected
-
-    Approved --> GateOpening
-    GuardApproved --> GateOpening
-    GuardRejected --> Blocked
-
-    GateOpening --> GateOpened
-    GateOpened --> VehiclePassed
-    VehiclePassed --> Completed
-    Blocked --> Completed
-```
-
----
-
-## 12. Decision & Risk Engine
-
-> ⚠️ **Thiết kế 2 tầng.** Tầng 1 (Hard Rules) chạy trước, quyết định tuyệt đối.
-> Tầng 2 (Risk Scoring) chỉ xử lý vùng xám khi Tầng 1 không match.
-> Lý do: nếu chỉ dùng scoring, một kẻ blacklisted nhưng có lịch hẹn hợp lệ + biển số khớp + khuôn mặt khớp
-> sẽ nhận `+100 - 20 - 20 - 20 = 40 → MEDIUM → REVIEW` thay vì BLOCK — đây là lỗ hổng an ninh nghiêm trọng.
-
-### Inputs
-
-```text
-Identity
-├── Plate Match
-├── Face Match
-└── Confidence
-
-Appointment
-├── Approved
-├── Time Window
-├── Vehicle Linked
-└── Host
-
-Security
-├── Person Blacklist
-├── Vehicle Blacklist
-└── Previous Alerts
-
-Inspection
-├── Object Detection
-├── Confidence
-├── Voucher
-└── Match Result
-```
-
-### Tầng 1 — Hard Rules (ưu tiên tuyệt đối)
-
-Các quy tắc dưới đây chạy **trước** scoring. Nếu match bất kỳ rule nào, trả kết quả ngay,
-không tham gia cộng điểm.
-
-| # | Condition | Decision | Lý do |
-|---|---|---|---|
-| H1 | Person hoặc Vehicle nằm trong **Blacklist** | **BLOCK** | An ninh tuyệt đối — Guardrail #6 |
-| H2 | Appointment đã **hết hạn** (`expired`) hoặc **bị hủy** | **BLOCK** | Không cho phép truy cập trên lịch hẹn không còn hiệu lực |
-| H3 | Vehicle bị **đánh dấu** (flagged từ sự cố trước) | **BLOCK** | Xe đang trong diện điều tra |
-| H4 | Camera / Edge AI **không hoạt động** | **REVIEW** | Fail-safe — Guardrail #13, chuyển Guard |
-
-### Tầng 2 — Risk Scoring (vùng xám)
-
-Chỉ đánh giá khi không có Hard Rule nào match.
-
-**Base score: `0`.** Score luôn `≥ 0` (clamp, không cho âm).
-
-| Condition | Score |
-|---|---:|
-| Appointment Valid & Time Window OK | -20 |
-| Plate Match (confidence ≥ threshold) | -20 |
-| Face Match (similarity ≥ threshold) | -20 |
-| Unknown Vehicle (không có trong registry) | +30 |
-| Face Low Confidence (dưới threshold nhưng trên reject) | +25 |
-| No Appointment (xe không hẹn trước) | +35 |
-| Suspicious Object detected | +40 |
-| No Voucher (exit, có vật thể nhưng không có phiếu) | +30 |
-| Voucher Mismatch | +60 |
-| Previous Alert trong 30 ngày | +15 |
-
-### Ngưỡng quyết định
-
-| Score | Risk Level | Decision | Hành động |
-|---|---|---|---|
-| 0–29 | `LOW` | `ALLOW` | Auto-open nếu policy cho phép |
-| 30–59 | `MEDIUM` | `REVIEW` | Chuyển Guard Dashboard, chờ approve/reject |
-| 60–79 | `HIGH` | `REVIEW` | Chuyển Guard + Security Supervisor, tạo alert |
-| 80+ | `CRITICAL` | `BLOCK` | Giữ cổng đóng, tạo alert mức CRITICAL |
-
-> Không còn dấu `/` phi tất định. Mỗi ngưỡng → 1 decision duy nhất.
-
-Các score và ngưỡng phải cấu hình và hiệu chỉnh trong PoC.
-
----
-
-## 13. Entry Sequence
+### 2.3. Luồng Thống kê Hoạt động (`Operational Analytics`) & Trợ lý AI Báo cáo Nhanh (`Self-Hosted AI Assistant`)
 
 ```mermaid
 sequenceDiagram
-    actor Driver
-    participant Camera
-    participant Edge
-    participant API
-    participant UseCase
-    participant UOW
-    participant Risk
-    participant Gate
-    participant Guard
-    participant Notify
+    participant U as Operator (React Console)
+    participant API as FastAPI (Report Router)
+    participant DB as MongoDB / Outbox
+    participant W as Durable Report Worker
+    participant AQS as AnalyticsQueryService
+    participant LLM as Self-Hosted ModelGateway
 
-    Driver->>Camera: enters recognition zone
-    Camera->>Edge: frames
-    Edge->>Edge: LPR + Face
-    Edge->>API: VEHICLE_OBSERVED
-    API->>UseCase: process
-    UseCase->>UOW: resolve appointment/person/vehicle
-    UOW-->>UseCase: entities
-    UseCase->>Risk: evaluate
-    Risk-->>UseCase: ALLOW / REVIEW / BLOCK
-
-    alt ALLOW
-        UseCase->>Gate: OPEN
-        Gate-->>UseCase: ACK
-        UseCase->>Notify: Notify Host
-    else REVIEW
-        UseCase->>Guard: Review Required
-        Guard-->>UseCase: Approve / Reject
-    else BLOCK
-        UseCase->>Guard: High-risk Alert
-    end
-
-    UseCase->>UOW: persist AccessEvent
-    UOW->>UOW: commit
-```
-
----
-
-## 14. Exit Inspection Sequence
-
-```mermaid
-sequenceDiagram
-    actor Driver
-    participant LPR
-    participant Inspection
-    participant Cameras
-    participant AI
-    participant Inventory
-    participant Risk
-    participant Guard
-    participant Gate
-    participant Storage
-
-    Driver->>LPR: arrives exit zone
-    LPR->>Inspection: vehicle identity
-    Inspection->>Cameras: capture 4 views
-    Cameras-->>Inspection: images
-    Inspection->>Storage: save evidence
-    Inspection->>AI: detect objects
-    AI-->>Inspection: detections
-
-    opt Phase 3
-        Inspection->>Inventory: get voucher
-        Inventory-->>Inspection: approved items
-    end
-
-    Inspection->>Risk: evaluate
-    Risk-->>Inspection: LOW / REVIEW / HIGH
-
-    alt LOW
-        Inspection->>Gate: OPEN
-    else REVIEW
-        Inspection->>Guard: review
-        Guard-->>Inspection: approve / reject / rescan
-    else HIGH
-        Inspection->>Guard: high-risk alert
+    U->>API: 1. POST /api/v1/assistant/reports (Prompt + Filters + Idempotency-Key)
+    Note over U,API: Lock 1 & 2: Chặn cứng Restricted (Password, JWT, Raw Card UID, Embedding)<br/>Kiểm tra quyền assistant:use + reports:generate + domain permissions
+    API->>DB: 2. Lưu ReportJob (QUEUED, owner_id, authz_version, expires_at)
+    API-->>U: 202 Accepted (report_id, status=QUEUED)
+    U->>API: 3. GET /api/v1/assistant/reports/{id}/events (Fetch SSE + Bearer JWT)
+    W->>DB: 4. Atomic Claim Job (RUNNING + lease deadline)
+    W->>AQS: 5. Tính toán AnalyticsSnapshot bất biến bằng code (theo scope owner)
+    W-->>U: SSE Event (stage=RUNNING, sequence=1)
+    W->>LLM: 6. Gửi Snapshot + Sanitized Prompt (Không có PII/Biometric thô)
+    LLM-->>W: 7. Trả JSON Draft
+    W->>W: 8. Lock 3: Validate JSON Schema + Đối chiếu 100% số liệu & metric_refs với Snapshot
+    alt Đạt toàn bộ kiểm chứng Grounding
+        W->>DB: 9a. Lưu kết quả COMPLETED (MODEL_GROUNDED)
+        W-->>U: SSE Event (stage=COMPLETED, sequence=2)
+    else AI bịa số / Sai citation / Timeout
+        W->>DB: 9b. Gắn risk_flags + Chuyển sang DATA_SUMMARY_FALLBACK hoặc FAILED
+        W-->>U: SSE Event (stage=COMPLETED/FAILED kèm nhãn Fallback rõ ràng)
     end
 ```
 
----
-
-## 15. Evidence Architecture
-
-```text
-AI Event
-   │
-   ├── Metadata → PostgreSQL
-   │
-   └── Snapshot / Clip → Object Storage
-                         │
-                         └── EvidenceRef stored in DB
-```
-
-Evidence metadata:
-
-```text
-object_key
-hash
-camera_id
-captured_at
-retention_class
-encryption_metadata
-access_classification
-```
+- **Nguyên tắc chống ảo giác số liệu**: Mọi phép cộng, tỷ lệ `PASSED/(PASSED+FAILED)` (mẫu số `0 -> null`), phân rã theo lý do từ chối và độ phủ (`coverage`) đều do `AnalyticsQueryService` tính bằng code trên toàn tập dữ liệu được phép (không bao giờ lấy `items.length` của trang danh sách làm tổng).
+- **Bảo vệ vòng đời & Quyền sở hữu (`AI-08`)**: Chỉ `owner_id` (còn giữ đủ quyền domain tại thời điểm truy cập) mới được đọc chi tiết, nhận SSE, hủy hoặc tải báo cáo; `ADMIN` không mặc nhiên đọc trộm báo cáo của người khác nếu không có policy kiểm toán riêng. Khi báo cáo quá hạn `expires_at`, hệ thống trả `410 Gone` và worker dọn dẹp (`purge`) toàn bộ prompt, snapshot và artifact.
 
 ---
 
-## 16. Multi-site Deployment
-
-```mermaid
-flowchart TB
-    subgraph Central
-        API["Central API"]
-        DB[("PostgreSQL")]
-        Redis[("Redis")]
-        Store[("Object Storage")]
-        Bus["Message Broker"]
-        Obs["Observability"]
-    end
-
-    subgraph SiteA
-        CamA["Cameras"]
-        EdgeA["Edge AI"]
-        IoTA["IoT Gateway"]
-        GateA["Barrier"]
-        CamA --> EdgeA
-        EdgeA --> IoTA
-        IoTA --> GateA
-    end
-
-    subgraph SiteB
-        CamB["Cameras"]
-        EdgeB["Edge AI"]
-        IoTB["IoT Gateway"]
-        GateB["Barrier"]
-        CamB --> EdgeB
-        EdgeB --> IoTB
-        IoTB --> GateB
-    end
-
-    EdgeA <--> API
-    IoTA <--> API
-    EdgeB <--> API
-    IoTB <--> API
-
-    API --> DB
-    API --> Redis
-    API --> Store
-    API --> Bus
-    API --> Obs
-```
+### 2.4. Luồng Quản trị Cấu hình Thiết bị & Nhận diện (`Device & Vision Settings` — `FE-G08`)
+- Quản trị 6 nhóm cấu hình tại `/settings`: `cameras`, `models`, `barriers`, `readers`, `access-points` (cổng & làn), và `history` (nhật ký kiểm toán cấu hình).
+- **Tách biệt 3 trạng thái cấu hình**:
+  1. `Local Draft (Bản nháp trong RAM trình duyệt)`: Chỉnh sửa và kiểm tra schema điều kiện theo loại thiết bị (ví dụ: làn `PEDESTRIAN` tự động cấm `plate_camera_ref` / `alpr_model_ref`), không lưu `localStorage`.
+  2. `Saved Config (desired_version)`: Lưu cấu hình mới lên MongoDB với `expected_version` và `reason`, trạng thái chuyển sang `PENDING_APPLY` (chưa tác động thiết bị đang chạy).
+  3. `Applied Config (applied_version)`: Thực thi bất đồng bộ qua `POST .../apply` trả về `operation_id`; nếu mất kết nối hoặc timeout khi apply, UI giữ trạng thái `OUTCOME_UNKNOWN` và đối soát qua `GET /api/v1/admin/device-settings/operations/{operation_id}`.
+- **Giới hạn an toàn**: Các thao tác `validate`, `connectivity-test` và `apply` tuyệt đối không chứa lệnh mở barrier (`OPEN`) và không trả về RTSP password, webhook secret hay private key trong Read DTO.
 
 ---
 
-## 17. NFR Summary
-
-| Aspect | Proposed Design |
-|---|---|
-| Latency | P95 Decision ≤ 3s |
-| Availability | Central ≥ 99.5%, manual fallback |
-| Safety | Fail-safe, not fail-open |
-| Scalability | Stateless API + Event-driven |
-| Security | TLS, RBAC, Least Privilege |
-| Privacy | Biometric retention + deletion policy |
-| Auditability | 100% Decision/Override/Gate Command audited |
-| Idempotency | Event ID + Command ID |
-| Observability | Logs + Metrics + Traces |
-| Model Governance | Model Version + Threshold Version |
-
-### 17.1 Latency Budget Breakdown
-
-Business KPI: **≤ 10s** từ lúc xe vào vùng nhận diện đến cổng mở. Technical KPI: P95 Decision ≤ 3s.
-Phân rã dưới đây là **budget mục tiêu**, cần đo thực tế trong PoC.
-
-| Phase | Budget | Ghi chú |
-|---|---:|---|
-| Xe vào vùng trigger → camera capture frame | ~1s | Phụ thuộc khoảng cách camera đến vạch dừng, tốc độ xe |
-| Edge LPR inference | ~200–500ms | ONNX/TensorRT, phụ thuộc GPU |
-| Edge Face detection + embedding | ~300–600ms | Có thể chạy song song với LPR |
-| Network Edge → Backend | ~50–200ms | LAN/VPN, phụ thuộc topology |
-| Backend decision pipeline | ~200–500ms | Appointment lookup + Risk Engine |
-| Gate command → IoT ACK | ~100–300ms | MQTT/HTTP, phụ thuộc protocol |
-| Barrier mở vật lý | ~2–5s | **Không kiểm soát được** — phụ thuộc nhà sản xuất barrier |
-| **Tổng ước tính** | **~4–8s** | Còn margin cho jitter |
-
-> ⚠️ **Thiếu bảng này thì:**
-> 1. Không viết được Hardware Specification (đặt camera cách vạch dừng bao xa? FOV? shutter speed cho xe đang chạy?).
-> 2. Con số 3s không kiểm chứng được lúc nghiệm thu.
-
----
-
-## 18. PoC Strategy
-
-### PoC 1 — Entry Automation
-
-- LPR.
-- Face Verification.
-- Appointment Match.
-- Decision.
-- Barrier command.
-- Guard review.
-- Audit.
-
-### PoC 2 — Exit Inspection
-
-- Inspection Zone.
-- 4-camera capture.
-- Object detection.
-- Evidence.
-- Risk.
-- Guard review.
-- Rescan.
-
-### PoC 3 — Inventory
-
-Thực hiện sau khi có:
-
-- Inventory API contract.
-- Asset taxonomy.
-- Dataset.
-- Matching criteria.
-
----
-
-## 19. Delivery Milestones
-
-> Dùng ký hiệu **M0–M6** để tránh nhầm lẫn với **Phase 1 / Phase 2** của BRD (§4).
-> `Phase` = phase thương mại theo BRD. `M` = mốc giao hàng kỹ thuật.
-
-| Milestone | Scope | Thuộc Phase (BRD) | Điều kiện tiên quyết |
-|---|---|---|---|
-| M0 | Discovery + Site Survey + Hardware Specification | — | `OQ-01`, `OQ-03` |
-| M1 | Entry PoC (LPR + Face + Decision + Barrier) | Phase 1 / Stage 1A | M0, `OQ-02` |
-| M2 | Smart Gate MVP (Portal + Appointment + Notification + Audit) | Phase 1 / Stage 1A | M1 |
-| M3 | Security Inspection PoC (4-camera + Object Detection) | Phase 1 / Stage 1B | M2, `OQ-03`, `OQ-04` |
-| M4 | Security Production (Alert + Evidence + Guard Review) | Phase 1 / Stage 1B | M3 + Dataset Benchmark đạt ngưỡng |
-| M5 | Inventory Integration (Export Voucher Matching) | Phase 2 | M4 + Inventory API contract |
-| M6 | Multi-site Rollout / SaaS packaging | Future Scope | M5 + quyết định thương mại |
-
-> **M0 là bắt buộc và không được bỏ qua.** Toàn bộ scope hiện tại đang dựa trên mong muốn
-> trao đổi miệng (`R-04`). Không bố trí full team trước khi M0 hoàn thành và hợp đồng được ký (`R-03`).
-
----
-
-## 20. Architecture Decision Records
-
-### ADR-001 — Edge-first Computer Vision
-
-**Status:** `PROPOSED` — phụ thuộc `OQ-02`.
-
-Video được xử lý tại Edge để giảm latency, bandwidth và rủi ro privacy.
-
-> ⚠️ Khách hàng **chưa quyết định** giữa Local AI model (bảo mật dữ liệu, đầu tư ban đầu cao)
-> và Third-party AI API (chi phí duy trì cao) — BRD §10. ADR này giả định hướng Local/Edge.
-> Nếu khách chọn Third-party API, phải revisit: `VisionSettings`, chi phí vận hành,
-> ràng buộc privacy dữ liệu sinh trắc học (`OQ-07`), và mô hình license SaaS ở M6.
-> Thiết kế hiện tại giảm thiểu rủi ro bằng cách đặt toàn bộ AI sau các Gateway port,
-> nên việc đổi hướng ảnh hưởng Infrastructure layer, không ảnh hưởng Domain.
-
-### ADR-002 — AI Result != Access Decision
-
-**Status:** `ACCEPTED`.
-
-AI chỉ trả observation/confidence; Decision Engine xử lý business decision.
-Ràng buộc này bảo vệ dự án khỏi `R-05` (kỳ vọng "AI tự phát hiện trộm").
-
-### ADR-003 — AccessEvent là core aggregate
-
-**Status:** `ACCEPTED`.
-
-Mọi AI event, decision, gate command, evidence và alert được liên kết về AccessEvent.
-Đây là cơ sở kỹ thuật cho yêu cầu truy vết trách nhiệm (`DA-02`) — pain point #4 tại §1.1.
-
-### ADR-004 — Human-in-the-loop
-
-**Status:** `ACCEPTED` — phụ thuộc giả định `A-05`.
-
-Uncertain/high-risk flow luôn có Guard Review.
-
-> Giả định `A-05`: bảo vệ vẫn trực tại cổng để xử lý các trường hợp `REVIEW`.
-> Nếu khách kỳ vọng vận hành **không người trực**, toàn bộ luồng này phải thiết kế lại.
-> Cần xác nhận trong buổi họp kế tiếp cùng `OQ-06` (ai có quyền override khi cảnh báo nhầm).
-
-### ADR-005 — Asset Recognition sau Dataset Benchmark
-
-**Status:** `ACCEPTED` — biện pháp giảm thiểu trực tiếp cho `R-01`, `R-02`.
-
-Không commit exact asset recognition trước khi khảo sát camera và dataset.
-
-> Cụ thể: **không đưa con số accuracy của FR05 vào hợp đồng** trước khi có kết quả M3.
-> Đề xuất kỹ thuật giảm rủi ro: yêu cầu bung cốp trong **Inspection Zone có kiểm soát ánh sáng**,
-> thay vì cố gắng "soi xuyên kính" — bài toán sau vượt xa năng lực thực tế của công nghệ hiện tại.
-
-### ADR-006 — Hardware là Out of Scope, tích hợp qua Adapter
-
-**Status:** `ACCEPTED` — hệ quả trực tiếp của BRD §9.
-
-Toàn bộ camera, server và thiết bị IoT do khách hàng cung cấp (`A-01`). Do đó hệ thống
-không được phụ thuộc vendor cụ thể: mọi thiết bị tích hợp qua `CameraGateway` /
-`GateControllerGateway` port. Đổi lại, team phải phát hành Hardware Specification
-làm điều kiện tiên quyết hợp đồng (`R-06`).
+### 2.5. Luồng Module Kho Mở rộng (`Warehouse Dock & Signed Exit Slip` — Extension)
+- Khởi tạo kiểm tra dock (`DockInspection`) yêu cầu đơn hàng đang `PENDING` và có lượt `Gate In PASSED` hợp lệ của đúng cặp Tài xế – Xe.
+- Mỗi lần chụp tại dock lưu ảnh mã hóa `AES-256-GCM` cùng lịch sử quan sát của `Cargo Vision Adapter` (`EMPTY`, `PARTIAL`, `FULL`, `ANOMALY`).
+- Khi phát hiện `ANOMALY`, đơn hàng bị giữ lại để review; chỉ khi nhân viên `WAREHOUSE` xác nhận `finalize LOADED` mới chuyển đơn sang `READY_FOR_EXIT`.
+- Phiếu xuất kho (`Exit Slip`) được ký bằng `Compact JWS Ed25519` (`order_id`, `vehicle_id`, `driver_id`, `slip_version`, `jti`, `iat`, `exp`, `kid`), lưu băm `HMAC-SHA256` trong DB và lưu bản QR/HTML/PDF mã hóa trong MinIO. Cấp lại phiếu (`reissue`) tăng `slip_version + 1` và làm mất hiệu lực các mã cũ.
 
 ### ADR-014 — Degraded Mode: Edge tự chủ khi mất WAN
 
@@ -1051,71 +203,36 @@ candidate_person_id)` là 1:1 do Backend gọi. Trong khi `project-structure.md`
 
 ---
 
-## 21. Open Questions, Assumptions & Risks
+## 3. Xác thực, Phân quyền RBAC & Cảnh báo Thời gian thực
 
-Các mục này được quản lý tập trung tại **`requirements-traceability.md`** để tránh
-phân tán thông tin. Tóm tắt các mục **blocking**:
+### 3.1. Xác thực Operator (`Auth v1 Baseline` -> `Auth v2 Target`)
+- **Chế độ mục tiêu (`Auth v2`)**:
+  - `Access JWT` lưu duy nhất trong RAM trình duyệt (`TTL = 300s`, thuật toán `EdDSA` với cặp khóa operator độc lập với khóa ký phiếu kho).
+  - `Refresh Token` opaque (`>= 256-bit`) lưu trong cookie `evsg_refresh` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v2/auth`) kết hợp cookie `evsg_auth_csrf` và kiểm tra header `Origin` + `X-CSRF-Token`.
+  - **Xoay vòng & Chống dùng lại (`Atomic Rotation & Reuse Detection`)**: Sử dụng single-flight trong tab và `Web Lock` đa tab. Khi xoay vòng, token vừa dùng trong cửa sổ ân hạn `5 giây` trả `409 REFRESH_IN_PROGRESS` (để tab song song chờ và thử lại tối đa 1 lần); nếu dùng lại token cũ ngoài cửa sổ `5 giây` → trả `401 REFRESH_REUSE_DETECTED` và thu hồi toàn bộ `token_family` trên mọi worker.
+- **Tương thích ngược có kiểm soát**: Trong thời gian chờ Backend bàn giao `FE-G01`, Frontend sử dụng adapter `Session v1` tường minh (`/api/v1/auth/login`, `/me`, `/logout`), không tự động fallback mù khi JWT lỗi.
 
-| ID | Nội dung | Ảnh hưởng |
-|---|---|---|
-| `OQ-01` | Chưa có Official Requirement bằng văn bản | **Blocking toàn dự án** — scope chưa freeze được |
-| `OQ-02` | Local AI model hay Third-party API? | Quyết định `ADR-001`, chi phí hạ tầng, mô hình SaaS |
-| `OQ-03` | Thông số camera hiện có? | Không có ⇒ không cam kết được accuracy `FR05` |
-| `OQ-04` | Khách có cung cấp dataset mẫu không? | Không có ⇒ `FR05`/`FR06` không khả thi đúng hạn |
-| `R-01` | Nhận diện vật thể bị che khuất — độ chính xác không chắc chắn | Rủi ro kỹ thuật **cao nhất** của dự án |
-| `R-03` | Thủ tục Nhà nước 2–3 tháng, rủi ro dòng tiền | Nguyên tắc *"có tiền mới làm"* |
-| `R-04` | 4/6 module đang `PROPOSED` | Scope creep |
+### 3.2. Phân quyền RBAC Động & Kiểm toán Bất biến (`G2`)
+- Mỗi `User` có duy nhất 1 `role_id` đang hoạt động; quyền thực tế được tính từ `Permission Catalog` do backend sở hữu.
+- Mọi thao tác tạo/gán hoặc sửa tài khoản `ADMIN` yêu cầu quyền chuyên biệt (`users:assign-admin`, `users:manage-admin`) và kiểm tra bất biến **`last-admin`** trong cùng một giao dịch MongoDB (`MongoUnitOfWork`) kèm ghi `admin_audit_logs` đã redact dữ liệu nhạy cảm.
+- Khi đổi quyền của role, khóa tài khoản hoặc đặt lại mật khẩu, hệ thống tăng `authz_version` / `session_version` để vô hiệu hóa tức thời quyền cũ trên mọi request HTTP, kết nối WebSocket, luồng SSE và bộ nhớ đệm `TanStack Query`.
 
----
-
-# Summary
-
-```text
-CAMERA / SENSOR
-      │
-      ▼
-   EDGE AI
-      │
-      ├── LPR
-      ├── FACE
-      └── OBJECT
-      │
-      ▼
- AI EVENT
-      │
-      ▼
- APPLICATION
-      │
-      ▼
- DOMAIN POLICY
-      │
-      ▼
- DECISION ENGINE
-   ┌──┼─────────┐
-   ▼  ▼         ▼
-ALLOW REVIEW   BLOCK
-   │    │         │
-   ▼    ▼         ▼
-GATE  GUARD     ALERT
-      │
-      ▼
-AUDIT + EVIDENCE
-```
-
-Hệ thống nên được định vị là **AI-assisted Smart Gate & Vehicle Security Platform**, không phải “AI tự phát hiện trộm”.
+### 3.3. Cảnh báo Thời gian thực & Đồng bộ Chuỗi (`WebSocket + REST Delta Resync`)
+- Mỗi cảnh báo hoặc cập nhật trạng thái cảnh báo được ghi vào bảng outbox/delta với số thứ tự `sequence` tăng nguyên tử trước khi đẩy qua `WebSocket Hub`.
+- Trên `WS v2` (`/ws/v2/security/alerts`), kết nối được thiết lập bằng `ws_ticket` dùng một lần (`TTL = 30s`).
+- Khi mất kết nối và nối lại, trình duyệt giữ buffer tối đa `1.000` sự kiện, gọi `GET /api/v2/security/alerts?after_sequence=N` theo từng trang để bắt kịp `watermark` và khử trùng lặp theo `sequence`. Nếu con trỏ cũ đã bị xóa theo chính sách lưu trữ (`retention`), server trả `410 ALERT_HISTORY_GAP` để UI khởi tạo lại từ đầu và hiển thị rõ cảnh báo `coverage = partial` (không báo giả là đã đồng bộ đầy đủ toàn bộ lịch sử).
 
 ---
 
-## Trạng thái tài liệu
+## 4. Bảng Chế độ Lỗi & Hành vi An toàn (`Fail-Closed Failure Matrix`)
 
-| Hạng mục | Tình trạng |
-|---|---|
-| Nguồn yêu cầu | BRD v0.1 — `DRAFT / PROPOSED` |
-| Module đã được khách xác nhận | 2/6 (Nhận diện AI, Điều khiển Cổng) |
-| Open Questions còn mở | 7 (`OQ-01` … `OQ-07`) — trong đó `OQ-01` là blocking |
-| Rủi ro mức Cao | 5 (`R-01` … `R-05`) |
-| Điều kiện để freeze scope | `OQ-01` được trả lời bằng văn bản |
-
-> Tài liệu này **chưa đủ điều kiện dùng làm cơ sở estimate hợp đồng**.
-> Chi tiết truy vết yêu cầu, trạng thái từng hạng mục, câu hỏi mở, giả định và rủi ro:
-> xem `requirements-traceability.md`.
+| Tình huống lỗi / Sự cố | Hành vi bắt buộc của Backend | Hành vi bắt buộc của Frontend (`React Console`) |
+| :--- | :--- | :--- |
+| **1. Mô hình Vision AI lỗi / Không tải được / Timeout** | Ghi `GateLog` `FAILED`, tạo `SecurityAlert`, **không** phát lệnh mở barrier (**fail-closed**). | Hiển thị trạng thái xác minh thất bại kèm mã lý do; không hiển thị trạng thái mở cổng. |
+| **2. MinIO không lưu được ảnh bằng chứng** | Hủy luồng xác minh ngay trước bước cấp phép, trả `503`, **không** mở barrier. | Hiển thị lỗi hạ tầng lưu trữ bằng chứng; giữ nguyên trạng thái cổng đóng. |
+| **3. MongoDB Replica Set mất kết nối / Không sẵn sàng** | `/health/ready` trả `503`; mọi kiểm tra quyền/phiên và xác minh cổng đều từ chối (**fail-closed**). | Banner hệ thống báo mất kết nối cơ sở dữ liệu; chặn các thao tác thay đổi dữ liệu. |
+| **4. Barrier không trả `ACK` / Timeout mạng** | Ghi trạng thái `TIMEOUT_UNKNOWN` / `BARRIER_ACK_TIMEOUT`; không đánh dấu đơn kho `COMPLETED`. | Hiển thị `OutcomeUnknownState` (*"Chưa rõ kết quả chấp hành thiết bị"*), cung cấp nút đối soát theo cùng `event_id`, **cấm tự tạo `event_id` mới để gửi lại lệnh mở cổng**. |
+| **5. `ModelGateway` của AI Assistant lỗi / Timeout** | Không gọi Cloud AI bên thứ ba; chuyển kết quả sang `DATA_SUMMARY_FALLBACK` (từ số thật) hoặc `FAILED`. | Hiển thị thông báo trung tính và bản tóm tắt số liệu dự phòng có nhãn rõ ràng; `DashboardPage` vẫn hoạt động bình thường. |
+| **6. Đầu ra AI Assistant sai số liệu / Sai Schema / Chứa XSS** | Bước `VALIDATING` chặn xuất bản kết quả AI lỗi, gắn cờ `risk_flags` và ghi audit log. | Chỉ render văn bản thuần đã escape; không bao giờ thực thi HTML/script từ AI hoặc dữ liệu cảnh báo. |
+| **7. Tràn bộ đệm WebSocket (`> 1.000 events`) hoặc mất lịch sử (`410`)** | Đóng kết nối với mã `4409` hoặc trả `410 ALERT_HISTORY_GAP` kèm `oldest_sequence` và `watermark`. | Không âm thầm làm rơi sự kiện; thực hiện resync qua REST và hiển thị banner cảnh báo độ phủ `partial`. |
+| **8. Xung đột phiên bản (`409 VERSION_CONFLICT`) khi sửa User/Role/Config** | Từ chối ghi đè khi `expected_version` không khớp bản hiện hành trên DB. | Giữ nguyên dữ liệu người dùng đang nhập trên form modal, thông báo xung đột phiên bản và cho phép tải lại bản mới nhất. |

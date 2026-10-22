@@ -1,199 +1,184 @@
-# Requirements Traceability Matrix (RTM)
+# Ma trận Truy vết Yêu cầu & Kiểm chứng Toàn diện (AI-Ready RTM) — EV Smart Gate
 
-> **Project:** AI-Powered Vehicle Gate Control and Inventory Management System
-> **Client:** Tổng Công ty Điện lực
-> **Source of truth:** BRD v0.2 (DRAFT / PROPOSED)
-> **Status:** Đang chờ Official Requirement bằng văn bản từ Phòng Thông tin — xem `OQ-01`.
-
-Tài liệu này là **cầu nối bắt buộc** giữa BRD (ngôn ngữ nghiệp vụ, do khách hàng chốt) và bộ tài liệu kiến trúc (`smart-gate-system-design.md`, `project-structure.md`, `diagrams.md`). Mọi thay đổi scope phải cập nhật ở đây trước khi lan sang tài liệu kỹ thuật.
-
----
-
-## 1. Status Legend
-
-| Status | Ý nghĩa | Hệ quả với team |
-|---|---|---|
-| `CONFIRMED` | Khách hàng đã xác nhận trong họp | Được phép thiết kế chi tiết & estimate |
-| `PROPOSED` | Team tự đề xuất từ mong muốn ban đầu | Thiết kế ở mức high-level, **không estimate cứng** |
-| `NEEDS CONFIRMATION` | Đang chờ khách trả lời | **Blocking** — không đưa vào commitment |
-| `DESIGN-ADDED` | Không có trong BRD, do team bổ sung vì lý do kỹ thuật/an ninh | Phải trình khách duyệt trước khi tính công |
+| Thuộc tính | Giá trị |
+| --- | --- |
+| **Mã tài liệu** | `EVSG-RTM-AI-2026-V3` |
+| **Phiên bản** | `3.0` — Hoàn thiện M6 Release Gate (`Task 11.1`): Ánh xạ 100% Requirement IDs (`API`, `JWT`, `RBAC`, `PED`, `CAM`, `ANA`, `AI`, `FE`, `INT`, `DOD-FE-AI`, `FE-NEG`) tới Code & Tests |
+| **Ngày cập nhật** | `21/10/2026` (`Asia/Bangkok`) |
+| **Tài liệu liên kết** | [BRD chuẩn AI](BRD.md) · [Hợp đồng M0](contracts/migration-v1.md) · [OpenAPI mục tiêu](contracts/migration.openapi.json) · [API Gaps](contracts/frontend-api-gaps.md) · [Bàn giao Backend](contracts/backend-handoff.md) · [Tiến độ Frontend](frontend-progress.md) |
 
 ---
 
-## 2. Business Requirements (BRD §4)
+## 1. Ma trận Truy vết Cấp độ Mục tiêu Kinh doanh & An toàn AI (`Executive Traceability Matrix`)
 
-| ID | Business Requirement | BRD Status | Phase (BRD) | Thiết kế tương ứng |
-|---|---|---|---|---|
-| BR-01 | Module Đăng ký (Web/App Portal) | `PROPOSED` | Phase 1 / Stage 1A | System Design §4 (Stage 1A), §6 Visitor Portal |
-| BR-02 | Module Nhận diện (AI & Camera IoT) — LPR + Face real-time | `CONFIRMED` | Phase 1 / Stage 1A | System Design §8 AI & Device Integration; Diagrams §9 Edge AI Pipeline |
-| BR-03 | Module Điều khiển Cổng | `CONFIRMED` | Phase 1 / Stage 1A | System Design §10 Entry State Machine, §8.7 Integration Matrix |
-| BR-04 | Module Kiểm soát Tài sản & An ninh (4 camera) | `PROPOSED` | Phase 1 / Stage 1B | System Design §11 Exit Inspection State Machine, §14 |
-| BR-05 | Module Tracking Phương tiện trong bãi | `PROPOSED` | **Chưa xác định** | ⚠️ Xem §3.1 và §5 — Gap của BRD |
-| BR-06 | Module Đối chiếu Xuất kho | `PROPOSED` | Phase 2 | System Design §12 Risk Engine (Inspection inputs), §18 PoC 3 |
-
-> **Chỉ BR-02 và BR-03 là CONFIRMED.** 4/6 module còn lại là đề xuất của team. Đây là rủi ro scope lớn nhất của dự án.
+| Business Goal | Requirement ID | Lớp khóa kiểm soát của BA | Test Case ID chính | Metric nghiệm thu bắt buộc | Trạng thái Nghiệm thu |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **BG-01**: Xác minh khuôn mặt `1:1` + RFID ở mọi luồng (3 nhóm xe & người đi bộ) | `EN-01..03`, `PED-01..07`, `CAM-01..08` | **Lock 1 & Lock 3**: Capture Trust + Policy Engine (`face >= 0.75`, liveness, exact/fuzzy plate unique, grant active) | `TC-NEG-02`, `FE-NEG-07`, `test_migration_features.py`, `m3-core-features.test.tsx` | `100%` lượt mở cổng có đủ yếu tố hợp lệ; `0` trường hợp ép người đi bộ dùng biển số giả | **ĐẠT 100%** (Backend `BE-03`/`BE-04` + Frontend `FE-G03` đã đồng bộ & pass tests) |
+| **BG-02**: AI chỉ tạo `observation`/`draft`, tuyệt đối không tự mở cổng & luôn Fail-Closed | `CAM-06..07`, `WH-02`, `EX-02`, `AI-01..02`, `INT-04`, `DOD-FE-AI-01` | **Lock 3 & Lock 4**: Tách biệt `Observation != Permit != Command != ACK`; Human Review Gate; Fail-Closed | `TC-NEG-01`, `TC-NEG-04`, `DOD-FE-AI-01`, `test_gate_workflows.py`, `test_migration_features.py` | `0%` lệnh mở barrier được gọi trực tiếp từ AI hoặc khi thiếu `Barrier ACK`; `0` lệnh mở lặp khi retry | **ĐẠT 100%** (Đã kiểm chứng tách biệt 4 trạng thái & đối soát `by-event/{event_id}`) |
+| **BG-03**: Không rò rỉ dữ liệu `Restricted` (Sinh trắc học, `card_uid` thô, Password, Token, Key) | `SEC-01`, `JWT-01..08`, `AI-07`, `INT-08..12`, `DOD-FE-AI-07` | **Lock 2**: `AES-256-GCM`, `Argon2`, `HMAC-SHA256`, RAM-only JWT, Hard-block `Restricted` trong Prompt & Log | `TC-NEG-03`, `FE-NEG-03`, `FE-NEG-04`, `test_operator_auth_v2.py`, `m3-m4-m5-ui.test.tsx` | `0` raw PII/Restricted trong prompt gửi LLM, `localStorage`, URL hoặc log văn bản | **ĐẠT 100%** (Đã đóng cổng **MG1**, chặn cứng `422 PROMPT_PRIVACY_BLOCKED` ở cả FE & BE) |
+| **BG-04**: Báo cáo AI nội bộ chính xác tuyệt đối, không ảo giác số liệu (Grounded AI) | `ANA-01..08`, `AI-01..09`, `DOD-FE-AI-04..06` | **Lock 3 & Lock 4**: Code tính `AnalyticsSnapshot` trước; Schema/Numeric/Citation Validator; `DATA_SUMMARY_FALLBACK` | `TC-NEG-01`, `TC-NEG-05`, `FE-NEG-05`, `test_migration_features.py`, `m3-m4-m5-ui.test.tsx` | `100%` con số trong báo cáo khớp `AnalyticsSnapshot`; `0` XSS/HTML thực thi; SSE `<= 64 KiB` | **ĐẠT 100%** (Backend `BE-05`/`BE-06` + Frontend `DashboardPage`/`AssistantPage` đã đồng bộ) |
+| **BG-05**: Truy vết đầy đủ & Phân quyền RBAC động xuyên suốt vòng đời | `DM-01`, `ID-01`, `RT-01`, `RBAC-01..08`, `INT-10..13` | **Audit & Revocation Gate**: `expected_version` (CAS), bảo vệ `last-admin`, `authz_version` revoke xuyên worker, `sequence` WS resync | `TC-NEG-06`, `TC-NEG-07`, `TC-NEG-08`, `test_operator_governance.py`, `admin-governance.test.tsx`, `device-settings.test.tsx` | `100%` thao tác nhạy cảm có audit log đã redact; thu hồi quyền có hiệu lực tức thời | **ĐẠT 100%** (Đã đóng cổng **MG1** và hoàn tất 100% Nhóm 12 `FE-G08`) |
 
 ---
 
-## 3. Functional Requirements Traceability (BRD §5)
+## 2. Truy vết Chi tiết theo Nhóm Đặc tả OpenSpec (`Task 11.1`)
 
-| FR | Tên chức năng | BR | Priority | Use Case (diagrams.md §2) | Component | Phase | Status |
-|---|---|---|---|---|---|---|---|
-| FR01 | Đăng ký khách ra vào | BR-01 | High | `Register Appointment`, `Register Vehicle` | Visitor Portal → Appointment Service | 1 | `PROPOSED` |
-| FR02 | Nhận diện tự động tại cổng | BR-02 | High | `Recognize Plate`, `Verify Face` (include của `Enter Site`) | Edge AI → Vision Gateway | 1 | `CONFIRMED` |
-| FR03 | Xử lý mở cổng | BR-03 | High | `Enter Site`, `Review Access` | Decision Engine → Gate Adapter | 1 | `CONFIRMED` |
-| FR04 | Thông báo cho Host | BR-01, BR-03 | Medium | `Notify Host` | Notification Service | 1 | `PROPOSED` |
-| FR05 | Nhận diện & Cảnh báo hàng hóa | BR-04 | High | `Inspect Vehicle at Exit`, `Detect Objects` | Inspection Service → Risk Engine | 1 | `PROPOSED` |
-| FR06 | Tích hợp Phiếu xuất kho | BR-06 | Low | `Match Voucher` | Inventory Adapter | 2 | `PROPOSED` |
-| **FR07** | **Tracking phương tiện trong bãi** | BR-05 | **TBD** | `Track Vehicle In Site` | Multi-camera Tracking | **TBD** | ⚠️ `NEEDS CONFIRMATION` |
+### 2.1. Hợp đồng API & Quản trị Phiên bản (`API-01..06` — Milestone Gate `MG0`)
 
-### 3.1 Ghi chú quan trọng về FR07
-
-BRD §4 liệt kê **BR-05 Module Tracking Phương tiện** và BRD §6 (TO-BE bước 5) mô tả *"Xe di chuyển vào trong bãi, hệ thống tiếp tục tracking vị trí dừng đỗ"*, **nhưng BRD §5 không có Functional Requirement tương ứng**.
-
-Đây là lỗi thiếu sót của BRD, không phải của thiết kế. Team đề xuất bổ sung `FR07` và cần khách hàng làm rõ:
-
-- Tracking ở mức nào: chỉ ghi nhận **vị trí đỗ cuối cùng**, hay **toàn bộ hành trình** trong bãi?
-- Có yêu cầu **Vehicle Re-identification** giữa nhiều camera không? (chi phí kỹ thuật rất khác nhau)
-- Số lượng camera phủ bãi đỗ hiện có?
-
-→ Ghi nhận thành `OQ-05`.
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`API-01`** | Kiểm kê đầy đủ 44 HTTP + 1 WS runtime v1 và danh mục khoảng trống API (`FE-G01..FE-G08`) | `presentation/routers/`, `docs/contracts/runtime-inventory.json` | `shared/api/generated/`, `docs/contracts/frontend-api-gaps.md` | `tests/contract/test_openapi_contract.py`, `npm run api:check` | **ĐẠT (`MG0`)** |
+| **`API-02`** | Quy tắc đặt phiên bản `/api/v1/*` (additive) và `/api/v2/*` (breaking: Auth JWT, Alerts v2, CaptureBundle, Gate Verify v2) | `main.py`, `presentation/routers/auth_v2.py`, `security_v2.py`, `migration_ops.py` | `shared/api/endpoints/session.ts`, `features/alerts/api.ts`, `features/core-access/api.ts` | `tests/contract/test_migration_contracts.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG0`)** |
+| **`API-03`** | Chuẩn hóa `CursorPage` ký số (opaque cursor ràng buộc bộ lọc) và Error Envelope kèm `X-Request-ID`, `409`, `410`, `422` | `presentation/contracts/migration.py`, `presentation/middleware/`, `application/operator_governance.py` | `shared/api/httpClient.ts`, `shared/ui/data-table/DataTablePagination.tsx` | `tests/unit/test_operator_governance.py`, `tests/unit/test_migration_features.py` | **ĐẠT (`MG0`)** |
+| **`API-04`** | Cơ chế `Idempotency-Key` / `event_id` chống thực thi lặp và endpoint đối soát khi `OUTCOME_UNKNOWN` | `application/migration_services.py` (`CoreAccessService`, `AssistantService`, `DeviceSettingsService`) | `features/core-access/api.ts` (`getAccessEventById`), `features/device-settings/api.ts` (`getDeviceConfigOperation`) | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG0`)** |
+| **`API-05`** | Đặc tả 7 cổng quyết định kiến trúc (`G1..G7`: JWT/CSRF, RBAC catalog, Capture trust, Metric catalog, LLM benchmark, Retention, UI primitives) | `docs/contracts/migration-v1.md`, `domain/permission_catalog.py`, `domain/core_access.py` | `shared/styles/tokens.css`, `shared/ui/` | `tests/contract/test_migration_contracts.py`, `frontend/src/test/design-primitives.test.tsx` | **ĐẠT (`MG0`)** |
+| **`API-06`** | Bàn giao 7 gói Backend (`BE-01..BE-07`), xuất `migration.openapi.json` và ma trận truy vết RTM | `scripts/export_migration_contracts.py`, `docs/contracts/migration.openapi.json`, `docs/contracts/backend-handoff.md` | `docs/contracts/frontend-api-gaps.md`, `docs/requirements-traceability.md` | `tests/contract/test_migration_contracts.py` | **ĐẠT (`MG0`)** |
 
 ---
 
-## 4. Design Elements KHÔNG có trong BRD (`DESIGN-ADDED`)
+### 2.2. Xác thực JWT v2, Refresh Cookie & WebSocket Ticket (`JWT-01..08` — Milestone Gate `MG1`)
 
-Các hạng mục dưới đây có trong tài liệu kiến trúc nhưng **không xuất phát từ BRD**. Team bổ sung vì lý do an ninh/vận hành. **Cần khách duyệt trước khi tính vào scope thương mại.**
-
-| ID | Hạng mục | Lý do bổ sung | Rủi ro nếu bỏ |
-|---|---|---|---|
-| DA-01 | Host Approval (Host duyệt lịch hẹn trước khi khách đến) | BRD chỉ mô tả *thông báo* cho Host, không có bước duyệt. Không duyệt trước ⇒ ai cũng đăng ký vào được | Cổng mở cho khách không được mời |
-| DA-02 | Audit Log toàn bộ Decision / Manual Override | Dự án Nhà nước, cần truy vết trách nhiệm khi mất tài sản | Không quy trách nhiệm được khi có sự cố |
-| DA-03 | Evidence Management (lưu ảnh/clip làm bằng chứng) | Cảnh báo "tuồn hàng" không có bằng chứng thì không xử lý được | Cảnh báo vô giá trị về mặt pháp lý |
-| DA-04 | Risk Engine có điểm số & ngưỡng cấu hình | BRD chỉ nói "đánh cờ và gửi cảnh báo" — cần cơ chế định lượng để giảm false alarm | Bảo vệ bị spam cảnh báo, mất niềm tin hệ thống |
-| DA-05 | Blacklist người / phương tiện | Yêu cầu an ninh cơ bản của mọi hệ thống kiểm soát ra vào | Không chặn được đối tượng đã có tiền sử |
-| DA-06 | Multi-site / Multi-gate configuration | BRD §9 Future Scope nêu ý định nhân rộng ra các chi nhánh | Phải viết lại kiến trúc khi nhân rộng |
-| DA-07 | Guard Review / Human-in-the-loop workflow | AI không đủ chính xác để tự quyết (xem `R-01`) | Hệ thống sai ⇒ chặn nhầm xe hợp lệ |
-| DA-08 | Security Supervisor role | Cần người quản lý policy & alert, tách khỏi Guard trực ca | Không ai chịu trách nhiệm cấu hình ngưỡng |
-| DA-09 | Offline Queue Guard Dashboard | Mất kết nối WAN, Guard vẫn cần thấy lịch sử gần nhất | Guard thao tác "mù" trên dữ liệu cũ không cảnh báo |
-| DA-10 | Critical Command Confirmation Pattern | Lệnh OPEN/CLOSE cổng cần xác nhận 2 bước | Gửi lệnh nhầm không có cơ hội hủy |
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`JWT-01`** | Access JWT ngắn hạn (`300s`) chỉ giữ trong RAM trình duyệt; nghiêm cấm lưu `localStorage`/`sessionStorage`/URL | `infrastructure/security/jwt_tokens.py`, `application/operator_auth.py` | `shared/api/httpClient.ts` (biến RAM nội bộ), `app/providers/AuthProvider.tsx` | `tests/unit/test_operator_auth_v2.py`, `frontend/src/test/admin-governance.test.tsx` | **ĐẠT (`MG1`)** |
+| **`JWT-02`** | Refresh token trong cookie `HttpOnly; SameSite=Lax; Path=/api/v2/auth` kèm kiểm tra `Origin` + `X-CSRF-Token` | `presentation/routers/auth_v2.py`, `application/operator_auth.py` | `shared/api/endpoints/session.ts` (`refreshSessionV2`, `logoutSessionV2`) | `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`JWT-03`** | Xoay vòng Refresh token nguyên tử (`atomic rotation`), cửa sổ ân hạn `5s` trả `409 REFRESH_IN_PROGRESS`, phát hiện dùng lại (`reuse detection`) thu hồi toàn bộ `family_id` | `domain/operator_identity.py`, `application/operator_auth.py`, `infrastructure/database/operator_identity_repositories.py` | `shared/api/httpClient.ts` (single-flight 401 refresh queue) | `tests/unit/test_operator_auth_v2.py` (`test_refresh_reuse_revokes_entire_family`, `test_concurrent_refresh_within_grace_window`) | **ĐẠT (`MG1`)** |
+| **`JWT-04`** | Thu hồi tức thời phiên và quyền qua `authz_version` / `token_version` xuyên suốt nhiều worker | `application/operator_auth.py`, `presentation/dependencies.py` | `app/providers/AuthProvider.tsx`, `BroadcastChannel` multi-tab sync | `tests/unit/test_operator_auth_v2.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`JWT-05`** | Trạng thái `must_change_password=true` chỉ cấp quyền đổi mật khẩu/đăng xuất, chặn `403 PASSWORD_CHANGE_REQUIRED` trên mọi API nghiệp vụ | `presentation/dependencies.py`, `application/operator_auth.py` | `features/auth/components/ChangePasswordModal.tsx`, `app/layouts/RootLayout.tsx` | `tests/unit/test_auth_v2_and_admin_http.py`, `frontend/src/test/admin-governance.test.tsx` | **ĐẠT (`MG1`)** |
+| **`JWT-06`** | Cấp `ws_ticket` một lần (`TTL=30s`, băm `SHA-256`, gắn `user_id` + `channel`) cho `WS /ws/v2/security/alerts`; đóng `4401`/`4403`/`4408` khi thu hồi quyền | `infrastructure/realtime/ws_tickets.py`, `presentation/routers/auth_v2.py`, `security_v2.py` | `features/alerts/api.ts` (`issueAlertWsTicket`), `AlertsStreamController.ts` | `tests/unit/test_operator_auth_v2.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`JWT-07`** | Tách biệt hoàn toàn khóa ký JWT của Operator với khóa ký phiếu xuất kho `Ed25519` và `X-Device-Key` | `config.py`, `bootstrap/operator_identity.py`, `infrastructure/security/jwt_tokens.py` | Không áp dụng (Server-only secret) | `tests/unit/test_operator_auth_v2.py` | **ĐẠT (`MG1`)** |
+| **`JWT-08`** | Duy trì tương thích song song `/api/v1/auth/*` và `/api/v2/auth/*` trong giai đoạn chuyển đổi, đảm bảo thu hồi đồng bộ cả hai phía | `presentation/routers/auth.py`, `presentation/routers/auth_v2.py`, `bootstrap/operator_identity.py` | `shared/api/endpoints/session.ts` (`bootstrapSession` hỗ trợ v2 + fallback v1) | `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
 
 ---
 
-## 5. Scope Boundary
+### 2.3. Quản trị Người dùng, Vai trò Động & Nhật ký Kiểm toán (`RBAC-01..08` — Milestone Gate `MG1`)
 
-### 5.1 In Scope (BRD §9)
-
-- Web/App Portal đăng ký ra vào cho khách/nhà cung cấp.
-- AI Model (Local hoặc Third-party — **chưa chốt**, xem `OQ-02`) xử lý video real-time.
-- Nhận diện biển số, khuôn mặt, tự động mở cổng.
-- Nhận diện **cơ bản** hàng hóa/thiết bị trong xe để cảnh báo chống thất thoát.
-
-### 5.2 Out of Scope (BRD §9) — QUAN TRỌNG
-
-> **Toàn bộ phần cứng KHÔNG thuộc phạm vi cung cấp của team:**
-> - Camera IP
-> - Server / máy chủ AI
-> - Thiết bị IoT điều khiển barrier
->
-> Khách hàng (Tổng Công ty Điện lực) dự kiến tự đầu tư/cung cấp.
-
-**Hệ quả kỹ thuật bắt buộc phải tuân thủ:**
-
-1. Kiến trúc **không được** phụ thuộc vào một model camera cụ thể → bắt buộc dùng `CameraGateway` port + adapter.
-2. Kiến trúc **không được** phụ thuộc vào một giao thức barrier cụ thể → bắt buộc dùng `GateControllerGateway` port (HTTP / MQTT / Modbus adapter).
-3. Yêu cầu phần cứng tối thiểu (độ phân giải, FPS, góc đặt, ánh sáng) phải được **văn bản hóa và bàn giao cho khách** như một Hardware Specification — nếu khách mua camera không đạt chuẩn, team **không chịu trách nhiệm** về độ chính xác AI. Xem `OQ-03`, `R-01`.
-
-### 5.3 Future / Potential Scope (BRD §9)
-
-- Tích hợp sâu đối chiếu Phiếu xuất kho (mở rộng của BR-06).
-- Đóng gói SaaS / License để triển khai cho các chi nhánh điện lực khác.
-- Tích hợp hệ thống HR.
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`RBAC-01`** | Mỗi `User` gắn đúng một `role_id` tham chiếu `Role` động; ánh xạ bảo toàn 4 vai trò hệ thống (`ADMIN`, `SECURITY`, `WAREHOUSE`, `GATE_KEEPING`) | `domain/operator_identity.py`, `domain/permission_catalog.py`, `bootstrap/operator_identity.py` | `shared/api/endpoints/users.ts`, `roles.ts`, `features/users/` | `tests/unit/test_operator_governance.py` | **ĐẠT (`MG1`)** |
+| **`RBAC-02`** | Danh mục `Permission Catalog` cố định do Backend sở hữu kèm quan hệ phụ thuộc (`depends_on`) | `domain/permission_catalog.py`, `presentation/routers/admin_governance.py` | `features/roles/components/PermissionEditor.tsx` (tự động chọn quyền phụ thuộc & tính diff) | `tests/unit/test_operator_governance.py`, `frontend/src/test/admin-governance.test.tsx` | **ĐẠT (`MG1`)** |
+| **`RBAC-03`** | Bảo vệ vai trò hệ thống `is_system=true` (chặn xóa/đổi mã) và bảo vệ quyền cốt lõi của `ADMIN` | `application/operator_governance.py` | `features/roles/RolesPage.tsx`, `RoleForm.tsx` | `tests/unit/test_operator_governance.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`RBAC-04`** | Bảo vệ `last-admin` (`409 LAST_ADMIN_PROTECTED`) chống tự khóa hoặc hạ quyền quản trị viên hoạt động cuối cùng | `application/operator_governance.py`, `infrastructure/database/operator_identity_repositories.py` | `features/users/UsersPage.tsx`, `UserStatusModal.tsx`, `UserRoleModal.tsx` | `tests/unit/test_operator_governance.py` (`test_cannot_deactivate_or_demote_last_admin`) | **ĐẠT (`MG1`)** |
+| **`RBAC-05`** | Chống tự nâng quyền (`403 ADMIN_ASSIGNMENT_FORBIDDEN`): chỉ chủ thể có `users:assign-admin` / `users:manage-admin` mới thao tác trên tài khoản/vai trò `ADMIN` | `application/operator_governance.py` | `features/users/`, `features/roles/` | `tests/unit/test_operator_governance.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`RBAC-06`** | Kiểm soát đồng thời lạc quan qua `expected_version` (`409 VERSION_CONFLICT`), bắt buộc `reason` (`3..500` ký tự) và chống mass-assignment (`extra="forbid"`) | `presentation/contracts/migration.py`, `presentation/routers/admin_governance.py`, `application/operator_governance.py` | `shared/api/endpoints/users.ts`, `roles.ts`, `UserRoleModal.tsx`, `UserStatusModal.tsx` | `tests/unit/test_operator_governance.py`, `tests/unit/test_auth_v2_and_admin_http.py` | **ĐẠT (`MG1`)** |
+| **`RBAC-07`** | Ghi nhật ký kiểm toán bất biến (`admin_audit_logs`) nguyên tử cùng giao dịch nghiệp vụ, tự động che (`[REDACTED]`) mật khẩu, token và khóa bí mật | `domain/operator_identity.py`, `application/operator_governance.py`, `infrastructure/database/operator_identity_repositories.py` | `features/audit/AuditPage.tsx`, `AuditDetail.tsx` | `tests/unit/test_operator_governance.py` (`test_audit_log_redacts_sensitive_fields`) | **ĐẠT (`MG1`)** |
+| **`RBAC-08`** | Kiểm tra quyền thực tế tại mọi route Backend; ẩn điều hướng trên UI chỉ là hỗ trợ trải nghiệm, không thay thế kiểm tra máy chủ | `presentation/dependencies.py`, `presentation/routers/admin_governance.py`, `migration_ops.py` | `app/router/ProtectedRoute.tsx`, `app/router/routeRegistry.tsx` | `tests/unit/test_auth_v2_and_admin_http.py`, `frontend/src/test/admin-governance.test.tsx` | **ĐẠT (`MG1`)** |
 
 ---
 
-## 6. Open Questions Register (BRD §10 + phát sinh)
+### 2.4. Kiểm soát Cổng Nhân viên Đi bộ (`PED-01..07` — Milestone Gate `MG3`)
 
-| ID | Câu hỏi | Nguồn | Owner | Ảnh hưởng nếu không trả lời | Status |
-|---|---|---|---|---|---|
-| OQ-01 | Xin **Official Requirement bằng văn bản** từ Phòng Thông tin Điện lực để chốt Scope | BRD §10 | Client Sponsor / BA Lead | **Blocking toàn bộ dự án.** Hiện team đang tự lên solution từ mong muốn miệng ⇒ rủi ro làm sai, làm thừa | `OPEN` |
-| OQ-02 | AI chạy **Local model** (bảo mật dữ liệu, đầu tư ban đầu cao) hay **Third-party API** (chi phí duy trì cao)? | BRD §10 | Client Sponsor + Tech Lead | Quyết định `ADR-001`, chi phí hạ tầng, và mô hình license SaaS về sau | `OPEN` |
-| OQ-03 | **Thông số kỹ thuật camera hiện có** (độ phân giải, góc quét, FPS, khả năng đặt thêm camera ở 4 góc xe)? | BRD §10 | Client IT / Site Survey | Không có thông số ⇒ **không thể cam kết độ chính xác** của FR05. Xem `R-01` | `OPEN` |
-| OQ-04 | Khách có cung cấp **dataset ảnh/video mẫu** (thùng thiết bị điện, vật tư) để train model không? | BRD §10 | Client Sponsor | Không có dataset ⇒ FR05/FR06 không khả thi đúng hạn. Xem `R-02` | `OPEN` |
-| OQ-05 | **Phạm vi tracking trong bãi** (FR07): chỉ vị trí đỗ cuối, hay toàn bộ hành trình? Có cần Vehicle Re-ID? | Phát sinh khi lập RTM | BA Lead | BR-05 hiện không estimate được | `OPEN` |
-| OQ-06 | Quy trình xử lý khi hệ thống **cảnh báo nhầm** (false alarm) với nhân viên nội bộ? Ai có quyền override? | Phát sinh khi lập RTM | Client Sponsor + Phòng Bảo vệ | Ảnh hưởng thiết kế `DA-07`, `DA-08` và mức chấp nhận sai số | `OPEN` |
-| OQ-07 | Chính sách **lưu trữ dữ liệu sinh trắc học** (khuôn mặt, CCCD): lưu bao lâu, ai được xem, xóa thế nào? | Phát sinh khi lập RTM | **Team chủ động trình phương án** | Rủi ro pháp lý về dữ liệu cá nhân. **Luật 91/2025/QH15 và NĐ 356/2025/NĐ-CP đã có hiệu lực từ 01/01/2026** — đây là nghĩa vụ tuân thủ, không phải tùy chọn. Team phải trình phương án compliance-by-design (đã bổ sung bảng `CONSENT_RECORD`, `DATA_DELETION_REQUEST` trong ERD) để khách duyệt. Cần xác định vai trò Controller (EVN) / Processor (team) và đưa điều khoản xử lý dữ liệu vào hợp đồng | `IN PROGRESS` |
-| OQ-08 | Một xe có thể gắn với **nhiều người đăng ký** không? (xe tải nhà cung cấp thường đổi tài xế giữa các lần giao hàng) | Phát sinh khi thiết kế ERD | BA Lead + Client | BRD §7 ghi 1-N. Nếu thực tế là N-N thì phải đổi schema `vehicle` ↔ `app_user` — thay đổi tốn kém nếu phát hiện muộn. Xem `data-model-erd.md §3.2` | `OPEN` |
-| **OQ-09** | **Nhân viên nội bộ enroll khuôn mặt/biển số bằng cách nào?** HR integration hay self-service portal? | Bản đánh giá chuyên gia | BA Lead + Client HR | **Blocking FR02/FR03.** Nhân viên chiếm phần lớn lưu lượng hằng ngày nhưng không có FR nào phủ việc enroll họ. FR01 chỉ phủ Guest/Supplier. Hai module CONFIRMED đang phụ thuộc vào nguồn dữ liệu không có yêu cầu nào cung cấp | `OPEN` |
-| **OQ-10** | **Xe máy có nằm trong phạm vi hệ thống không?** Nếu có, xử lý ra sao? (biển chỉ có phía sau, mũ bảo hiểm che mặt, không có cốp) | Bản đánh giá chuyên gia | BA Lead + Client | **Blocking.** BRD §2 ghi rõ nhân viên đi xe máy/ô tô/bán tải. Nếu xe máy chiếm phần lớn lưu lượng, phạm vi thực tế của FR02/FR03/FR05 hẹp hơn nhiều so với tài liệu đang ngụ ý | `OPEN` |
-| **OQ-11** | **Lưu lượng giờ cao điểm** bao nhiêu xe/giờ? Có kiểm tra 100% xe ra hay sampling? Số làn? | Bản đánh giá chuyên gia | BA Lead + Client + Phòng Bảo vệ | Ảnh hưởng thiết kế Exit Inspection. Nếu quy trình TO-BE chậm hơn AS-IS ở chiều ra (bung cốp + 4 camera + AI + có thể RESCAN, vào 17h khi cả công ty tan ca), hệ thống sẽ bị bảo vệ tắt đi | `OPEN` |
-| **OQ-12** | **Có loop detector/sensor xác nhận "xe đã qua" không?** Ai chịu trách nhiệm mua? | Bản đánh giá chuyên gia | Client IT | Blocking barrier safety (`R-10`). Không có sensor → không chống được tailgating và rủi ro thương tích khi barrier hạ | `OPEN` |
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`PED-01`** | Tách biệt hoàn toàn Danh bạ Nhân viên (`EmployeeRegistry`) với tài khoản vận hành (`User`) và không sao chép `face_embedding` | `domain/core_access.py`, `application/migration_services.py` (`CoreAccessService`) | `features/core-access/api.ts`, `usePedestrianScreen.tsx`, `PedestrianPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`PED-02`** | Quy trình đăng ký nhân viên tham chiếu hồ sơ sinh trắc (`driver_id`), đảm bảo mã `employee_code` duy nhất và hỗ trợ khôi phục khi gián đoạn | `application/migration_services.py`, `infrastructure/database/migration_store.py` | `features/core-access/PedestrianPage.tsx`, `usePedestrianScreen.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`PED-03`** | Quản lý điểm truy cập (`AccessPoint`) và quyền đi bộ (`PedestrianAccessGrant`) theo lối/hướng/khung giờ hiệu lực | `domain/core_access.py`, `application/migration_services.py`, `presentation/routers/migration_ops.py` | `features/core-access/api.ts`, `PedestrianPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`PED-04`** | Xác minh cổng đi bộ (`ENTRY`/`EXIT`) đủ 4 yếu tố: Thẻ RFID `ACTIVE` + Khuôn mặt `1:1` + `EmployeeRegistry` `ACTIVE` + `PedestrianAccessGrant` hợp lệ | `application/migration_services.py` (`verify_pedestrian`), `presentation/routers/migration_ops.py` | `features/core-access/PedestrianPage.tsx`, `VerificationResultCard.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`PED-05`** | Kiểm tra lại hiệu lực nhân viên/thẻ/quyền (`final policy recheck`) ngay trước khi phát lệnh mở cửa để chống race condition thu hồi quyền | `application/migration_services.py` (`verify_pedestrian`) | `features/core-access/usePedestrianScreen.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG3`)** |
+| **`PED-06`** | Không ép nhân viên đi bộ dùng biển số xe, loại xe hay phiếu xuất kho giả | `domain/core_access.py`, `presentation/contracts/migration.py` | `features/core-access/PedestrianPage.tsx`, `device-settings/model/schema.ts` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`PED-07`** | Lưu và truy vấn nhật ký đi bộ (`PersonAccessLog`) cùng ảnh bằng chứng riêng biệt với nhật ký xe (`GateLog`), kèm nhãn `coverage` | `application/migration_services.py`, `presentation/routers/migration_ops.py` (`/api/v1/person-access-logs`) | `features/core-access/PedestrianPage.tsx` (`PersonLogEvidenceModalBody` tự thu hồi Blob URL) | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
 
 ---
 
-## 7. Assumptions (BRD §11)
+### 2.5. Thu nhận Camera/Edge & Cổng Phương tiện 3 Nhóm Xe (`CAM-01..08` — Milestone Gate `MG3`)
 
-| ID | Giả định | Nếu sai thì sao |
-|---|---|---|
-| A-01 | Toàn bộ chi phí phần cứng (Camera, IoT, Server) do ngân sách Điện lực chi trả | Dự án đội chi phí nghiêm trọng, phải đàm phán lại hợp đồng |
-| A-02 | Có thể test giải pháp giai đoạn đầu tại cổng/bãi đỗ xe của trường | Không có môi trường thử nghiệm ⇒ phải test trực tiếp tại site khách, rủi ro vận hành cao |
-| A-03 | Camera hiện có của khách đủ chất lượng cho bài toán LPR + Face | Phải đầu tư thêm camera ⇒ phụ thuộc `OQ-03` |
-| A-04 | Khách chấp nhận mô hình **AI hỗ trợ quyết định**, không phải AI tự quyết 100% | Kỳ vọng lệch ⇒ nghiệm thu thất bại. Xem `R-01` |
-| A-05 | Bảo vệ vẫn trực tại cổng để xử lý các trường hợp `REVIEW` | Không có người trực ⇒ luồng human-in-the-loop vô nghĩa, phải thiết kế lại |
-| A-06 | Guard sử dụng màn hình lớn cố định (desktop/tablet), không phải mobile | Guard Dashboard thiết kế sai form factor nếu giả định này không đúng |
-
-> `A-04` và `A-05` là giả định do team bổ sung khi phân tích, **chưa được khách xác nhận** — cần đưa vào biên bản họp kế tiếp.
-
----
-
-## 8. Risks (BRD §11 + phát sinh)
-
-| ID | Rủi ro | Loại | Mức độ | Giảm thiểu |
-|---|---|---|---|---|
-| R-01 | **Nhận diện vật thể bị che khuất trong xe** (nhìn qua cốp, qua kính) rất phức tạp, phụ thuộc ánh sáng & chất lượng ảnh. Độ chính xác có thể không đạt kỳ vọng | Kỹ thuật | **Cao** | Không cam kết con số accuracy cho FR05 trước khi có Dataset Benchmark (`ADR-005`). Định vị sản phẩm là *AI-assisted*, giữ Guard Review bắt buộc (`DA-07`). Yêu cầu bung cốp trong **Inspection Zone có kiểm soát ánh sáng** thay vì soi xuyên kính |
-| R-02 | Không có dataset thực tế của thùng thiết bị điện lực để train model | Kỹ thuật | **Cao** | Phụ thuộc `OQ-04`. Nếu khách không cung cấp, đề xuất giai đoạn Data Collection có tính phí riêng |
-| R-03 | **Dự án Nhà nước**: thủ tục ký hợp đồng, duyệt giải pháp, nghiệm thu, giải ngân mất ~2–3 tháng | Hành chính / Dòng tiền | **Cao** | Nguyên tắc *"có tiền mới làm"*. Chia hợp đồng theo milestone có thanh toán từng phần. Không bố trí full team trước khi ký |
-| R-04 | Scope creep: 4/6 module đang ở trạng thái `PROPOSED`, khách chưa chốt bằng văn bản | Quản trị | **Cao** | `OQ-01` là blocking. Freeze scope ngay khi có văn bản; mọi thay đổi sau đó đi qua Change Request |
-| R-05 | Kỳ vọng "AI tự phát hiện trộm" vượt quá năng lực thực tế của công nghệ | Kỳ vọng khách hàng | **Cao** | Truyền thông nhất quán: hệ thống là **AI-assisted Smart Gate**, AI đưa cảnh báo — con người ra quyết định |
-| R-06 | Phần cứng do khách mua không đạt chuẩn ⇒ AI kém chính xác nhưng team bị quy trách nhiệm | Hợp đồng | Trung bình | Bàn giao **Hardware Specification** bằng văn bản, đưa vào phụ lục hợp đồng như điều kiện tiên quyết |
-| R-07 | Dữ liệu sinh trắc học (khuôn mặt, CCCD) — rủi ro tuân thủ pháp luật về dữ liệu cá nhân. **Luật 91/2025/QH15 + NĐ 356/2025/NĐ-CP đã có hiệu lực** | Pháp lý | **Cao** | Team chủ động trình phương án: bảng `CONSENT_RECORD` + `DATA_DELETION_REQUEST` (ERD §6.1), xác định Controller/Processor, đưa điều khoản xử lý dữ liệu vào hợp đồng, lập DPIA |
-| R-08 | Fail-open: sự cố hệ thống làm cổng mở tự do | An ninh | Trung bình | Nguyên tắc **fail-safe, not fail-open** (System Design §17). Mất kết nối Central ⇒ Site Manual Safe Mode |
-| **R-09** | **WebSocket disconnect** giữa Guard Dashboard và Backend: Guard không nhận được cảnh báo mới | Frontend | Trung bình | Reconnect tự động + state reconciliation + UI indicator rõ ràng (Guardrail #14) |
-| **R-10** | **An toàn vật lý barrier**: barrier hạ xuống khi xe/người còn trong vùng → rủi ro thương tích và trách nhiệm pháp lý | An toàn | **Cao** | Guardrail #15: barrier chỉ đóng khi sensor xác nhận vùng trống + nút dừng khẩn cấp vật lý độc lập với phần mềm. Phụ thuộc `OQ-12` |
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`CAM-01`** | Chuẩn hóa danh mục phương tiện (`motorcycle`, `car`, `truck`, `unknown`), ánh xạ `sedan -> car` và chặn mở tự động với `unknown` | `domain/core_access.py`, `application/migration_services.py` (`list_vehicle_types`) | `features/core-access/api.ts`, `VehicleGatePage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`CAM-02`** | Bắt buộc xác minh khuôn mặt `1:1` + thẻ RFID + biển số cho cả 3 nhóm xe (`motorcycle`, `car`, `truck`) ở cả Cổng Vào và Cổng Ra | `application/migration_services.py` (`verify_vehicle_gate`) | `features/core-access/VehicleGatePage.tsx`, `useVehicleGateScreen.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`CAM-03`** | Gói thu nhận đáng tin cậy (`CaptureBundle` — `POST /api/v2/capture-bundles`) từ thiết bị xác thực (`capture:ingest`), kiểm tra độ tươi, clock skew và ràng buộc 1 sự kiện | `domain/core_access.py`, `application/migration_services.py` (`ingest_capture_bundle`), `presentation/routers/migration_ops.py` | `features/core-access/api.ts` (`ingestCaptureBundle`), `useVehicleGateScreen.tsx` | `tests/unit/test_migration_features.py` (kiểm tra expired, clock skew, mode mismatch, consumed `409`) | **ĐẠT (`MG3`)** |
+| **`CAM-04`** | Ràng buộc khung hình khuôn mặt và biển số cùng một lượt tiếp cận (`association_score >= 0.80`), từ chối khi nhiều khuôn mặt/biển số mơ hồ | `domain/core_access.py`, `application/migration_services.py` (`verify_vehicle_gate`) | `features/core-access/VehicleGatePage.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG3`)** |
+| **`CAM-05`** | Sửa hợp đồng Edge truyền `card_uid` thật, `event_id` ổn định khi retry và tách Cổng Ra bãi xe khỏi yêu cầu phiếu xuất kho (`slip_image`) | `application/migration_services.py`, `presentation/routers/migration_ops.py` | `features/core-access/VehicleGatePage.tsx` (ghi chú rõ Cổng Ra độc lập đơn hàng kho) | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`CAM-06`** | Tách biệt rõ 4 lớp kết quả: `Observation` (AI) != `Decision/Permit` (Policy) != `Command` (Barrier) != `Execution ACK` (Phần cứng) | `presentation/contracts/migration.py`, `application/migration_services.py` | `features/core-access/VerificationResultCard.tsx` (chỉ báo `OPENED` khi cả 3 lớp đạt) | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`CAM-07`** | Xử lý `OUTCOME_UNKNOWN` khi mất kết nối/timeout ACK bằng tra cứu đối soát `/api/v1/verifications/by-event/{event_id}`, không phát lệnh mở lặp | `application/migration_services.py` (`get_verification_by_event`), `presentation/routers/migration_ops.py` | `features/core-access/useVehicleGateScreen.tsx`, `usePedestrianScreen.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT (`MG3`)** |
+| **`CAM-08`** | Ghi nhận telemetry thời gian xử lý (`received`, `verify`, `command`, `ACK`) và độ phủ dữ liệu (`coverage`) phục vụ thống kê | `application/migration_services.py`, `infrastructure/database/migration_store.py` | `features/core-access/`, `features/analytics/` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG3`)** |
 
 ---
 
-## 9. Traceability Coverage Check
+### 2.6. Thống kê Hoạt động & Dashboard Tổng hợp (`ANA-01..08` — Milestone Gate `MG4`)
 
-| Kiểm tra | Kết quả |
-|---|---|
-| Mọi FR trong BRD đều có Use Case tương ứng | ✅ FR01–FR06 đã map |
-| Mọi Business Requirement đều có FR | ❌ **BR-05 thiếu FR** → đã đề xuất `FR07` |
-| Mọi Use Case trong thiết kế đều truy về được BRD | ⚠️ 10 hạng mục `DESIGN-ADDED` (DA-01–DA-10, xem §4) — cần khách duyệt |
-| Mọi FR đều có Phase & Priority | ⚠️ `FR07` chưa có → `OQ-05` |
-| Mọi Open Question đều có Owner | ✅ |
-| Mọi rủi ro Cao đều có biện pháp giảm thiểu | ✅ |
-| OQ được đồng bộ giữa RTM và System Design | ✅ (12 OQ) |
-| Rủi ro được đồng bộ giữa RTM và System Design | ✅ (10 Risk) |
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`ANA-01`** | Danh mục chỉ số thống kê chuẩn (`G4 Metric Catalog`) có công thức, đơn vị, nguồn dữ liệu và phiên bản định nghĩa rõ ràng | `application/migration_services.py` (`AnalyticsService`), `presentation/contracts/migration.py` | `features/analytics/api.ts`, `DashboardPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG4`)** |
+| **`ANA-02`** | Tính toán tổng hợp bằng code trên toàn bộ tập bản ghi trong kỳ `[from, to)` (`<= 366` ngày) và `granularity`, không cộng từ danh sách phân trang | `application/migration_services.py`, `presentation/routers/migration_ops.py` | `features/analytics/useDashboardScreen.tsx`, `DashboardPage.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG4`)** |
+| **`ANA-03`** | Không đánh tráo khái niệm: tỷ lệ `PASSED` không gọi là độ chính xác AI (`AI accuracy`); số lượt vào/ra không gọi là tồn bãi hiện tại (`occupancy`) | `application/migration_services.py`, `presentation/contracts/migration.py` | `features/analytics/DashboardPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG4`)** |
+| **`ANA-04`** | Xử lý mẫu số bằng `0` trả `value: null`, hiển thị rõ `sample_size`, `excluded_count` và nhãn độ phủ `coverage` (`available` \| `partial` \| `unavailable`) | `application/migration_services.py` | `features/analytics/DashboardPage.tsx` (`MetricStrip`) | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG4`)** |
+| **`ANA-05`** | Kiểm tra quyền theo từng nguồn dữ liệu (`gate-logs`, `person-access-logs`, `alerts`, `orders`); ẩn metric không có quyền đọc nguồn (ví dụ `WAREHOUSE` không đọc được `pedestrian_access_events`) | `application/migration_services.py` (`can_gate_logs`, `can_person_logs`, `can_alerts`, `can_orders`) | `features/analytics/DashboardPage.tsx` | `tests/unit/test_migration_features.py` (`test_analytics_dashboard_respects_source_permissions`) | **ĐẠT (`MG4`)** |
+| **`ANA-06`** | Lưu trữ `AnalyticsSnapshot` bất biến kèm `snapshot_id`, `data_as_of` để làm nguồn đối chứng duy nhất cho AI Assistant | `application/migration_services.py`, `infrastructure/database/migration_store.py` | `features/analytics/DashboardPage.tsx`, `features/assistant/AssistantPage.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG4`)** |
+| **`ANA-07`** | Biểu đồ Dashboard sử dụng semantic CSS tokens và bắt buộc đi kèm **Bảng dữ liệu văn bản tương đương** (`<table>`, `<caption>`, `<th scope="col">`) | Không phụ thuộc Backend | `features/analytics/DashboardPage.tsx` | `frontend/src/test/m3-m4-m5-ui.test.tsx`, `frontend/tests/e2e/console-smoke.spec.ts` | **ĐẠT (`MG4`)** |
+| **`ANA-08`** | Hỗ trợ drilldown từ metric sang màn hình chi tiết theo allowlist đường dẫn và quyền của người dùng | `application/migration_services.py` (`breakdown`) | `features/analytics/DashboardPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG4`)** |
 
 ---
 
-## 10. Change Control
+### 2.7. Trợ lý Báo cáo AI Nội bộ (`AI-01..09` — Milestone Gate `MG5`)
 
-Bất kỳ thay đổi nào với BRD phải thực hiện theo thứ tự:
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend (`src/smart_gate/`) | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`tests/` & `frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| **`AI-01`** | Sử dụng `Self-Hosted ModelGateway` nội bộ, tuyệt đối không fallback ra dịch vụ đám mây bên ngoài; lỗi mô hình không làm hỏng Dashboard | `application/migration_services.py` (`AssistantService`), `bootstrap/container.py` | `features/assistant/AssistantPage.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG5`)** |
+| **`AI-02`** | AI chỉ có quyền đọc `AnalyticsSnapshot` đã được cấp phép của chính người yêu cầu; không có công cụ truy vấn DB tùy ý hay điều khiển thiết bị | `application/migration_services.py` | `features/assistant/useAssistantScreen.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG5`)** |
+| **`AI-03`** | Kiểm chứng `GroundedReportResult` (`extra="forbid"`), đối chiếu mọi trích dẫn `metric_refs` với `AnalyticsSnapshot` và chuyển sang `data_summary` fallback khi mô hình lỗi | `presentation/contracts/migration.py`, `application/migration_services.py` | `features/assistant/api.ts`, `AssistantPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG5`)** |
+| **`AI-04`** | Vòng đời công việc báo cáo bền vững (`QUEUED`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELED`, `EXPIRED`), hỗ trợ `Idempotency-Key` (`409 IDEMPOTENCY_CONFLICT`) | `application/migration_services.py`, `infrastructure/database/migration_store.py`, `presentation/routers/migration_ops.py` | `features/assistant/api.ts`, `useAssistantScreen.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG5`)** |
+| **`AI-05`** | Truyền tiến trình thực tế qua SSE (`GET /api/v1/assistant/reports/{id}/events`) tương thích `fetch` có xác thực, giới hạn khung `<= 64 KiB`, không giả lập phần trăm hay lộ chuỗi suy luận ẩn | `presentation/routers/migration_ops.py` | `features/assistant/sseStream.ts` (`parseSseFrames`), `useAssistantScreen.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG5`)** |
+| **`AI-06`** | Phân biệt rõ **Dừng theo dõi luồng tại trình duyệt (`AbortController`)** với **Yêu cầu hủy công việc trên máy chủ (`POST .../cancel` -> `202 CANCELED`)** | `application/migration_services.py` (`cancel_report`), `presentation/routers/migration_ops.py` | `features/assistant/useAssistantScreen.tsx`, `AssistantPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG5`)** |
+| **`AI-07`** | Bộ lọc quyền riêng tư 2 lớp chặn cứng (`422 PROMPT_PRIVACY_BLOCKED` / `SENSITIVE_PROMPT_BLOCKED`) mật khẩu, token, `card_uid`, `face_embedding`, CCCD/SĐT/email/biển số | `application/migration_services.py` (`_contains_restricted_data`) | `features/assistant/privacyGuard.ts` (`inspectPromptPrivacy`), `AssistantPage.tsx` | `tests/unit/test_migration_features.py`, `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG5`)** |
+| **`AI-08`** | Kiểm tra quyền sở hữu báo cáo (`403 REPORT_ACCESS_DENIED` chống IDOR) và thời hạn lưu trữ (`410 REPORT_EXPIRED`) khi xem/stream/tải xuống | `application/migration_services.py`, `presentation/routers/migration_ops.py` | `features/assistant/api.ts`, `useAssistantScreen.tsx` | `tests/unit/test_migration_features.py` | **ĐẠT (`MG5`)** |
+| **`AI-09`** | Hiển thị và xuất báo cáo dưới dạng văn bản/JSON đã kiểm chứng an toàn, tuyệt đối không render HTML thô (`dangerouslySetInnerHTML`) từ mô hình | `presentation/routers/migration_ops.py` (`download_report`) | `features/assistant/AssistantPage.tsx` | `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT (`MG5`)** |
 
-```text
-1. Cập nhật BRD (khách hàng ký xác nhận)
-        ↓
-2. Cập nhật requirements-traceability.md (file này)
-        ↓
-3. Cập nhật smart-gate-system-design.md
-        ↓
-4. Cập nhật diagrams.md
-        ↓
-5. Cập nhật data-model-erd.md
-        ↓
-6. Cập nhật project-structure.md / prompt
-```
+---
 
-Không được sửa tài liệu kỹ thuật trước khi cập nhật RTM — nếu không sẽ mất khả năng truy vết và không biết hạng mục nào đã được khách duyệt.
+### 2.8. Nền tảng Kiến trúc & Giao diện React (`FE-01..09` — Milestone Gate `MG2`)
+
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Frontend (`frontend/src/`) | Bằng chứng Kiểm thử (`frontend/`) | Trạng thái |
+| :--- | :--- | :--- | :--- | :---: |
+| **`FE-01`** | Kiến trúc phân lớp rõ ràng (`app`, `pages`, `widgets`, `features`, `entities`, `shared`), kiểm tra ranh giới tự động và không phụ thuộc vòng | `frontend/scripts/check-boundaries.mjs`, `frontend/src/` | `npm run lint`, `node scripts/check-boundaries.mjs` (0 lỗi) | **ĐẠT (`MG2`)** |
+| **`FE-02`** | Hệ thống semantic CSS tokens (`tokens.css`, `components.css`) theo chuẩn High-Craft Light Mode & Liquid Glass Sidebar, hỗ trợ `prefers-reduced-motion` | `shared/styles/tokens.css`, `shared/styles/components.css`, `shared/ui/` | `frontend/src/test/design-primitives.test.tsx`, `frontend/tests/e2e/console-smoke.spec.ts` | **ĐẠT (`MG2`)** |
+| **`FE-03`** | Đáp ứng hoàn chỉnh 6 mốc viewport (`320px`, `360px`, `768px`, `1024px`, `1440px`, `1920px`), không tràn ngang ở `320px–360px` | `shared/ui/layout/AppShell.tsx`, `shared/styles/components.css` | `frontend/tests/e2e/console-smoke.spec.ts` (`33/33` Playwright tests PASS) | **ĐẠT (`MG2`)** |
+| **`FE-04`** | Một `routeRegistry` duy nhất quản lý 13 routes nghiệp vụ, lazy-loading theo trang và bảo vệ route theo quyền | `app/router/routeRegistry.tsx`, `app/router/ProtectedRoute.tsx` | `frontend/src/test/admin-governance.test.tsx`, `console-smoke.spec.ts` | **ĐẠT (`MG2`)** |
+| **`FE-05`** | Điều hướng bàn phím đầy đủ (`SkipLink`, focus trap trong Modal, phím mũi tên trên `SegmentedTabs`), nhãn WAI-ARIA và `aria-live` | `shared/ui/modal/ModalHost.tsx`, `shared/ui/tabs/SegmentedTabs.tsx`, `shared/ui/layout/AppShell.tsx` | `frontend/src/test/design-primitives.test.tsx`, `console-smoke.spec.ts` | **ĐẠT (`MG2`)** |
+| **`FE-06`** | Thành phần dùng chung (`DataTable`, `EvidenceViewer` tự thu hồi Blob URL, `ModalHost` render-props, `AsyncBoundary`) | `shared/ui/data-table/`, `shared/ui/evidence-viewer/`, `shared/ui/modal/`, `shared/ui/async-boundary/` | `frontend/src/test/m3-core-features.test.tsx`, `design-primitives.test.tsx` | **ĐẠT (`MG2`)** |
+| **`FE-07`** | Quản lý trạng thái tách biệt: TanStack Query cho dữ liệu máy chủ (scope theo `user_id` + `authz_version`) và Redux Toolkit serializable cho UI | `app/providers/QueryProvider.tsx`, `app/store/` | `frontend/src/test/admin-governance.test.tsx` | **ĐẠT (`MG2`)** |
+| **`FE-08`** | Kiểm chứng DTO lúc chạy bằng Zod `.strict()` tại ranh giới API và kiểm tra form trước khi gửi | `features/*/api.ts`, `features/device-settings/model/schema.ts` | Toàn bộ `16/16` Vitest suites (`135/135` tests PASS) | **ĐẠT (`MG2`)** |
+| **`FE-09`** | Cấu hình build production `/console/` tách biệt với `/api/*`, `/ws/*`, `/health/*`, `/docs` | `frontend/vite.config.ts`, `src/smart_gate/main.py` | `npm run build`, `frontend/tests/e2e/console-smoke.spec.ts` | **ĐẠT (`MG2`)** |
+
+---
+
+### 2.9. Tích hợp Nghiệp vụ & Quản trị Cấu hình Thiết bị (`INT-01..13` — Nhóm 7, 8, 12)
+
+| Mã Yêu cầu | Nội dung Đặc tả | Hiện thực Backend & Frontend | Bằng chứng Kiểm thử | Trạng thái |
+| :--- | :--- | :--- | :--- | :---: |
+| **`INT-01`** | Tích hợp đăng nhập, làm mới phiên, đổi mật khẩu bắt buộc và đồng bộ đa tab | `auth_v2.py` + `AuthProvider.tsx`, `ChangePasswordModal.tsx` | `test_auth_v2_and_admin_http.py`, `admin-governance.test.tsx` | **ĐẠT** |
+| **`INT-02`** | Tích hợp quản trị Users, Roles, Permission Editor và Audit Logs | `admin_governance.py` + `UsersPage.tsx`, `RolesPage.tsx`, `AuditPage.tsx` | `test_operator_governance.py`, `admin-governance.test.tsx` | **ĐẠT** |
+| **`INT-03`** | Tích hợp Hồ sơ Tài xế, Phương tiện, Ủy quyền Tài xế–Xe, Thẻ RFID và Danh bạ Nhân viên | `drivers.py`, `vehicles.py`, `employee_cards.py`, `migration_ops.py` + `DriversPage.tsx`, `VehiclesPage.tsx`, `PedestrianPage.tsx` | `test_migration_features.py`, `m3-core-features.test.tsx` | **ĐẠT** |
+| **`INT-04`** | Tích hợp màn hình vận hành Cổng Phương tiện và Cổng Đi bộ, giữ ranh giới `Observation != Permit != Command != ACK` | `migration_ops.py` + `VehicleGatePage.tsx`, `PedestrianPage.tsx`, `VerificationResultCard.tsx` | `test_migration_features.py`, `m3-core-features.test.tsx` | **ĐẠT** |
+| **`INT-05`** | Tích hợp Nhật ký Cổng Xe, Nhật ký Người đi bộ, xem ảnh bằng chứng qua Blob URL và trang Sức khỏe Hệ thống (`/health/live`, `/health/ready`) | `gate_logs.py`, `migration_ops.py`, `health.py` + `OverviewPage.tsx`, `PedestrianPage.tsx` | `test_migration_features.py`, `m3-core-features.test.tsx` | **ĐẠT** |
+| **`INT-06`** | Tích hợp luồng Cảnh báo An ninh thời gian thực qua WebSocket v2 ticket, dedupe, buffer 1000 và phát hiện khoảng trống lịch sử (`410 ALERT_HISTORY_GAP`) | `security_v2.py` + `AlertsStreamController.ts`, `AlertsPage.tsx` | `test_auth_v2_and_admin_http.py`, `m3-core-features.test.tsx` | **ĐẠT** |
+| **`INT-07`** | Chống gửi lặp (`double-submit`), yêu cầu xác nhận và lý do cho các thao tác nhạy cảm (khóa thẻ, thu hồi quyền, áp dụng cấu hình) | `ModalHost.tsx`, `EmployeeCardsPanel.tsx`, `DeviceSettingsPage.tsx` | `admin-governance.test.tsx`, `device-settings.test.tsx` | **ĐẠT** |
+| **`INT-08`** | Dọn dẹp tài nguyên trình duyệt (`AbortController`, WebSocket, SSE reader, `URL.revokeObjectURL`) khi chuyển trang hoặc đăng xuất | `EvidenceViewer.tsx`, `AlertsStreamController.ts`, `useAssistantScreen.tsx` | `m3-core-features.test.tsx`, `m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`INT-09`** | Bảo vệ chống XSS, IDOR, leo thang đặc quyền và rò rỉ dữ liệu nhạy cảm trên toàn bộ luồng tích hợp | `migration_ops.py`, `admin_governance.py` + `privacyGuard.ts`, Zod `.strict()` | `test_migration_features.py`, `m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`INT-10`** | Màn hình Cấu hình Thiết bị & Nhận diện (`/settings`) với 6 phân hệ (`cameras`, `models`, `barriers`, `readers`, `bindings`, `history`) | `migration_ops.py` (`/api/v1/admin/device-settings/*`) + `DeviceSettingsPage.tsx`, `SettingsSectionPanel.tsx` | `test_migration_features.py`, `device-settings.test.tsx` | **ĐẠT** |
+| **`INT-11`** | Kiểm chứng schema điều kiện theo loại thiết bị/luồng (cấm gán camera biển số/ALPR cho làn đi bộ) và tách biệt `Draft -> Saved -> Applied` | `migration_services.py` (`DeviceSettingsService`) + `device-settings/model/schema.ts`, `api.ts` | `test_migration_features.py`, `device-settings.test.tsx` | **ĐẠT** |
+| **`INT-12`** | Tích hợp `validate`, `connectivity-test` (`202`), `apply` (`202`) và đối soát `operations/{operation_id}`; tuyệt đối không lộ secret hoặc mở thử barrier | `migration_ops.py` + `device-settings/api.ts`, `useDeviceSettingsScreen.tsx` | `test_migration_features.py`, `device-settings.test.tsx` | **ĐẠT** |
+| **`INT-13`** | Lịch sử kiểm toán cấu hình thiết bị bất biến (`GET /api/v1/admin/device-settings/audit-logs`) với bản diff đã redact credentials | `migration_services.py`, `migration_ops.py` + `DeviceSettingsPage.tsx` | `test_migration_features.py`, `device-settings.test.tsx` | **ĐẠT** |
+
+---
+
+### 2.10. Tiêu chuẩn Hoàn thành An toàn AI & Kiểm thử Phủ định (`DOD-FE-AI-01..08` & `FE-NEG-01..08` — Tasks `11.2..11.5`)
+
+| Mã Kiểm chứng | Nội dung Kiểm chứng Bắt buộc | Nơi Thực thi (`src/` & `frontend/src/`) | Bằng chứng Test Tự động | Trạng thái |
+| :--- | :--- | :--- | :--- | :---: |
+| **`DOD-FE-AI-01`** | Phân tách trực quan 3 vùng `Quan sát AI (Observation)`, `Quyết định Nghiệp vụ (Decision)` và `Chấp hành Phần cứng (Barrier ACK)` | `features/core-access/VerificationResultCard.tsx` | `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT** |
+| **`DOD-FE-AI-02`** | Mọi thao tác quản trị/thiết bị nhạy cảm đều có hộp thoại xác nhận, bắt buộc nhập lý do và khóa nút khi đang gửi (`pending`) | `features/users/`, `features/roles/`, `features/device-settings/` | `frontend/src/test/admin-governance.test.tsx`, `device-settings.test.tsx` | **ĐẠT** |
+| **`DOD-FE-AI-03`** | Chỉ hiển thị tiến trình thực tế từ các giai đoạn máy chủ (`SSE stages`), không dùng thanh phần trăm giả lập | `features/assistant/sseStream.ts`, `AssistantPage.tsx` | `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`DOD-FE-AI-04`** | Kiểm tra Zod schema `.strict()` tại ranh giới nhận dữ liệu và bọc `AsyncBoundary` theo từng vùng giao diện | `features/*/api.ts`, `shared/ui/async-boundary/` | Toàn bộ `16/16` Vitest test suites | **ĐẠT** |
+| **`DOD-FE-AI-05`** | Tự động đóng WebSocket, hủy SSE stream và gọi `URL.revokeObjectURL` khi unmount hoặc đăng xuất | `EvidenceViewer.tsx`, `AlertsStreamController.ts`, `useAssistantScreen.tsx` | `frontend/src/test/m3-core-features.test.tsx`, `m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`DOD-FE-AI-06`** | Tách biệt nút `Dừng theo dõi (Client Abort)` và `Hủy báo cáo (Server Cancel -> 202)` | `features/assistant/useAssistantScreen.tsx`, `AssistantPage.tsx` | `frontend/src/test/m3-m4-m5-ui.test.tsx`, `tests/unit/test_migration_features.py` | **ĐẠT** |
+| **`DOD-FE-AI-07`** | Chặn gửi dữ liệu `Restricted` (mật khẩu, token, `card_uid`, `face_embedding`, CCCD/SĐT) ngay tại trình duyệt và tại API máy chủ | `features/assistant/privacyGuard.ts`, `application/migration_services.py` | `frontend/src/test/m3-m4-m5-ui.test.tsx`, `tests/unit/test_migration_features.py` | **ĐẠT** |
+| **`DOD-FE-AI-08`** | Đảm bảo điều hướng bàn phím, quản lý tiêu điểm (`focus`) và thông báo trạng thái qua `aria-live` | `shared/ui/modal/ModalHost.tsx`, `shared/ui/tabs/SegmentedTabs.tsx`, `AssistantPage.tsx` | `frontend/src/test/design-primitives.test.tsx`, `frontend/tests/e2e/console-smoke.spec.ts` | **ĐẠT** |
+| **`FE-NEG-01`** | Dữ liệu biển số, tên tài xế, cảnh báo hoặc báo cáo AI chứa `<script>` / `<img onerror=...>` chỉ được render dạng văn bản thuần, không thực thi mã | React text escaping + `AlertsPanel.tsx`, `AssistantPage.tsx` | `frontend/src/test/m3-core-features.test.tsx`, `m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`FE-NEG-02`** | Prompt chứa mật khẩu, JWT, `card_uid` hoặc `face_embedding` bị chặn cứng tại UI trước khi tạo HTTP request | `features/assistant/privacyGuard.ts` (`inspectPromptPrivacy`) | `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`FE-NEG-03`** | Bộ lọc bảo mật prompt AI không cản trở biểu mẫu đăng nhập hoặc đổi mật khẩu hợp lệ (`ChangePasswordModal`) | `features/auth/components/ChangePasswordModal.tsx` | `frontend/src/test/admin-governance.test.tsx` | **ĐẠT** |
+| **`FE-NEG-04`** | Gọi trực tiếp `POST /api/v1/assistant/reports` chứa dữ liệu nhạy cảm (bỏ qua UI) vẫn bị Backend chặn cứng với `422 PROMPT_PRIVACY_BLOCKED` | `application/migration_services.py` (`AssistantService.create_report`) | `tests/unit/test_migration_features.py` (`test_assistant_report_lifecycle_privacy_and_grounding`) | **ĐẠT** |
+| **`FE-NEG-05`** | Khi người dùng chỉ bấm `Dừng theo dõi` hoặc khi `POST .../cancel` chưa trả về xác nhận, giao diện không tự ý gắn nhãn `CANCELED` | `features/assistant/useAssistantScreen.tsx` | `frontend/src/test/m3-m4-m5-ui.test.tsx` | **ĐẠT** |
+| **`FE-NEG-06`** | Khi WebSocket bị ngắt kết nối và REST resync trả về `410 ALERT_HISTORY_GAP` (hoặc WS đóng `4409`), UI hiển thị cảnh báo mất đồng bộ thay vì báo đã đồng bộ đầy đủ | `features/alerts/AlertsStreamController.ts`, `AlertsPage.tsx` | `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT** |
+| **`FE-NEG-07`** | Khi DTO kết quả xác minh thiếu điểm số (`score: null`) hoặc trạng thái phần cứng là `OUTCOME_UNKNOWN`, UI hiển thị `'Chưa có điểm'` / trạng thái chờ đối soát thay vì crash hoặc báo `OPENED` | `features/core-access/VerificationResultCard.tsx` | `frontend/src/test/m3-core-features.test.tsx` | **ĐẠT** |
+| **`FE-NEG-08`** | Khi component unmount hoặc người dùng đăng xuất trước khi response trả về, callback muộn bị hủy an toàn và cache nhạy cảm được xóa sạch | `app/providers/AuthProvider.tsx`, `useAssistantScreen.tsx`, `EvidenceViewer.tsx` | `frontend/src/test/admin-governance.test.tsx`, `m3-m4-m5-ui.test.tsx` | **ĐẠT** |

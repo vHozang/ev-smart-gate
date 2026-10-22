@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-21",
+  "scope": "frontend-only",
+  "unit_component_passed": 31,
+  "browser_passed": 25,
+  "browser_backend_available": false,
+  "runtime_mocks": false,
+  "live_business_integration_accepted": false,
+  "completed_foundation_tasks": [
+    "5.1",
+    "5.2",
+    "5.4",
+    "6.2",
+    "6.3",
+    "6.5",
+    "6.6",
+    "6.7",
+    "6.8",
+    "6.10",
+    "6.12",
+    "6.13"
+  ],
+  "checks": [
+    "typecheck",
+    "lint",
+    "api:check",
+    "format:check",
+    "build"
+  ],
+  "screenshots": ".tmp/frontend-qa/screenshots/",
+  "junit": ".tmp/frontend-qa/junit.xml",
+  "sha256": {
+    "frontend/package.json": "7e363562d3d8986778ed7d4996a4b5291c51cb4660a4cfb037c88c805f08671e",
+    "frontend/package-lock.json": "ca041d08a8f3f67952d121dbdca788e71c56c22bec14b2c170d5183794ba87b7",
+    "docs/openapi.json": "8f0caa165302b8b7e45daabfc05bc094d014d3e3201873327a007d0a05c1c1f9"
+  }
+}

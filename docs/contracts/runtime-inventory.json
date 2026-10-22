@@ -1,0 +1,1863 @@
+{
+  "schema_version": "1.0.0",
+  "source": "create_app(Settings(APP_ENV=test)).openapi + router dependency tree",
+  "http_operation_count": 44,
+  "websocket_count": 1,
+  "operations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "operation_id": "login_api_v1_auth_login_post",
+      "authorization": {
+        "operator_auth": null,
+        "operator_roles": [],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": true
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "operation_id": "logout_api_v1_auth_logout_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageResponse"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "operation_id": "me_api_v1_auth_me_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserResponse"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/driver-vehicle-authorizations",
+      "operation_id": "list_authorizations_api_v1_driver_vehicle_authorizations_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/AuthorizationResponse"
+                },
+                "type": "array",
+                "title": "Response List Authorizations Api V1 Driver Vehicle Authorizations Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/driver-vehicle-authorizations",
+      "operation_id": "create_authorization_api_v1_driver_vehicle_authorizations_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizationResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/driver-vehicle-authorizations/{driver_id}/{vehicle_id}",
+      "operation_id": "revoke_authorization_api_v1_driver_vehicle_authorizations__driver_id___vehicle_id__delete",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/drivers",
+      "operation_id": "list_drivers_api_v1_drivers_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/DriverResponse"
+                },
+                "type": "array",
+                "title": "Response List Drivers Api V1 Drivers Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/drivers",
+      "operation_id": "create_driver_api_v1_drivers_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "multipart/form-data"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/drivers/{driver_id}",
+      "operation_id": "deactivate_driver_api_v1_drivers__driver_id__delete",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/drivers/{driver_id}",
+      "operation_id": "get_driver_api_v1_drivers__driver_id__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/drivers/{driver_id}",
+      "operation_id": "update_driver_api_v1_drivers__driver_id__patch",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "multipart/form-data"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/employee-cards",
+      "operation_id": "list_employee_cards_api_v1_employee_cards_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [
+        {
+          "name": "driver_id",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver Id"
+          }
+        }
+      ],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/EmployeeCardResponse"
+                },
+                "title": "Response List Employee Cards Api V1 Employee Cards Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards",
+      "operation_id": "issue_employee_card_api_v1_employee_cards_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/employee-cards/{card_id}",
+      "operation_id": "get_employee_card_api_v1_employee_cards__card_id__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/block",
+      "operation_id": "block_employee_card_api_v1_employee_cards__card_id__block_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/replace",
+      "operation_id": "replace_employee_card_api_v1_employee_cards__card_id__replace_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/employee-cards/{card_id}/report-lost",
+      "operation_id": "report_lost_employee_card_api_v1_employee_cards__card_id__report_lost_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmployeeCardResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/gate-logs",
+      "operation_id": "list_gate_logs_api_v1_gate_logs_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "maximum": 500,
+            "minimum": 1,
+            "default": 100,
+            "title": "Limit"
+          }
+        },
+        {
+          "name": "direction",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          }
+        },
+        {
+          "name": "verification_status",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerificationStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Status"
+          }
+        }
+      ],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/GateLogOutput"
+                },
+                "title": "Response List Gate Logs Api V1 Gate Logs Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/gate-logs/{gate_log_id}/snapshots/{snapshot_index}",
+      "operation_id": "read_gate_snapshot_api_v1_gate_logs__gate_log_id__snapshots__snapshot_index__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Ảnh bằng chứng cổng",
+          "content": {
+            "image/jpeg": {}
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gates/entry/verifications",
+      "operation_id": "verify_entry_api_v1_gates_entry_verifications_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [
+          "gate:entry"
+        ],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "multipart/form-data"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/gates/exit/verifications",
+      "operation_id": "verify_exit_api_v1_gates_exit_verifications_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [
+          "gate:exit"
+        ],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "multipart/form-data"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/security/alerts",
+      "operation_id": "list_alerts_api_v1_security_alerts_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [
+        {
+          "name": "after_sequence",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "title": "After Sequence"
+          }
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "maximum": 1000,
+            "minimum": 1,
+            "default": 200,
+            "title": "Limit"
+          }
+        }
+      ],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AlertResponse"
+                },
+                "title": "Response List Alerts Api V1 Security Alerts Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/security/alerts/{alert_id}",
+      "operation_id": "update_alert_api_v1_security_alerts__alert_id__patch",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlertResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/vehicles",
+      "operation_id": "list_vehicles_api_v1_vehicles_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/VehicleResponse"
+                },
+                "type": "array",
+                "title": "Response List Vehicles Api V1 Vehicles Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/vehicles",
+      "operation_id": "create_vehicle_api_v1_vehicles_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "operation_id": "deactivate_vehicle_api_v1_vehicles__vehicle_id__delete",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "operation_id": "get_vehicle_api_v1_vehicles__vehicle_id__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/vehicles/{vehicle_id}",
+      "operation_id": "update_vehicle_api_v1_vehicles__vehicle_id__patch",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VehicleResponse"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions",
+      "operation_id": "list_docks_api_v1_warehouse_dock_sessions_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [
+        {
+          "name": "limit",
+          "in": "query",
+          "required": false,
+          "schema": {
+            "type": "integer",
+            "maximum": 500,
+            "minimum": 1,
+            "default": 100,
+            "title": "Limit"
+          }
+        }
+      ],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DockDetailOutput"
+                },
+                "title": "Response List Docks Api V1 Warehouse Dock Sessions Get"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}",
+      "operation_id": "get_dock_api_v1_warehouse_dock_sessions__inspection_id__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockDetailOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/captures",
+      "operation_id": "capture_dock_api_v1_warehouse_dock_sessions__inspection_id__captures_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [
+          "dock:capture"
+        ],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "multipart/form-data"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/captures/{capture_index}/image",
+      "operation_id": "read_dock_capture_api_v1_warehouse_dock_sessions__inspection_id__captures__capture_index__image_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Ảnh kiểm tra hàng",
+          "content": {
+            "image/jpeg": {}
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/dock-sessions/{inspection_id}/finalize",
+      "operation_id": "finalize_dock_api_v1_warehouse_dock_sessions__inspection_id__finalize_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders",
+      "operation_id": "list_orders_api_v1_warehouse_orders_get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/OrderOutput"
+                },
+                "type": "array",
+                "title": "Response List Orders Api V1 Warehouse Orders Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders",
+      "operation_id": "create_order_api_v1_warehouse_orders_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "operation_id": "cancel_order_api_v1_warehouse_orders__order_id__delete",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "operation_id": "get_order_api_v1_warehouse_orders__order_id__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/warehouse/orders/{order_id}",
+      "operation_id": "update_order_api_v1_warehouse_orders__order_id__patch",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [
+        "application/json"
+      ],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/dock-sessions",
+      "operation_id": "start_dock_api_v1_warehouse_orders__order_id__dock_sessions_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "201": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DockOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip",
+      "operation_id": "issue_slip_api_v1_warehouse_orders__order_id__exit_slip_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlipOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip/reissue",
+      "operation_id": "reissue_slip_api_v1_warehouse_orders__order_id__exit_slip_reissue_post",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": true,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlipOutput"
+              }
+            }
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/warehouse/orders/{order_id}/exit-slip/{artifact_type}",
+      "operation_id": "download_slip_api_v1_warehouse_orders__order_id__exit_slip__artifact_type__get",
+      "authorization": {
+        "operator_auth": "session_cookie",
+        "operator_roles": [
+          "ADMIN",
+          "SECURITY",
+          "WAREHOUSE"
+        ],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": false
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Tệp phiếu xuất kho đã được xác thực quyền truy cập",
+          "content": {
+            "image/png": {},
+            "text/html": {},
+            "application/pdf": {}
+          }
+        },
+        "422": {
+          "description": "Validation Error",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HTTPValidationError"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "operation_id": "liveness_health_live_get",
+      "authorization": {
+        "operator_auth": null,
+        "operator_roles": [],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": true
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Response Liveness Health Live Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "operation_id": "readiness_health_ready_get",
+      "authorization": {
+        "operator_auth": null,
+        "operator_roles": [],
+        "operator_csrf_required": false,
+        "device_scopes_any": [],
+        "public": true
+      },
+      "query_parameters": [],
+      "request_content_types": [],
+      "responses": {
+        "200": {
+          "description": "Successful Response",
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object",
+                "title": "Response Readiness Health Ready Get"
+              }
+            }
+          }
+        }
+      },
+      "status": "implemented"
+    }
+  ],
+  "websockets": [
+    {
+      "path": "/ws/v1/security/alerts",
+      "endpoint": "alerts_websocket",
+      "operator_auth": "session_cookie",
+      "operator_roles": [
+        "ADMIN",
+        "SECURITY"
+      ],
+      "policy_source": "presentation/routers/security.py:alerts_websocket",
+      "revalidation": "before_each_send_and_idle_1s",
+      "resync": "/api/v1/security/alerts?after_sequence=<sequence>&limit=<limit>",
+      "retention_gap_protocol": "not_implemented"
+    }
+  ],
+  "limitations": [
+    "Profile mặc định chưa bật JWT; auth v2 có feature flag riêng. RBAC CRUD/analytics/reports/pedestrian chưa triển khai.",
+    "OpenAPI hiện chưa khai báo đủ custom error envelopes/security schemes.",
+    "List trả array không có total/cursor trừ query đã liệt kê; không suy tổng.",
+    "WS v1 revalidate trước send/idle; M1 vẫn phải bổ sung ticket v2/gap protocol."
+  ]
+}

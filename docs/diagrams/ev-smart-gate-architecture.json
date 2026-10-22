@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "EV Smart Gate - System & Frontend Migration Architecture",
+    "output": "docs/diagrams/ev-smart-gate-architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "cameras", "type": "external", "label": "IP Cameras", "sublabel": "Plate & Driver Face", "pos": [40, 60], "size": [130, 60] },
+    { "id": "rfid", "type": "external", "label": "RFID Reader", "sublabel": "UHF 860-960MHz", "pos": [40, 160], "size": [130, 60] },
+    { "id": "barrier", "type": "external", "label": "Barrier Controller", "sublabel": "Relay / Fail-Closed", "pos": [40, 260], "size": [130, 60] },
+    { "id": "edge", "type": "backend", "label": "Edge Agent", "sublabel": "Python Capture Gateway", "pos": [230, 110], "size": [140, 60] },
+    { "id": "operator", "type": "external", "label": "Security Operator", "sublabel": "Browser Station", "pos": [40, 440], "size": [130, 60] },
+    { "id": "react_spa", "type": "frontend", "label": "React 18 Console", "sublabel": "Vite + RTK + TanStack", "pos": [230, 440], "size": [140, 60] },
+    { "id": "api_gw", "type": "backend", "label": "FastAPI Gateway", "sublabel": "REST Presentation Layer", "pos": [460, 200], "size": [140, 60] },
+    { "id": "auth_jwt", "type": "security", "label": "Auth & RBAC", "sublabel": "JWT RAM + Refresh Cookie", "pos": [460, 360], "size": [140, 60], "tag": "Argon2" },
+    { "id": "ws_hub", "type": "messagebus", "label": "WebSocket Hub", "sublabel": "/ws/alerts + Resync", "pos": [460, 500], "size": [140, 60] },
+    { "id": "vision_engine", "type": "backend", "label": "Vision Adapters", "sublabel": "FastALPR + YuNet SFace", "pos": [690, 80], "size": [150, 60] },
+    { "id": "app_logic", "type": "backend", "label": "Verification Core", "sublabel": "Application & Domain Ports", "pos": [690, 240], "size": [150, 60] },
+    { "id": "minio_s3", "type": "cloud", "label": "MinIO Object Store", "sublabel": "AES-GCM Evidence Bucket", "pos": [920, 80], "size": [140, 60] },
+    { "id": "mongo_db", "type": "database", "label": "MongoDB Replica Set", "sublabel": "Multi-doc Transactions", "pos": [920, 240], "size": [140, 60] },
+    { "id": "analytics_worker", "type": "backend", "label": "Report Worker", "sublabel": "Read-only Aggregates", "pos": [920, 400], "size": [140, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Physical Gate Site (Ingestion & Actuation)", "wraps": ["cameras", "rfid", "barrier", "edge"] },
+    { "kind": "security-group", "label": "Operational Console (React SPA Client)", "wraps": ["operator", "react_spa"] },
+    { "kind": "region", "label": "FastAPI Backend (Clean Architecture Core)", "wraps": ["api_gw", "auth_jwt", "ws_hub", "vision_engine", "app_logic"] },
+    { "kind": "region", "label": "Persistence & Analytics Cluster", "wraps": ["minio_s3", "mongo_db", "analytics_worker"] }
+  ],
+  "connections": [
+    { "id": "cam-to-edge", "from": "cameras", "to": "edge", "label": "snapshots" },
+    { "id": "rfid-to-edge", "from": "rfid", "to": "edge", "label": "tag read" },
+    { "id": "edge-to-api", "from": "edge", "to": "api_gw", "label": "POST /events", "variant": "emphasis" },
+    { "id": "api-to-barrier", "from": "api_gw", "to": "barrier", "label": "open command", "variant": "security" },
+    { "id": "operator-to-spa", "from": "operator", "to": "react_spa", "label": "HTTPS" },
+    { "id": "spa-to-api", "from": "react_spa", "to": "api_gw", "label": "REST + JWT", "variant": "emphasis" },
+    { "id": "spa-to-auth", "from": "react_spa", "to": "auth_jwt", "label": "refresh cookie", "variant": "security" },
+    { "id": "api-to-auth", "from": "api_gw", "to": "auth_jwt", "label": "validate RBAC" },
+    { "id": "api-to-ws", "from": "api_gw", "to": "ws_hub", "label": "publish alert", "variant": "dashed" },
+    { "id": "ws-to-spa", "from": "ws_hub", "to": "react_spa", "label": "WS alerts", "variant": "dashed" },
+    { "id": "api-to-app", "from": "api_gw", "to": "app_logic", "label": "use case" },
+    { "id": "app-to-vision", "from": "app_logic", "to": "vision_engine", "label": "extract embeddings" },
+    { "id": "app-to-minio", "from": "app_logic", "to": "minio_s3", "label": "store evidence" },
+    { "id": "app-to-db", "from": "app_logic", "to": "mongo_db", "label": "log & verify", "variant": "emphasis" },
+    { "id": "worker-to-db", "from": "analytics_worker", "to": "mongo_db", "label": "read-only agg", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Site & Edge Ingestion",
+      "items": [
+        "Cameras & RFID stream raw captures to local Edge Agent",
+        "Edge Agent bundles captures with encounter timestamps and sends to FastAPI",
+        "Barrier Controller operates in fail-closed mode: only opens on validated, idempotent command_id"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Clean Architecture Backend",
+      "items": [
+        "Presentation (FastAPI) routes requests to Application Use Cases",
+        "Application uses Domain Ports for Vision (FastALPR, YuNet) and Storage",
+        "AI only produces observations; application policy decides access permit"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Security & React Migration",
+      "items": [
+        "Short-lived access JWT stored in RAM only, never in localStorage",
+        "Refresh token in HttpOnly/Secure cookie with rotation and durable revocation",
+        "Fine-grained RBAC with single role per user and permission catalog"
+      ]
+    }
+  ]
+}

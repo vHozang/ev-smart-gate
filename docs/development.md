@@ -1,528 +1,108 @@
-# Development Guide — Smart Gate & Vehicle Security
+# Hướng dẫn Phát triển, Vận hành & Cổng Chất lượng (`Quality Gates`) — EV Smart Gate
 
-Tài liệu mô tả workflow phát triển backend, Edge AI integration và IoT integration.
-
-> **Simulator-first là bắt buộc, không phải tiện nghi.**
-> BRD §9 xác định phần cứng (Camera, Server, IoT) là **Out of Scope** — khách hàng tự đầu tư,
-> và tại thời điểm này team **chưa biết vendor/model camera cũng như giao thức barrier**
-> (`OQ-03`). Vì vậy toàn bộ development phải chạy được end-to-end trên simulator, và
-> hardware chỉ là một adapter thay thế. Xem `ADR-006`.
+| Thuộc tính | Giá trị |
+| --- | --- |
+| **Mã tài liệu** | `EVSG-DEV-2026-V2` |
+| **Phiên bản** | `2.0` — Hướng dẫn đầy đủ cho cả **Backend FastAPI (`src/`)** và **React Console (`frontend/`)** |
+| **Tài liệu liên kết** | [BRD chuẩn AI](BRD.md) · [Cấu trúc dự án](project-structure.md) · [Môi trường test](contracts/test-environment.md) · [Bàn giao Backend](contracts/backend-handoff.md) |
 
 ---
 
-## Getting Started
+## 1. Yêu cầu Môi trường
 
-```bash
-cp .env.example .env
-just setup
-```
-
-Kiểm tra:
-
-```bash
-uv --version
-just --version
-docker --version
-```
+- **Backend**: Python `>= 3.11, < 3.14` (không dùng Python 3.9/3.10 vì dự án sử dụng `StrEnum` và cú pháp kiểu của Python 3.11+); Docker Desktop / Docker Engine và Docker Compose.
+- **Thư viện hệ thống cho QR**: Khi chạy native, cài đặt `ZBar` (`brew install zbar` trên macOS hoặc `apt install libzbar0` trên Debian/Ubuntu) để `PyZbar` giải mã phiếu xuất kho `JWS Ed25519` ổn định.
+- **Frontend (`frontend/`)**: Node.js `>= 20 LTS` và `npm` (sử dụng lockfile riêng tại `frontend/package-lock.json`).
 
 ---
 
-## Development Workflows
+## 2. Khởi chạy Hệ thống bằng Docker Compose
 
-### 1. Hybrid Local Development — Recommended
-
-Infrastructure chạy Docker, FastAPI chạy local, Camera/Gate dùng simulator.
-
-```bash
-just start-infra
-just start-simulators
-just run-server MODE="dev"
+```powershell
+docker compose up --build
+docker compose --profile edge up --build
 ```
 
-Endpoints:
-
-```text
-http://localhost:8000
-http://localhost:8000/docs
-http://localhost:8000/health
-```
-
-Phù hợp cho:
-
-- Appointment.
-- Access Policy.
-- Decision Engine.
-- Risk Engine.
-- Guard Dashboard API.
-- Audit.
-- Inventory Matching.
+- **Các cổng dịch vụ mặc định**:
+  - API + Giao diện điều hành: `http://localhost:8000` (Swagger UI cho phát triển tại `http://localhost:8000/docs`)
+  - MongoDB Replica Set: `27017`
+  - MinIO Storage / Console: `9000` / `9001`
+  - Barrier Simulator: `18080`
+  - Camera Simulator: `18081`
 
 ---
 
-### 2. Full Docker Development
+## 3. Phát triển Cục bộ (Native Development)
 
-```bash
-just start-services
+### 3.1. Chạy Backend (`src/smart_gate/`)
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --group dev .
+Copy-Item .env.example .env
+python scripts/generate_secrets.py
+uvicorn smart_gate.main:app --reload
 ```
 
-Dùng để verify:
-
-- Docker networking.
-- Worker.
-- Event Bus.
-- Observability.
-- Production-like packaging.
-
----
-
-### 3. Hardware-in-the-loop Development
-
-```bash
-just start-infra
-just run-server MODE="dev"
-just run-edge MODE="hardware"
+### 3.2. Tải Mô hình AI Thị giác
+```powershell
+python models/download_models.py
 ```
-
-Environment sẽ trỏ tới:
-
-- RTSP Camera.
-- Test Gate Controller.
-- Local AI Runtime.
-- Test Site Network.
-
-Không dùng production credential ở môi trường developer nếu chưa được cho phép.
-
----
-
-## Configuration
-
-Settings groups:
-
-```text
-AppSettings
-DatabaseSettings
-RedisSettings
-StorageSettings
-EventBusSettings
-VisionSettings
-CameraSettings
-GateSettings
-InventorySettings
-SecuritySettings
-TelemetrySettings
-RetentionSettings
-```
-
-Environment:
-
-```text
-APP_ENV=development
-APP_ENV=staging
-APP_ENV=production
-```
-
-Sensitive data không commit:
-
-- Database password.
-- Camera credential.
-- Gate controller secret.
-- Inventory token.
-- S3 secret.
-- Signing key.
-
----
-
-## Container Ecosystem
-
-Core:
-
-- PostgreSQL.
-- Redis.
-- MinIO.
-- Message Broker.
-- FastAPI Application.
-- Event Worker.
-
-Simulation:
-
-- Camera Simulator.
-- Gate Simulator.
-- Inventory Simulator.
-- Notification Simulator.
-
-Observability:
-
-- OpenTelemetry Collector.
-- Prometheus.
-- Loki.
-- Tempo/Jaeger.
-- Grafana.
-
----
-
-## Simulator Scenarios
-
-### Registered Vehicle
-
-```bash
-just simulate-entry SCENARIO="registered"
-```
-
-Expected:
-
-```text
-Plate Match
-Face Match
-Appointment Valid
-LOW Risk
-ALLOW
-Gate Open
-Host Notification
-Audit Saved
-```
-
-### Unknown Vehicle
-
-```bash
-just simulate-entry SCENARIO="unknown-vehicle"
-```
-
-Expected: `REVIEW`.
-
-### Face Mismatch
-
-```bash
-just simulate-entry SCENARIO="face-mismatch"
-```
-
-Expected: `REVIEW` or `BLOCK`.
-
-### Blacklist
-
-```bash
-just simulate-entry SCENARIO="blacklist"
-```
-
-Expected: `BLOCK + HIGH ALERT`.
-
-### Unregistered Vehicle — BRD §8
-
-```bash
-just simulate-entry SCENARIO="unregistered"
-```
-
-Expected:
-
-```text
-No Appointment
-AccessEvent created with appointment_id = NULL
-REVIEW_REQUIRED
-Guard Alert
-```
-
-> BRD §8 yêu cầu cảnh báo bảo vệ khi có phương tiện chưa đăng ký.
-> Scenario này verify rằng `appointment_id` nullable — xem `diagrams.md §15`.
-
-### Host Notification — FR04
-
-```bash
-just simulate-entry SCENARIO="registered"
-```
-
-Expected (ngoài các assertion của scenario `registered`):
-
-```text
-Host Notification sent exactly once
-Notification NOT sent when decision = BLOCK
-```
-
-### Exit Asset Detection
-
-```bash
-just simulate-exit SCENARIO="asset-detected-no-voucher"
-```
-
-Expected: `REVIEW_REQUIRED`.
-
-### Gate Timeout
-
-```bash
-just simulate-gate SCENARIO="timeout"
-```
-
-Expected:
-
-- No infinite retry.
-- Gate failure persisted.
-- Guard alerted.
-- Manual fallback available.
-
----
-
-## Database Management
-
-Create migration:
-
-```bash
-just db-migrate-create "add inspection session"
-```
-
-Apply:
-
-```bash
-just upgrade-db
-```
-
-Rollback:
-
-```bash
-just db-migrate-rollback
-```
-
-Offline SQL:
-
-```bash
-just upgrade-db-offline
-```
-
-Rules:
-
-- Không sửa migration đã apply ở shared environment.
-- Unique constraint cho `event_id`.
-- Unique constraint cho `gate_command_id`.
-- Index `site_id`, `gate_id`, `occurred_at`, `plate_normalized`.
-- Evidence binary không lưu trong transactional DB.
-
----
-
-## Demo Data
-
-```bash
-just seed-demo
-```
-
-Seed:
-
-- 1 Site.
-- Entry Gate.
-- Exit Gate.
-- Camera Config.
-- Gate Simulator.
-- Employees.
-- Guests.
-- Vehicles.
-- Approved Appointment.
-- Expired Appointment.
-- Rejected Appointment.
-- Blacklist.
-- Access Events.
-- Inspection Samples.
-- Export Vouchers.
-
-Deterministic IDs:
-
-```text
-VEH-ALLOW-001
-VEH-REVIEW-001
-VEH-BLOCK-001
-VEH-EXIT-001
-VEH-EXIT-002
-VEH-EXIT-003
+- Sau khi tải và kiểm tra checksum mô hình thành công, chuyển `ALPR_PROVIDER`, `FACE_PROVIDER`, `CARGO_PROVIDER` trong `.env` khỏi giá trị `simulated`.
+- Ở chế độ `simulated` (dùng cho kiểm thử luồng cô lập), vector khuôn mặt được sinh tất định theo byte ảnh; không dùng kết quả `simulated` để nghiệm thu độ chính xác AI thực địa (`Gate G3` / `MG3`).
+
+### 3.3. Chạy React Frontend (`frontend/`)
+```powershell
+cd frontend
+npm ci
+npm run dev
 ```
 
 ---
 
-## Code Quality
+## 4. Cổng Chất lượng Bắt buộc (`Mandatory Quality Gates`)
 
-Install hooks:
+Trước khi đánh dấu hoàn thành bất kỳ task nào hoặc bàn giao giữa các Agents, bắt buộc phải chạy và đạt `100%` các lệnh kiểm tra tương ứng dưới đây:
 
-```bash
-pre-commit install
-pre-commit install --hook-type commit-msg
+### 4.1. Cổng Chất lượng Backend (`pyproject.toml`)
+```powershell
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m ruff format --check .
+.\.venv\Scripts\python.exe -m mypy src
+.\.venv\Scripts\python.exe -m pytest --cov=smart_gate --cov-report=term-missing
+.\.venv\Scripts\python.exe scripts/export_openapi.py --check
+.\.venv\Scripts\python.exe scripts/export_api_inventory.py --check
+.\.venv\Scripts\python.exe scripts/export_migration_contracts.py --check
+docker compose config --quiet
 ```
 
-Commit format:
-
-```text
-<type>(<scope>): <subject>
+### 4.2. Cổng Chất lượng Contract & Integration Thật (Cô lập với Production)
+Xem chi tiết tại [`docs/contracts/test-environment.md`](file:///e:/ev-smart-gate/docs/contracts/test-environment.md):
+```powershell
+.\.venv\Scripts\python.exe -m scripts.run_contract_checks prepare
+.\.venv\Scripts\python.exe -m scripts.run_contract_checks config
+.\.venv\Scripts\python.exe -m scripts.run_contract_checks run
 ```
 
-Examples:
-
-```text
-feat(access): add appointment validation
-feat(inspection): add rescan workflow
-fix(iot): make gate command idempotent
-fix(vision): normalize license plate
-test(access): cover low confidence review
-docs(architecture): add edge diagram
-```
-
-Recommended scopes:
-
-```text
-api
-domain
-appointment
-access
-inspection
-risk
-vision
-camera
-iot
-inventory
-storage
-audit
-observability
-tests
-docker
-ci
-docs
-```
-
-Run quality:
-
-```bash
-just lint
-just lint TARGET="mypy"
-just lint TARGET="pre-commit"
+### 4.3. Cổng Chất lượng React Frontend (`frontend/package.json`)
+```powershell
+cd frontend
+npm run typecheck
+npm run lint
+node scripts/check-boundaries.mjs
+npm run api:check
+npm run format:check
+npm test
+npm run build
+npx playwright test
 ```
 
 ---
 
-## Testing
+## 5. Quy tắc Bắt buộc khi Thay đổi Code & Tài liệu (`BA & Engineering Discipline`)
 
-Unit:
-
-```bash
-just test TYPE="unit"
-```
-
-Integration:
-
-```bash
-just test TYPE="integration"
-```
-
-Contract:
-
-```bash
-just test TYPE="contract"
-```
-
-Coverage:
-
-```bash
-just coverage TYPE="all"
-```
-
----
-
-## Edge AI Development
-
-Simulator:
-
-```bash
-just run-edge MODE="simulator"
-```
-
-Hardware:
-
-```bash
-just run-edge MODE="hardware"
-```
-
-Fixtures:
-
-```text
-tests/fixtures/vision/
-├── entry/
-│   ├── clear-day/
-│   ├── low-light/
-│   ├── motion-blur/
-│   └── occluded-face/
-└── exit/
-    ├── empty-cargo/
-    ├── known-asset/
-    ├── unknown-object/
-    └── partial-occlusion/
-```
-
-Không đưa biometric data thật lên repository công khai.
-
----
-
-## Debugging Access Decisions
-
-Một decision cần truy vết theo:
-
-```text
-correlation_id
-event_id
-access_event_id
-gate_command_id
-```
-
-Thông tin cần inspect:
-
-```text
-AI Event
-Plate Normalized
-Plate Confidence
-Face Candidate
-Face Similarity
-Appointment
-Policy Version
-Risk Factors
-Decision
-Guard Action
-Gate Command
-Audit
-```
-
----
-
-## Observability
-
-Local endpoints đề xuất:
-
-```text
-Swagger       http://localhost:8000/docs
-Health        http://localhost:8000/health
-Grafana       http://localhost:3000
-MinIO Console http://localhost:9001
-```
-
-Structured logs:
-
-```text
-timestamp
-level
-service
-correlation_id
-site_id
-gate_id
-event_id
-access_event_id
-message
-```
-
-Không log:
-
-- Raw CCCD.
-- Face embedding.
-- Secret.
-- Camera password.
-- Long-lived signed URL.
-
----
-
-## Hardware Safety Rules
-
-- Simulator là default.
-- Hardware command chỉ enable khi cấu hình explicit.
-- Production credentials không nằm trong `.env.example`.
-- Physical emergency control phải luôn tồn tại.
-- Auto-open test chỉ chạy ở lane đã được phép.
-- Destructive hardware test chỉ chạy trong maintenance window.
-- Mọi HIL test phải có test case và operator.
+1. **Mỗi Use Case mới phải đi kèm Unit Test** và các kịch bản kiểm thử phủ định (`Negative Test Cases`: `TC-NEG-01..08`, `FE-NEG-01..08`).
+2. **Không đưa quy tắc nghiệp vụ vào Router hoặc Adapter AI**: AI chỉ tạo `observation` / `GroundedReportResult` nháp; mọi quyết định mở cổng hoặc công bố báo cáo phải đi qua `Application Use Case` và `Policy/Grounding Validator`.
+3. **Luôn Fail-Closed**: Chỉ bắt ngoại lệ tại biên Adapter/Use Case để ghi log và trả về trạng thái từ chối an toàn; **tuyệt đối không** biến lỗi thành `PASSED` hoặc tự động mở barrier.
+4. **Truy vết Phiên bản (`Versioned Provenance`)**: Khi thay đổi ngưỡng nhận diện, mô hình hoặc công thức thống kê, bắt buộc tăng `threshold_version`, `model_version` hoặc `metric_definition_version`.
+5. **Bảo mật Kho mã nguồn**: Tuyệt đối không commit ảnh khuôn mặt thật, dữ liệu sinh trắc học thật, khóa bí mật (`private key`, `.env` thật) hoặc bản dump dữ liệu từ môi trường production vào Git.

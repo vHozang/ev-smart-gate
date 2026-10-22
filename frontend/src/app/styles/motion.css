@@ -1,0 +1,99 @@
+@layer components {
+  @keyframes breathe {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes aurora-drift {
+    0%,
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(2%, -2%, 0) scale(1.04);
+    }
+  }
+  @keyframes scan-beam {
+    0%,
+    100% {
+      transform: translateY(-0.5rem);
+      opacity: 0.65;
+    }
+    50% {
+      transform: translateY(0.5rem);
+      opacity: 1;
+    }
+  }
+  @keyframes enter-overlay {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes enter-modal {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  @keyframes enter-toast {
+    from {
+      opacity: 0;
+      transform: translateY(0.75rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes enter-drawer {
+    from {
+      opacity: 0;
+      transform: translateX(-1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .modal-overlay,
+  .drawer-overlay {
+    animation: enter-overlay var(--motion-fast) var(--ease-out);
+  }
+  .modal {
+    animation: enter-modal var(--motion-normal) var(--ease-out);
+  }
+  .toast {
+    animation: enter-toast var(--motion-normal) var(--ease-out);
+  }
+  .mobile-sidebar {
+    animation: enter-drawer var(--motion-normal) var(--ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

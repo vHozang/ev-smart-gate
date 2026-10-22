@@ -1,0 +1,107 @@
+name: ev-smart-gate-react-contract-test
+
+x-test-build: &test-build
+  context: .
+  dockerfile: Dockerfile.contract-test
+
+x-test-environment: &test-environment
+  APP_ENV: test
+  APP_PUBLIC_ORIGIN: http://api:8000
+  MONGODB_URI: mongodb://mongodb:27017/?replicaSet=rs0
+  MONGODB_DATABASE: evsg_contract_test_runtime
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: contract-test-only
+  MINIO_SECRET_KEY: ${TEST_MINIO_SECRET:?Generate isolated test environment first}
+  MINIO_BUCKET: evsg-contract-test-evidence
+  ADMIN_USERNAME: contract-bootstrap-admin
+  ADMIN_PASSWORD: ${TEST_OPERATOR_PASSWORD:?Generate isolated test environment first}
+  SESSION_SECRET: ${TEST_SESSION_SECRET:?Generate isolated test environment first}
+  DEVICE_API_KEY: ${TEST_DEVICE_KEY:?Generate isolated test environment first}
+  EMBEDDING_ENCRYPTION_KEY: ${TEST_EMBEDDING_KEY:?Generate isolated test environment first}
+  EVIDENCE_ENCRYPTION_KEY: ${TEST_EVIDENCE_KEY:?Generate isolated test environment first}
+  QR_PRIVATE_KEY: ${TEST_QR_PRIVATE_KEY:?Generate isolated test environment first}
+  QR_PUBLIC_KEY: ${TEST_QR_PUBLIC_KEY:?Generate isolated test environment first}
+  ALPR_PROVIDER: simulated
+  FACE_PROVIDER: simulated
+  CARGO_PROVIDER: simulated
+  BARRIER_MODE: simulator
+  LOG_LEVEL: WARNING
+
+services:
+  mongodb:
+    image: mongo:8.0
+    command: [mongod, --replSet, rs0, --bind_ip_all]
+    volumes:
+      - contract-mongodb:/data/db
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.adminCommand('ping').ok"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  mongodb-init:
+    image: mongo:8.0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: [mongosh, --host, mongodb:27017, --eval]
+    command:
+      - "try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017'}]}) }; let tries = 0; while (!db.hello().isWritablePrimary) { if (++tries > 120) { quit(1) }; sleep(500) }"
+
+  minio:
+    build:
+      context: .
+      dockerfile: Dockerfile.contract-minio
+    image: ev-smart-gate-contract-minio:2025-10-15
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: contract-test-only
+      MINIO_ROOT_PASSWORD: ${TEST_MINIO_SECRET:?Generate isolated test environment first}
+    volumes:
+      - contract-minio:/data
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:9000/minio/health/live]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  api:
+    build: *test-build
+    image: ev-smart-gate-react-contract-test:local
+    command: [uvicorn, smart_gate.main:app, --host, 0.0.0.0, --port, "8000", --no-access-log]
+    environment: *test-environment
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  checks:
+    build: *test-build
+    image: ev-smart-gate-react-contract-test:local
+    environment:
+      <<: *test-environment
+      RUN_INTEGRATION: "1"
+      RUN_HTTP_INTEGRATION: "1"
+      TEST_API_URL: http://api:8000
+      TEST_OPERATOR_PASSWORD: ${TEST_OPERATOR_PASSWORD:?Generate isolated test environment first}
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: [checks]
+    volumes:
+      - ./.tmp/contract-test-results:/evidence
+
+networks:
+  default:
+    internal: true
+
+volumes:
+  contract-mongodb:
+  contract-minio:

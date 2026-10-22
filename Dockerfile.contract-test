@@ -1,0 +1,18 @@
+FROM python:3.12-slim AS contract-test
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONUTF8=1 PIP_NO_CACHE_DIR=1
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y libgl1 libglib2.0-0 libzbar0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+COPY pyproject.toml README.md ./
+RUN python -c "import subprocess,sys,tomllib; p=tomllib.load(open('pyproject.toml','rb')); subprocess.check_call([sys.executable,'-m','pip','install',*p['project']['dependencies'],*p['dependency-groups']['dev']])"
+COPY src ./src
+RUN pip install --no-deps .
+COPY scripts ./scripts
+COPY tests ./tests
+COPY docs/openapi.json ./docs/openapi.json
+COPY docs/contracts ./docs/contracts
+RUN useradd --create-home contracttest && chown -R contracttest:contracttest /app
+USER contracttest
+CMD ["python", "-m", "pytest", "tests/contract", "tests/integration", "-q", "--junitxml=/evidence/junit.xml"]

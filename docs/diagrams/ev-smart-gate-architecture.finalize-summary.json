@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.json",
+    "sha256": "1fb87ca3400476040b9ce08749c2c95183cf6834be4f7b2d0c813a0a1863dceb",
+    "bytes": 5526
+  },
+  "artifact": {
+    "path": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.html",
+    "sha256": "a6bf2deefd3b1b152e63552c59b527dcc0828e682051923b8dca379b20c22b5e",
+    "bytes": 843683
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.finalize.json",
+    "summaryReceipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.finalize-summary.json",
+    "browserCheckReceipt": "E:\\ev-smart-gate\\docs\\diagrams\\ev-smart-gate-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-20T04:47:11.903Z",
+    "source": "network",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 2935,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "api-to-ws",
+            "from": "api_gw",
+            "to": "ws_hub",
+            "label": "publish alert",
+            "collectionIndex": 8,
+            "artifactIndex": 9
+          },
+          "bends": 3,
+          "stretch": 1.148,
+          "directCorridorBlockers": [
+            {
+              "id": "auth_jwt",
+              "label": "Auth &amp; RBAC",
+              "box": [
+                460,
+                360,
+                140,
+                60
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

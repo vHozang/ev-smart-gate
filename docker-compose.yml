@@ -1,0 +1,122 @@
+name: ev-smart-gate
+
+services:
+  mongodb:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mongodb-init:
+    image: mongo:8.0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: [mongosh, --host, mongodb:27017, --eval]
+    command:
+      - "try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongodb:27017'}]}) }; let tries = 0; while (!db.hello().isWritablePrimary) { if (++tries > 120) { quit(1) }; sleep(500) }"
+
+  minio:
+    build:
+      context: .
+      dockerfile: Dockerfile.contract-minio
+    image: ev-smart-gate-contract-minio:2025-10-15
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-smartgate-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-smartgate-local-secret}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  barrier-simulator:
+    build: .
+    command: ["uvicorn", "simulators.barrier.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    volumes:
+      - ./simulators:/app/simulators:ro
+    ports:
+      - "18080:8080"
+
+  camera-simulator:
+    build: .
+    command: ["uvicorn", "simulators.camera.main:app", "--host", "0.0.0.0", "--port", "8081"]
+    volumes:
+      - ./simulators:/app/simulators:ro
+      - ./tests/fixtures:/fixtures:ro
+    ports:
+      - "18081:8081"
+
+  api:
+    build: .
+    env_file:
+      - .env.example
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/?replicaSet=rs0
+      MINIO_ENDPOINT: minio:9000
+      BARRIER_MODE: http
+      BARRIER_HTTP_URL: http://barrier-simulator:8080/commands
+    depends_on:
+      mongodb-init:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+      barrier-simulator:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/models:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  edge-agent:
+    build: .
+    command: ["python", "-m", "edge_agent.main"]
+    env_file:
+      - .env.example
+    environment:
+      EDGE_API_URL: http://api:8000
+      EDGE_PLATE_SOURCE: http://camera-simulator:8081/plate.jpg
+      EDGE_FACE_SOURCE: http://camera-simulator:8081/face.jpg
+    depends_on:
+      api:
+        condition: service_healthy
+      camera-simulator:
+        condition: service_started
+    profiles: ["edge"]
+
+  workflow-simulator:
+    build: .
+    command: ["python", "/app/simulators/workflow/main.py"]
+    env_file:
+      - .env.example
+    environment:
+      WORKFLOW_API_URL: http://api:8000
+    volumes:
+      - ./simulators:/app/simulators:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["workflow"]
+
+volumes:
+  mongodb-data:
+  minio-data:

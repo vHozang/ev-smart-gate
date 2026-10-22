@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "EV Smart Gate - 3-Factor Verification & Auth Lifecycle",
+    "output": "docs/diagrams/ev-smart-gate-verification-auth.html",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "driver", "type": "external", "label": "Driver / Vehicle", "sublabel": "RFID + Face + Plate" },
+    { "id": "edge", "type": "backend", "label": "Edge Agent", "sublabel": "Local Ingestion Hub" },
+    { "id": "api", "type": "backend", "label": "FastAPI Core", "sublabel": "Clean Architecture App" },
+    { "id": "vision", "type": "backend", "label": "Vision Adapters", "sublabel": "FastALPR & YuNet" },
+    { "id": "db", "type": "database", "label": "Mongo & MinIO", "sublabel": "Atomic Log & Evidence" },
+    { "id": "barrier", "type": "external", "label": "Barrier Gate", "sublabel": "Relay Controller" },
+    { "id": "console", "type": "frontend", "label": "React Console", "sublabel": "Security Dashboard" }
+  ],
+  "segments": [
+    { "from": 160, "to": 245, "label": "1. Capture & Evidence Ingestion" },
+    { "from": 255, "to": 375, "label": "2. AI Inference & 3-Factor Policy Check" },
+    { "from": 385, "to": 500, "label": "3. Idempotent Actuation & WS Alerts" },
+    { "from": 510, "to": 580, "label": "4. Console Auth & Token Rotation" }
+  ],
+  "messages": [
+    { "id": "msg-encounter", "from": "driver", "to": "edge", "y": 175, "label": "Arrive at Gate (RFID + Cameras)", "variant": "default" },
+    { "id": "msg-capture-bundle", "from": "edge", "to": "api", "y": 205, "label": "POST /api/v1/gate/events (Capture Bundle)", "variant": "emphasis" },
+    { "id": "msg-store-evidence", "from": "api", "to": "db", "y": 235, "label": "Store AES-GCM Evidence & Init Log", "variant": "default" },
+    { "id": "msg-vision-extract", "from": "api", "to": "vision", "y": 270, "label": "Extract Plate & Face 128d Vector", "variant": "emphasis" },
+    { "id": "msg-vision-return", "from": "vision", "to": "api", "y": 300, "label": "Plate Text + Embedding + Liveness", "variant": "return" },
+    { "id": "msg-query-auth", "from": "api", "to": "db", "y": 330, "label": "Query Vehicle-Driver Authorization", "variant": "default" },
+    { "id": "msg-auth-ok", "from": "db", "to": "api", "y": 360, "label": "Valid Authorization Record Found", "variant": "return" },
+    { "id": "msg-commit-log", "from": "api", "to": "db", "y": 395, "label": "Atomic Commit: GateLog PASSED", "variant": "security" },
+    { "id": "msg-barrier-cmd", "from": "api", "to": "barrier", "y": 425, "label": "POST /commands: OPEN (idempotent cmd_id)", "variant": "security" },
+    { "id": "msg-barrier-ack", "from": "barrier", "to": "api", "y": 455, "label": "ACK: Relay Tripped & Gate Opened", "variant": "return" },
+    { "id": "msg-ws-notify", "from": "api", "to": "console", "y": 490, "label": "WS Broadcast: Log PASSED (seq# incremented)", "variant": "dashed" },
+    { "id": "msg-auth-refresh", "from": "console", "to": "api", "y": 525, "label": "POST /api/v1/auth/refresh (HttpOnly Cookie)", "variant": "security" },
+    { "id": "msg-jwt-rotate", "from": "api", "to": "console", "y": 560, "label": "200 OK: New RAM Access JWT + Rotated Cookie", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "edge", "from": 175, "to": 215, "type": "backend" },
+    { "participant": "api", "from": 205, "to": 500, "type": "backend" },
+    { "participant": "vision", "from": 270, "to": 305, "type": "backend" },
+    { "participant": "db", "from": 235, "to": 245, "type": "database" },
+    { "participant": "db", "from": 330, "to": 368, "type": "database" },
+    { "participant": "db", "from": 395, "to": 405, "type": "database" },
+    { "participant": "barrier", "from": 425, "to": 465, "type": "external" },
+    { "participant": "console", "from": 485, "to": 570, "type": "frontend" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "3-Factor Gate Verification",
+      "items": [
+        "Encounter binds RFID tag, front plate camera, and driver face camera simultaneously",
+        "FastALPR recognizes plate; YuNet/SFace extracts 128-dim embedding with liveness check",
+        "Policy engine verifies authorization between driver identity and registered vehicle"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Fail-Closed & Idempotency",
+      "items": [
+        "Any AI error, missing RFID, face mismatch, or storage failure results in fail-closed refusal",
+        "Gate commands carry unique command_id to prevent double-opening on network retry",
+        "Barrier ACK confirms physical actuation, independent of observation records"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Console Auth Security",
+      "items": [
+        "Short-lived access JWT retained in client RAM (never persisted in localStorage)",
+        "Refresh token in HttpOnly/Secure cookie with single-use rotation and reuse detection",
+        "Revocation blacklist stored in durable database to immediately invalidate compromised sessions"
+      ]
+    }
+  ]
+}
